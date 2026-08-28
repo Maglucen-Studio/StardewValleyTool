@@ -57,6 +57,13 @@ No separate installation of Python, Node.js, or a web browser is required.
 
 Use **Check for updates** inside the application. It reports whether the installed version is current and, when a newer release is available, can download it and restart the companion to finish installing it. Restarting the companion does not restart or close Stardew Valley.
 
+## Settings and background tracking
+
+Open **Application → Settings…** to configure the farm and two independent background options:
+
+- **Track automatically** starts the companion quietly with Windows and watches for Stardew Valley.
+- **Keep running in the system tray** hides the dashboard when its window is closed so tracking can continue. Disable it if closing the window should quit the companion, its tray icon, and its private local service completely.
+
 ## Privacy and save safety
 
 - Save data, configuration, extracted assets, logs, and history remain on the user's computer.
