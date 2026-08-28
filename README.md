@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/maglucen-stardew-companion-logo.png" width="460" alt="Maglucen Stardew Valley Companion logo">
+  <img src="assets/maglucen-stardew-companion-mark.png" width="260" alt="Maglucen Stardew Valley Companion mark">
 </p>
 
 <h1 align="center">Maglucen Stardew Valley Companion</h1>
