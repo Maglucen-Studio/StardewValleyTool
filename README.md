@@ -35,6 +35,10 @@
 
 The setup assistant checks Steam libraries and common GOG and Xbox locations. It also shows store-specific example paths when manual selection is needed. The application extracts required visual assets from the user's own game installation; Stardew Valley assets are not bundled in this repository or its installer.
 
+### Updating from the former Stardew Valley Tool
+
+Version 1.4 and later use the permanent Maglucen application identity and data directory. On first launch, the companion detects `%APPDATA%\stardew-valley-tool` and migrates compatible settings, window state, and farm history into `%APPDATA%\maglucen-stardew-valley-companion`. Keep the former data directory until the new application has opened the farm successfully. Stardew Valley save files are never moved or changed by this migration.
+
 ## LIVE tracking
 
 Normal save reading works without SMAPI. For updates while Stardew Valley is running, install [SMAPI](https://smapi.io/) first and let the setup assistant add the included companion bridge to the game's `Mods` folder.
