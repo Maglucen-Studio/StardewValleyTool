@@ -1,10 +1,12 @@
-# Stardew Valley Tool
+# Maglucen · Stardew Valley Companion
 
-Stardew Valley Tool is a local desktop companion for planning and following a farm without editing the save. It reads the player's local save and, when SMAPI is available, can update selected information while the game is running.
+<p align="center"><img src="assets/maglucen-stardew-companion-logo.png" width="520" alt="Maglucen Stardew Valley Companion"></p>
+
+Maglucen Stardew Valley Companion is a local desktop companion for planning and following a farm without editing the save. It reads the player's local save and, when SMAPI is available, updates selected information while the game is running.
 
 ## Download
 
-Download the latest Windows installer from [Releases](https://github.com/maglucen/StardewValleyTool/releases/latest).
+Download the latest Windows installer from [Releases](https://github.com/Maglucen-Studio/StardewValleyTool/releases/latest). Choose the file named `Maglucen-Stardew-Valley-Companion-Setup-<version>.exe`; the `.blockmap` and `latest.yml` files are used by automatic updates.
 
 The application is currently in active development. Release notes describe the changes and any known limitations for each version.
 
@@ -28,9 +30,9 @@ The app processes Stardew Valley save information locally. See [PRIVACY.md](PRIV
 
 ## Support
 
-Use [GitHub Issues](https://github.com/maglucen/StardewValleyTool/issues) for reproducible bugs and feature requests. See [SUPPORT.md](SUPPORT.md) before reporting a problem.
+Use [GitHub Issues](https://github.com/Maglucen-Studio/StardewValleyTool/issues) for reproducible bugs and feature requests. See [SUPPORT.md](SUPPORT.md) before reporting a problem.
 
 ## Disclaimer
 
-Stardew Valley Tool is an independent fan-made companion. It is not affiliated with, endorsed by, or sponsored by ConcernedApe or the publishers of Stardew Valley. Stardew Valley names and assets belong to their respective owners.
+Maglucen Stardew Valley Companion is an independent fan-made companion. It is not affiliated with, endorsed by, or sponsored by ConcernedApe or the publishers of Stardew Valley. Stardew Valley names and assets belong to their respective owners.
 

@@ -1,6 +1,6 @@
 # Privacy
 
-Stardew Valley Tool is designed to run locally.
+Maglucen Stardew Valley Companion is designed to run locally.
 
 - Save files and generated farm data remain on the user's computer.
 - The local dashboard is bound to the loopback interface and protected so it can only be opened by the desktop application.
