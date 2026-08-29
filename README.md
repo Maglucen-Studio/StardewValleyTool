@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="assets/maglucen-stardew-companion-mark.png" width="260" alt="Maglucen Stardew Valley Companion mark">
+  <img src="assets/maglucen-stardew-companion-brand-v2.png" width="520" alt="Maglucen Stardew Valley Companion">
 </p>
-
-<h1 align="center">Maglucen Stardew Valley Companion</h1>
 
 <p align="center">
   A private, local-first desktop companion that turns your Stardew Valley save into a practical daily plan.
