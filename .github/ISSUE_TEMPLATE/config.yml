@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support guide
+    url: https://github.com/Maglucen-Studio/StardewValleyTool/blob/main/SUPPORT.md
+    about: Check common setup and LIVE tracking steps before opening an issue.
