@@ -2,6 +2,30 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.8.0 — 2026-08-30
+
+### New
+
+- Added configurable section menus to Today, Progress Growth, and Collections & Achievements; sections can be hidden, restored, and reordered per device.
+- Added “What can I complete today?”, configurable LIVE alerts, contextual Stardew Valley Wiki links, automatic farm-history annotations, and a summary of changes since the previous app session.
+- Added browser-style navigation history using header controls, Alt + arrow keys, and mouse Back/Forward buttons.
+- Added exact missing-item checklists for long-term collections and clearer item-location previews grouped by container and quality.
+
+### Improved
+
+- Collection, goal, storage, building, Community Center, friendship, crop, production, and suggested-route cards now share more consistent local item artwork and interactions.
+- Locked building spoilers and empty building-category filters remain hidden until relevant.
+- Growth history uses a sharper responsive economy chart and keeps optional milestone annotations collapsed by default.
+- Farm and Plan preserve their own selected subsection, while Progress keeps its subheader permanently aligned during scrolling.
+- The included SMAPI bridge remains invisible in-game and is refreshed automatically when the desktop application starts.
+
+### Fixed
+
+- Corrected remaining clipped, missing, or mismatched item and production sprites.
+- Corrected repeated storage locations by grouping stacks from the same container while preserving quality.
+- Corrected mouse-side-button handling across Electron and mouse drivers that emit different Back/Forward events.
+- Improved development startup, single-instance restoration, and automatic desktop-runtime reloads.
+
 ## 1.7.0 — 2026-08-30
 
 ### New
