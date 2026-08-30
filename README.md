@@ -9,6 +9,8 @@
 <p align="center">
   <a href="https://github.com/Maglucen-Studio/StardewValleyTool/releases/latest"><strong>Download the latest Windows installer</strong></a>
   ·
+  <a href="CHANGELOG.md">Changelog</a>
+  ·
   <a href="SUPPORT.md">Support</a>
   ·
   <a href="PRIVACY.md">Privacy</a>
