@@ -2,6 +2,18 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.8.1 — 2026-08-30
+
+### Improved
+
+- The optional Today LIVE map now focuses on the player's current area instead of displaying the complete world atlas.
+- Storage locations use readable farm-building names and locally extracted interior artwork for contextual previews.
+
+### Fixed
+
+- Restored chest-location snapshots for both outdoor Farm chests and chests inside farm buildings, including saves that still provide the older location format.
+- Special Order names, descriptions, and objectives now use the localized text supplied by the game instead of unresolved translation keys.
+
 ## 1.8.0 — 2026-08-30
 
 ### New
