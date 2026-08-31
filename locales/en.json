@@ -160,6 +160,7 @@
   "storage.sortQuantityAsc": "Quantity: low to high",
   "storage.backpack": "Backpack",
   "storage.chest": "Chest",
+  "storage.farmhouse": "Farmhouse",
   "storage.tile": "tile",
   "storage.clickToLocate": "Click to locate {item}",
   "storage.groupSummary": "{types} item types · {units} units",

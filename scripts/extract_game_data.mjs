@@ -51,18 +51,39 @@ async function unpackBinary(relativePath, extension, destination) {
   await writeFile(resolve(project, destination), Buffer.from(await output.data.arrayBuffer()));
 }
 
-const baseObjectNames = await unpack("Strings/Objects.xnb");
-const localizedObjectNames = await unpackLocalized("Strings/Objects.xnb");
-const localizedObjectNamesByEnglish = Object.fromEntries(
-  Object.entries(baseObjectNames).flatMap(([key, english]) =>
-    key.endsWith("_Name") && localizedObjectNames[key]
-      ? [[english, localizedObjectNames[key]]]
-      : [],
-  ),
+async function localizedNamesByEnglish(relativePath, includeKey) {
+  const base = await unpack(relativePath);
+  const localized = await unpackLocalized(relativePath);
+  return Object.fromEntries(
+    Object.entries(base).flatMap(([key, english]) =>
+      includeKey(key) && typeof english === "string" && localized[key]
+        ? [[english, localized[key]]]
+        : [],
+    ),
+  );
+}
+
+const nameCatalogs = [
+  ["Strings/Objects.xnb", key => key.endsWith("_Name")],
+  ["Strings/BigCraftables.xnb", key => key.endsWith("_Name")],
+  ["Strings/Tools.xnb", key => key.endsWith("_Name")],
+  ["Strings/Weapons.xnb", key => key.endsWith("_Name")],
+  ["Strings/Pants.xnb", key => key.endsWith("_Name")],
+  ["Strings/Shirts.xnb", key => key.endsWith("_Name")],
+  ["Strings/Furniture.xnb", () => true],
+];
+const localizedObjectNamesByEnglish = Object.assign(
+  {},
+  ...(await Promise.all(
+    nameCatalogs.map(([path, includeKey]) =>
+      localizedNamesByEnglish(path, includeKey),
+    ),
+  )),
 );
+const localizedObjectNames = await unpackLocalized("Strings/Objects.xnb");
 
 const gameData = {
-  _localization: { language, locale, xnbSuffix },
+  _localization: { language, locale, xnbSuffix, catalogVersion: 2 },
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
   craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),

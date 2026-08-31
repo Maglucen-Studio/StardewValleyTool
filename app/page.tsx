@@ -6161,10 +6161,12 @@ function PlanningView({
     readableStorageSource(source, storageDetailBySource.get(source), current)
       .replace(/^Backpack\b/, t("storage.backpack"))
       .replace(/^Chest\b/, t("storage.chest"))
+      .replace(/\bFarmhouse\b/g, t("storage.farmhouse"))
       .replace(/\bFarm\b/g, t("nav.farm"))
       .replace(/ · tile /g, ` · ${t("storage.tile")} `);
   const displayStorageLocation = (detail: StorageSourceDetail | undefined) =>
     readableStorageLocation(detail, current)
+      .replace(/\bFarmhouse\b/g, t("storage.farmhouse"))
       .replace(/\bFarm\b/g, t("nav.farm"));
   const effectiveStorageLocation =
     storageLocation === "all" || storageLocations.includes(storageLocation)

@@ -1471,6 +1471,12 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(generator, /"sourceDetails"/);
   assert.match(generator, /"localizedObjectNamesByEnglish"/);
   assert.match(generator, /"displayName"/);
+  assert.match(extractor, /Strings\/BigCraftables\.xnb/);
+  assert.match(extractor, /Strings\/Tools\.xnb/);
+  assert.match(extractor, /Strings\/Weapons\.xnb/);
+  assert.match(extractor, /Strings\/Shirts\.xnb/);
+  assert.match(extractor, /Strings\/Furniture\.xnb/);
+  assert.match(extractor, /catalogVersion: 2/);
   assert.match(generator, /"spriteKind": "fallback"/);
   assert.match(generator, /"Furniture"/);
   assert.match(generator, /bool_value\(node, "bigCraftable"\)/);

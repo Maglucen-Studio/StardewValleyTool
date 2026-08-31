@@ -335,7 +335,10 @@ function extractedAssetsAreStale(config, requiredAssets) {
   const gameData = join(runtimeRoot, "assetbuild", "game-data.json");
   if (!existsSync(gameData)) return true;
   const extracted = readJson(gameData, {});
-  if (extracted?._localization?.language !== localizationState(config).language)
+  if (
+    extracted?._localization?.language !== localizationState(config).language ||
+    extracted?._localization?.catalogVersion !== 2
+  )
     return true;
   return (
     newestModDataMtime(join(config.stardewPath, "Mods")) >

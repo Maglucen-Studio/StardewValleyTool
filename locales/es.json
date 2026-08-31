@@ -160,6 +160,7 @@
   "storage.sortQuantityAsc": "Cantidad: de menor a mayor",
   "storage.backpack": "Mochila",
   "storage.chest": "Cofre",
+  "storage.farmhouse": "Casa de campo",
   "storage.tile": "casilla",
   "storage.clickToLocate": "Haz clic para localizar {item}",
   "storage.groupSummary": "{types} tipos de objeto · {units} unidades",
