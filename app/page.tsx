@@ -11,6 +11,7 @@ import {
   type CSSProperties,
 } from "react";
 import packageMetadata from "../package.json";
+import { useI18n } from "./i18n";
 
 const APPLICATION_VERSION = packageMetadata.version;
 
@@ -823,6 +824,12 @@ type UpdateState = {
   message?: string;
 };
 type DesktopUpdates = {
+  getLocalization?: () => Promise<{
+    language: "en" | "es";
+    locale: string;
+    messages: Record<string, string>;
+    fallbackMessages: Record<string, string>;
+  }>;
   getUpdateState: () => Promise<UpdateState>;
   checkForUpdates: () => Promise<UpdateState>;
   downloadUpdate: () => Promise<UpdateState>;
@@ -1311,6 +1318,7 @@ function drawBuildingSprite(
 }
 
 export default function Home() {
+  const { t, locale } = useI18n();
   const appShellRef = useRef<HTMLElement>(null);
   const topbarRef = useRef<HTMLElement>(null);
   const [progressTabsTop, setProgressTabsTop] = useState(82);
@@ -2997,18 +3005,18 @@ export default function Home() {
               className="farm-switcher-trigger"
               onClick={() => setShowFarmSwitcher((value) => !value)}
               aria-expanded={showFarmSwitcher}
-              title="Change farm"
+              title={t("shell.changeFarm")}
             >
-              <strong>{switchingFarm ? "Changing farm…" : data.farmName}</strong>
+              <strong>{switchingFarm ? t("shell.changingFarm") : data.farmName}</strong>
               <span aria-hidden="true">▾</span>
             </button>
             <span className="farmer-name">
               {data.farmer}
-              <b className="app-version-badge" title="App version">
+              <b className="app-version-badge" title={t("shell.appVersion")}>
                 v{APPLICATION_VERSION}
               </b>
               {diagnostics?.development && (
-                <b className="development-badge">Development</b>
+                <b className="development-badge">{t("shell.development")}</b>
               )}
             </span>
             {showFarmSwitcher && (
@@ -3043,7 +3051,7 @@ export default function Home() {
                         />
                         <span>
                           <b>{farm.name}</b>
-                          <small>{farm.farmer || "Unknown farmer"}{farm.gameDate ? ` · ${farm.gameDate}` : ""}</small>
+                          <small>{farm.farmer || t("shell.unknownFarmer")}{farm.gameDate ? ` · ${farm.gameDate}` : ""}</small>
                         </span>
                       </span>
                       <i>{recentlyLive ? "LIVE" : active ? "✓" : ""}</i>
@@ -3057,18 +3065,18 @@ export default function Home() {
                     (window as Window & { stardewDesktop?: DesktopUpdates }).stardewDesktop?.openSettings()
                   }
                 >
-                  Manage farms and settings…
+                  {t("shell.manageFarms")}
                 </button>
               </div>
             )}
           </div>
-          <nav className="history-navigation" aria-label="Navigation history">
+          <nav className="history-navigation" aria-label={t("shell.history")}>
             <button
               type="button"
               disabled={!canNavigateBack}
               onClick={() => navigateHistory("back")}
               title="Back · mouse Back button · Alt + Left Arrow"
-              aria-label="Back"
+              aria-label={t("shell.back")}
             >
               ←
             </button>
@@ -3077,25 +3085,25 @@ export default function Home() {
               disabled={!canNavigateForward}
               onClick={() => navigateHistory("forward")}
               title="Forward · mouse Forward button · Alt + Right Arrow"
-              aria-label="Forward"
+              aria-label={t("shell.forward")}
             >
               →
             </button>
           </nav>
         </div>
         <div className="date-card">
-          <span>Year {data.year},</span>
-          <span>{data.seasonLabel}</span>
+          <span>{t("shell.year", { year: data.year })}</span>
+          <span>{t(`season.${data.season}`)}</span>
           <strong>{data.day}</strong>
         </div>
-        <nav className="view-tabs" aria-label="Sections">
+        <nav className="view-tabs" aria-label={t("shell.sections")}>
           <button
             aria-current={activeView === "agenda" ? "page" : undefined}
             className={activeView === "agenda" ? "active" : ""}
             onClick={() => navigateTo({ view: "agenda" })}
-            title="Today · shortcut 1"
+            title={t("shell.shortcut", { section: t("nav.today"), number: 1 })}
           >
-            Today <kbd>1</kbd>
+            {t("nav.today")} <kbd>1</kbd>
           </button>
           <button
             aria-current={activeView === "map" ? "page" : undefined}
@@ -3106,33 +3114,33 @@ export default function Home() {
                 window.requestAnimationFrame(draw),
               );
             }}
-            title="Map · shortcut 2"
+            title={t("shell.shortcut", { section: t("nav.map"), number: 2 })}
           >
-            Map <kbd>2</kbd>
+            {t("nav.map")} <kbd>2</kbd>
           </button>
           <button
             aria-current={activeView === "farm" ? "page" : undefined}
             className={activeView === "farm" ? "active" : ""}
             onClick={() => navigateTo({ view: "farm", section: window.localStorage.getItem("stardew-tool-farm-section") || "crops" })}
-            title="Farm · shortcut 3"
+            title={t("shell.shortcut", { section: t("nav.farm"), number: 3 })}
           >
-            Farm <kbd>3</kbd>
+            {t("nav.farm")} <kbd>3</kbd>
           </button>
           <button
             aria-current={activeView === "fishing" ? "page" : undefined}
             className={activeView === "fishing" ? "active" : ""}
             onClick={() => navigateTo({ view: "fishing" })}
-            title="Fishing · shortcut 4"
+            title={t("shell.shortcut", { section: t("nav.fishing"), number: 4 })}
           >
-            Fishing <kbd>4</kbd>
+            {t("nav.fishing")} <kbd>4</kbd>
           </button>
           <button
             aria-current={activeView === "planning" ? "page" : undefined}
             className={activeView === "planning" ? "active" : ""}
             onClick={() => navigateTo({ view: "planning", section: window.localStorage.getItem("stardew-tool-plan-section") || "community" })}
-            title="Plan · shortcut 5"
+            title={t("shell.shortcut", { section: t("nav.plan"), number: 5 })}
           >
-            Plan <kbd>5</kbd>
+            {t("nav.plan")} <kbd>5</kbd>
           </button>
           <button
             aria-current={
@@ -3149,9 +3157,9 @@ export default function Home() {
               const saved = window.localStorage.getItem("stardew-tool-progress-section");
               navigateTo({ view: saved === "achievements" ? "achievements" : "growth" });
             }}
-            title="Progress · shortcut 6"
+            title={t("shell.shortcut", { section: t("nav.progress"), number: 6 })}
           >
-            Progress <kbd>6</kbd>
+            {t("nav.progress")} <kbd>6</kbd>
           </button>
         </nav>
         <button
@@ -3165,8 +3173,10 @@ export default function Home() {
         >
           <span className="live-dot" />
           {live.active
-            ? `LIVE MAP · ${formatLiveTime(live.timeOfDay)} · ${live.location || "unknown location"}`
-            : `Local save · ${lastRefresh?.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) || "now"}`}
+            ? `LIVE MAP · ${formatLiveTime(live.timeOfDay)} · ${live.location || t("shell.unknownLocation")}`
+            : t("shell.localSaveAt", {
+                time: lastRefresh?.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) || t("shell.now"),
+              })}
         </button>
         <button
           type="button"
@@ -3174,7 +3184,7 @@ export default function Home() {
           onClick={() => setShowLiveAlerts(true)}
           title="Open configurable LIVE alerts"
         >
-          Alerts <b>{liveAlerts.length}</b>
+          {t("shell.alerts")} <b>{liveAlerts.length}</b>
         </button>
         <div className="update-control">
           <button
@@ -3228,9 +3238,9 @@ export default function Home() {
           className="display-scale"
           title="Interface size. Large screens choose a comfortable size automatically."
         >
-          <span>Display</span>
+          <span>{t("shell.display")}</span>
           <select
-            aria-label="Interface size"
+            aria-label={t("shell.interfaceSize")}
             value={uiScale}
             onChange={(event) => setUiScale(Number(event.target.value))}
           >
@@ -5314,6 +5324,7 @@ function FishingView({
   current: Snapshot;
   live: LiveState;
 }) {
+  const { t } = useI18n();
   const brief = current.fishingBrief;
   const [hour, setHour] = useState(600);
   const [useLiveTime, setUseLiveTime] = useState(true);
@@ -5501,10 +5512,10 @@ function FishingView({
       <div className="fishing-heading">
         <div>
           <p className="eyebrow">
-            Daily fishing plan{" "}
+            {t("fishing.eyebrow")}{" "}
             {live.active && <span className="live-badge">LIVE</span>}
           </p>
-          <h1>Where is it worth casting?</h1>
+          <h1>{t("fishing.title")}</h1>
           <p>
             {formatGameDate(current)} ·{" "}
             {liveWeather === "rainy" ? "Raining" : "Dry weather"} · Fishing
@@ -5516,13 +5527,13 @@ function FishingView({
           <strong>
             {caughtTracked}/{trackedFish.length}
           </strong>
-          <span>recorded species</span>
+          <span>{t("fishing.recorded")}</span>
         </div>
       </div>
       <section className="fishing-clock">
         <div>
           <p className="eyebrow">
-            {followingLiveTime ? "LIVE in-game time" : "Planning time"}
+            {followingLiveTime ? t("fishing.liveTime") : t("fishing.planningTime")}
           </p>
           <h2>{fishTime(displayedHour)}</h2>
           <small>
@@ -5634,11 +5645,11 @@ function FishingView({
         <article className="fish-panel collection-panel">
           <div className="card-title fishing-list-title">
             <div>
-              <p className="eyebrow">Fish available now</p>
+              <p className="eyebrow">{t("fishing.availableNow")}</p>
               <h2>
                 {fishListMode === "collection"
-                  ? "Missing from your collection"
-                  : "Every catchable fish"}
+                  ? t("fishing.missingCollection")
+                  : t("fishing.everyCatchable")}
               </h2>
               <div className="fish-list-tabs">
                 <button
@@ -5891,6 +5902,7 @@ function PlanningView({
   mode?: "farm" | "plan";
   onNavigateSection?: (section: PlanningSection) => void;
 }) {
+  const { t, locale } = useI18n();
   const [section, setSection] = useState<PlanningSection>(() => {
     if (typeof window === "undefined") return mode === "farm" ? "crops" : "community";
     const saved = window.localStorage.getItem(`stardew-tool-${mode}-section`);
@@ -6747,14 +6759,14 @@ function PlanningView({
       <div className="planning-heading">
         <div>
           <p className="eyebrow">
-            Decision center{" "}
+            {t("planning.decisionCenter")}{" "}
             {live.active && <span className="live-badge">LIVE</span>}
           </p>
-          <h1>{mode === "farm" ? "What is happening on your farm" : "What to save, build, and do next"}</h1>
+          <h1>{mode === "farm" ? t("planning.farmTitle") : t("planning.planTitle")}</h1>
           <p>
             {mode === "farm"
-              ? "Current crops and production, updated from LIVE whenever Stardew is running."
-              : "Forward-looking goals use your current money, chests, and progress."}
+              ? t("planning.farmDescription")
+              : t("planning.planDescription")}
           </p>
         </div>
         <div className="planning-balance">
@@ -6762,7 +6774,7 @@ function PlanningView({
             {(live.active
               ? (live.money ?? current.money)
               : current.money
-            ).toLocaleString("en-US")}
+            ).toLocaleString(locale)}
             g
           </strong>
           <span>
@@ -6772,21 +6784,21 @@ function PlanningView({
           </span>
         </div>
       </div>
-      <nav className="planning-tabs" aria-label="Planning areas">
+      <nav className="planning-tabs" aria-label={t("planning.areas")}>
         {(
           (mode === "farm"
             ? [
-                ["crops", "Crops"],
-                ["production", "Production"],
-                ["animals", "Animals"],
-                ["storage", "Storage"],
+                ["crops", t("planning.crops")],
+                ["production", t("planning.production")],
+                ["animals", t("planning.animals")],
+                ["storage", t("planning.storage")],
               ]
             : [
-            ["community", "Community Center"],
-            ["crops", "Planting"],
-            ["buildings", "Buildings"],
-            ["friends", "Friendships"],
-            ["goals", "Goals"],
+            ["community", t("planning.community")],
+            ["crops", t("planning.planting")],
+            ["buildings", t("planning.buildings")],
+            ["friends", t("planning.friendships")],
+            ["goals", t("planning.goals")],
               ]) as [PlanningSection, string][]
         ).map(([id, label]) => (
           <button
@@ -8260,6 +8272,7 @@ function DailyBriefView({
   sessionBaseline: SessionSummary | null;
   onOpenCommunityCenter: () => void;
 }) {
+  const { t } = useI18n();
   const todaySectionOptions = [
     { id: "overview", label: "Daily overview" },
     { id: "priorities", label: "Priorities right now" },
@@ -8729,17 +8742,17 @@ function DailyBriefView({
     <section className="daily-page">
       <div className="daily-heading">
         <div>
-          <p className="eyebrow">Saved daily brief</p>
-          <h1>Good morning, {current.farmer}</h1>
+          <p className="eyebrow">{t("today.savedBrief")}</p>
+          <h1>{t("today.goodMorning", { farmer: current.farmer })}</h1>
           <p>
             {formatGameDate(current)} · {brief.summary}
           </p>
         </div>
         <div className="page-heading-actions">
           <div className="daily-date">
-            <span>Year {current.year}</span>
+            <span>{t("today.year", { year: current.year })}</span>
             <strong>
-              {current.seasonLabel} {current.day}
+              {t(`season.${current.season}`)} {current.day}
             </strong>
           </div>
           <SectionVisibilityMenu
@@ -8757,9 +8770,9 @@ function DailyBriefView({
         <article>
           <span className="daily-symbol">☀</span>
           <div>
-            <p className="eyebrow">{"Tomorrow's weather"}</p>
+            <p className="eyebrow">{t("today.tomorrowWeather")}</p>
             <h2>{brief.weatherTomorrow.label}</h2>
-            <small>Forecast for Stardew Valley</small>
+            <small>{t("today.forecast")}</small>
           </div>
         </article>
         <button
@@ -8769,13 +8782,13 @@ function DailyBriefView({
         >
           <span className="daily-symbol">✦</span>
           <div>
-            <p className="eyebrow">{"Today's luck"}</p>
+            <p className="eyebrow">{t("today.luck")}</p>
             <h2>
               {brief.luck.value >= 0.02
-                ? "Favorable"
+                ? t("today.favorable")
                 : brief.luck.value <= -0.02
-                  ? "Unfavorable"
-                  : "Normal"}
+                  ? t("today.unfavorable")
+                  : t("today.normal")}
             </h2>
             <small>{brief.luck.label}</small>
           </div>
@@ -9612,6 +9625,7 @@ function GrowthView({
   previous: Snapshot | null;
   live: LiveState;
 }) {
+  const { t } = useI18n();
   const growthSectionOptions = [
     { id: "metrics", label: "Key metrics" },
     { id: "milestones", label: "Farm milestones" },
@@ -9965,17 +9979,14 @@ function GrowthView({
     <section className="growth-page">
       <div className="growth-heading">
         <div>
-          <p className="eyebrow">Local daily history</p>
-          <h1>{current.farmName} growth</h1>
-          <p>
-            Every time Stardew saves a new day, a snapshot of your economy and
-            progress is preserved.
-          </p>
+          <p className="eyebrow">{t("growth.localHistory")}</p>
+          <h1>{t("growth.title", { farm: current.farmName })}</h1>
+          <p>{t("growth.description")}</p>
         </div>
         <div className="page-heading-actions">
           <div className="history-count">
             <strong>{entries.length}</strong>
-            <span>days recorded</span>
+            <span>{t("growth.daysRecorded")}</span>
           </div>
           <SectionVisibilityMenu
             label="Customize Growth sections"
@@ -10355,6 +10366,7 @@ function AchievementsView({
   current: Snapshot;
   live: LiveState;
 }) {
+  const { t } = useI18n();
   const achievementSectionOptions = [
     { id: "overview", label: "Achievement overview" },
     { id: "collections", label: "Long-term collections" },
@@ -10704,20 +10716,17 @@ function AchievementsView({
       <div className="achievements-heading">
         <div>
           <p className="eyebrow">
-            {live.active ? "Live collections" : "Current save"} · Steam catalog
+            {live.active ? t("achievements.liveCollections") : t("achievements.currentSave")} · Steam catalog
           </p>
-          <h1>Collections and achievements</h1>
-          <p>
-            One completion overview for achievements, museum, fish, bundles,
-            shipping, cooking, crafting, and Stardrops.
-          </p>
+          <h1>{t("achievements.title")}</h1>
+          <p>{t("achievements.description")}</p>
         </div>
         <div className="page-heading-actions">
           <div className="achievement-total">
             <strong>
               {achievements.completed}/{achievements.total}
             </strong>
-            <span>{completion}% complete</span>
+            <span>{t("achievements.complete", { percent: completion })}</span>
           </div>
           <SectionVisibilityMenu
             label="Customize Collections and Achievements sections"

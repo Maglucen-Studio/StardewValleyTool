@@ -5,12 +5,16 @@ import JSON5 from "json5";
 import { loadConfig, runtimeRoot, runtimePaths, validateConfig } from "./config.mjs";
 import { ensureRuntimeDirectories, syncRuntimePublic } from "./runtime-files.mjs";
 import { renderCommunityRooms } from "./render-community-rooms.mjs";
+import { localizedXnbPath } from "./localization.mjs";
 
 const config = loadConfig();
 const errors = validateConfig(config, { requireSave: false });
 if (errors.length) throw new Error(errors.join(" "));
 const project = runtimeRoot;
 const { contentRoot, modsRoot } = runtimePaths(config);
+const language = process.env.STARDEW_TOOL_LANGUAGE === "es" ? "es" : "en";
+const locale = process.env.STARDEW_TOOL_LOCALE || (language === "es" ? "es-ES" : "en-US");
+const xnbSuffix = process.env.STARDEW_TOOL_XNB_SUFFIX || "";
 ensureRuntimeDirectories();
 
 async function unpack(relativePath) {
@@ -21,6 +25,10 @@ async function unpack(relativePath) {
   if (!jsonOutput) throw new Error(`Could not extract ${relativePath}`);
   const parsed = JSON.parse(await jsonOutput.data.text());
   return parsed.content;
+}
+
+async function unpackLocalized(relativePath) {
+  return unpack(localizedXnbPath(contentRoot, relativePath, xnbSuffix));
 }
 
 async function unpackTexture(relativePath, destination) {
@@ -43,7 +51,18 @@ async function unpackBinary(relativePath, extension, destination) {
   await writeFile(resolve(project, destination), Buffer.from(await output.data.arrayBuffer()));
 }
 
+const baseObjectNames = await unpack("Strings/Objects.xnb");
+const localizedObjectNames = await unpackLocalized("Strings/Objects.xnb");
+const localizedObjectNamesByEnglish = Object.fromEntries(
+  Object.entries(baseObjectNames).flatMap(([key, english]) =>
+    key.endsWith("_Name") && localizedObjectNames[key]
+      ? [[english, localizedObjectNames[key]]]
+      : [],
+  ),
+);
+
 const gameData = {
+  _localization: { language, locale, xnbSuffix },
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
   craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),
@@ -53,8 +72,9 @@ const gameData = {
   hair: await unpack("Data/HairData.xnb"),
   hats: await unpack("Data/hats.xnb"),
   furniture: await unpack("Data/Furniture.xnb"),
-  objectNames: await unpack("Strings/Objects.xnb"),
-  specialOrderStrings: await unpack("Strings/SpecialOrderStrings.xnb"),
+  objectNames: localizedObjectNames,
+  localizedObjectNamesByEnglish,
+  specialOrderStrings: await unpackLocalized("Strings/SpecialOrderStrings.xnb"),
 };
 
 const textures = {

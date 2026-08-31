@@ -3,5 +3,6 @@
   "savePath": "C:\\Users\\YOUR_USER\\AppData\\Roaming\\StardewValley\\Saves\\Farm_123456789\\Farm_123456789",
   "pythonCommand": "python",
   "port": 3000,
+  "languageMode": "game",
   "autoLaunch": true
 }

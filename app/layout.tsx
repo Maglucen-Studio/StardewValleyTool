@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { LocalizationProvider } from "./i18n";
 
 export const metadata: Metadata = {
   title: "Maglucen · Stardew Valley Companion",
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en" suppressHydrationWarning><body><LocalizationProvider>{children}</LocalizationProvider></body></html>;
 }

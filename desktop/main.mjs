@@ -26,6 +26,10 @@ import {
 } from "node:fs";
 import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { release as osRelease } from "node:os";
+import {
+  createTranslator,
+  resolveLanguage,
+} from "../scripts/localization.mjs";
 
 const desktopDevelopment = process.env.STARDEW_TOOL_DESKTOP_DEV === "1";
 const APP_ID = "io.github.maglucenstudio.stardewvalleycompanion";
@@ -142,6 +146,23 @@ function migrateLegacyDesktopData(target) {
 
 function readConfig() {
   return readJson(configPath, null);
+}
+
+function localizationState(config = readConfig() || {}) {
+  return resolveLanguage(config, app.getPath("appData"));
+}
+
+function localizationCatalog(language) {
+  const root = projectRoot || app.getAppPath();
+  return readJson(join(root, "locales", `${language}.json`), {});
+}
+
+function desktopTranslator(config = readConfig() || {}) {
+  const state = localizationState(config);
+  return createTranslator(
+    localizationCatalog(state.language),
+    localizationCatalog("en"),
+  );
 }
 
 function publishUpdateState(next) {
@@ -313,6 +334,9 @@ function extractedAssetsAreStale(config, requiredAssets) {
   if (requiredAssets.some((asset) => !existsSync(asset))) return true;
   const gameData = join(runtimeRoot, "assetbuild", "game-data.json");
   if (!existsSync(gameData)) return true;
+  const extracted = readJson(gameData, {});
+  if (extracted?._localization?.language !== localizationState(config).language)
+    return true;
   return (
     newestModDataMtime(join(config.stardewPath, "Mods")) >
     statSync(gameData).mtimeMs
@@ -438,6 +462,7 @@ function detectSaves() {
 
 function setupState() {
   const config = readConfig();
+  const language = localizationState(config || {});
   const installs = detectGameInstalls();
   const saves = detectSaves();
   const suggestedInstall = validConfig(config)
@@ -452,6 +477,13 @@ function setupState() {
   return {
     version: app.getVersion(),
     config,
+    localization: {
+      ...language,
+      catalogs: {
+        en: localizationCatalog("en"),
+        es: localizationCatalog("es"),
+      },
+    },
     installs,
     saves,
     suggestedInstall,
@@ -513,6 +545,7 @@ async function switchFarmConfig(savePath, progress = () => {}) {
 }
 
 function childEnvironment(config) {
+  const language = localizationState(config);
   const legacyCandidates = [
     ...(process.env.STARDEW_TOOL_LEGACY_DATA_DIRS || "").split(delimiter),
     ...(Array.isArray(config.legacyDataDirs) ? config.legacyDataDirs : []),
@@ -537,6 +570,9 @@ function childEnvironment(config) {
     STARDEW_PATH: config.stardewPath,
     STARDEW_SAVE: config.savePath,
     STARDEW_TOOL_PROFILE_ID: profileIdForSave(config.savePath),
+    STARDEW_TOOL_LANGUAGE: language.language,
+    STARDEW_TOOL_LOCALE: language.locale,
+    STARDEW_TOOL_XNB_SUFFIX: language.xnbSuffix,
     STARDEW_PYTHON: pythonCommand(config),
     STARDEW_TOOL_TOKEN: backendToken,
     PORT: String(servicePort(config)),
@@ -1034,13 +1070,14 @@ function createSetupWindow() {
     return;
   }
   const savedWindowState = loadSetupWindowState();
+  const t = desktopTranslator();
   const { maximized: wasMaximized, ...savedBounds } = savedWindowState;
   setupWindow = new BrowserWindow(
     secureWindowOptions({
       ...savedBounds,
       minWidth: 720,
       minHeight: 650,
-      title: `${PRODUCT} ${readConfig() ? "Settings" : "Setup"}`,
+      title: `${PRODUCT} ${readConfig() ? t("window.settings") : t("window.setup")}`,
       webPreferences: { preload: join(projectRoot, "desktop", "preload.cjs") },
     }),
   );
@@ -1062,24 +1099,26 @@ function createSetupWindow() {
 }
 
 function showAboutDialog() {
+  const t = desktopTranslator();
   dialog.showMessageBox({
     type: "info",
-    title: `About ${PRODUCT}`,
+    title: t("menu.about", { product: PRODUCT }),
     message: PRODUCT,
-    detail: `Version ${app.getVersion()}\n\nA private, local companion for Stardew Valley.`,
+    detail: `${t("common.version", { version: app.getVersion() })}\n\n${t("app.privateDescription")}`,
     buttons: ["OK"],
   });
 }
 
 function createApplicationMenu() {
+  const t = desktopTranslator();
   return Menu.buildFromTemplate([
     {
-      label: "Application",
+      label: t("menu.application"),
       submenu: [
-        { label: "Settings…", click: () => createSetupWindow() },
+        { label: t("menu.settings"), click: () => createSetupWindow() },
         { type: "separator" },
         {
-          label: "Quit",
+          label: t("menu.quit"),
           accelerator: "Ctrl+Q",
           click: () => {
             quitting = true;
@@ -1089,7 +1128,7 @@ function createApplicationMenu() {
       ],
     },
     {
-      label: "View",
+      label: t("menu.view"),
       submenu: [
         { role: "reload", accelerator: "F5" },
         { role: "togglefullscreen" },
@@ -1097,28 +1136,28 @@ function createApplicationMenu() {
       ],
     },
     {
-      label: "Support me",
+      label: t("menu.support"),
       click: () => shell.openExternal("https://ko-fi.com/N4N21LP9O5"),
     },
     {
-      label: "Help",
+      label: t("menu.help"),
       submenu: [
         {
-          label: "Help & diagnostics",
+          label: t("menu.helpDiagnostics"),
           click: () => mainWindow?.webContents.send("help:open"),
         },
         { type: "separator" },
-        { label: `About ${PRODUCT}`, click: () => showAboutDialog() },
+        { label: t("menu.about", { product: PRODUCT }), click: () => showAboutDialog() },
         { type: "separator" },
         {
-          label: "Project on GitHub",
+          label: t("menu.github"),
           click: () =>
             shell.openExternal(
               "https://github.com/Maglucen-Studio/StardewValleyTool",
             ),
         },
         {
-          label: "Official Stardew Valley Wiki",
+          label: t("menu.wiki"),
           click: () =>
             shell.openExternal(
               "https://stardewvalleywiki.com/Stardew_Valley_Wiki",
@@ -1130,6 +1169,7 @@ function createApplicationMenu() {
 }
 
 function createTray() {
+  const t = desktopTranslator();
   const png = join(workRoot, "desktop", "resources", "icon.png");
   const ico = join(workRoot, "desktop", "resources", "icon.ico");
   const source = nativeImage.createFromPath(png);
@@ -1142,7 +1182,7 @@ function createTray() {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
-        label: "Open dashboard",
+        label: t("tray.open"),
         click: () => {
           if (!mainWindow || mainWindow.isDestroyed()) createLoadingWindow();
           createDashboard().catch(showFatal);
@@ -1150,7 +1190,7 @@ function createTray() {
       },
       { type: "separator" },
       {
-        label: "Quit",
+        label: t("menu.quit"),
         click: () => {
           quitting = true;
           app.quit();
@@ -1219,6 +1259,15 @@ function installIpc() {
   ipcMain.handle("updates:get-state", (event) => {
     requireDashboardSender(event);
     return updateState;
+  });
+  ipcMain.handle("localization:get-state", (event) => {
+    requireDashboardSender(event);
+    const state = localizationState();
+    return {
+      ...state,
+      messages: localizationCatalog(state.language),
+      fallbackMessages: localizationCatalog("en"),
+    };
   });
   ipcMain.handle("display:set-scale", (event, incomingScale) => {
     requireDashboardSender(event);
@@ -1347,10 +1396,11 @@ function installIpc() {
   });
   ipcMain.handle("setup:choose-game", async (event) => {
     requireLocalSender(event);
+    const t = desktopTranslator();
     return (
       (
         await dialog.showOpenDialog({
-          title: "Choose your Stardew Valley folder",
+          title: t("setup.chooseGameDialog"),
           properties: ["openDirectory"],
         })
       ).filePaths[0] || ""
@@ -1358,10 +1408,11 @@ function installIpc() {
   });
   ipcMain.handle("setup:choose-save", async (event) => {
     requireLocalSender(event);
+    const t = desktopTranslator();
     return (
       (
         await dialog.showOpenDialog({
-          title: "Choose the main Stardew Valley save file",
+          title: t("setup.chooseSaveDialog"),
           properties: ["openFile"],
         })
       ).filePaths[0] || ""
@@ -1380,16 +1431,22 @@ function installIpc() {
       autoLaunch: app.isPackaged && incoming?.autoLaunch !== false,
       closeToTray: incoming?.closeToTray !== false,
       autoFollowActiveSave: incoming?.autoFollowActiveSave !== false,
+      languageMode: ["game", "en", "es"].includes(incoming?.languageMode)
+        ? incoming.languageMode
+        : "game",
       ...(Array.isArray(previousConfig?.legacyDataDirs)
         ? { legacyDataDirs: previousConfig.legacyDataDirs }
         : {}),
     };
-    if (!validConfig(config))
-      throw new Error(
-        "Choose a valid Stardew Valley installation and save file.",
-      );
+    if (!validConfig(config)) throw new Error(desktopTranslator(config)("setup.invalid"));
     mkdirSync(dirname(configPath), { recursive: true });
     writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    Menu.setApplicationMenu(createApplicationMenu());
+    if (tray) {
+      tray.destroy();
+      tray = null;
+      createTray();
+    }
     if (app.isPackaged)
       app.setLoginItemSettings({
         openAtLogin: config.autoLaunch,

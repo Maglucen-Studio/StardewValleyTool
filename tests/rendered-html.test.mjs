@@ -115,7 +115,7 @@ test("the interface supports persistent high-resolution scaling", async () => {
   ]);
   assert.match(page, /stardew-tool-ui-scale/);
   assert.match(page, /window\.innerWidth >= 3000\) return 1\.5/);
-  assert.match(page, /aria-label="Interface size"/);
+  assert.match(page, /aria-label=\{t\("shell\.interfaceSize"\)\}/);
   for (const scale of [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2])
     assert.match(page, new RegExp(`option value=\\{${String(scale).replace(".", "\\.")}\\}`));
   assert.match(preload, /display:set-scale/);
@@ -506,14 +506,14 @@ test("desktop shell is secure, local-first, and distributable", async () => {
     main,
     /mainWindow\.on\("close"[\s\S]{0,180}config\.autoLaunch !== false/,
   );
-  assert.match(main, /label: "Settings…"/);
-  assert.match(main, /label: `About \$\{PRODUCT\}`/);
-  assert.match(main, /detail: `Version \$\{app\.getVersion\(\)\}/);
+  assert.match(main, /label: t\("menu\.settings"\)/);
+  assert.match(main, /t\("menu\.about", \{ product: PRODUCT \}\)/);
+  assert.match(main, /t\("common\.version", \{ version: app\.getVersion\(\) \}\)/);
   assert.match(main, /setupWindow\.setMenu\(null\)/);
   assert.match(main, /setupWindow\.on\("resize"/);
   assert.match(main, /setupWindow\.on\("move"/);
   assert.match(setup, /id="app-version"/);
-  assert.match(setupScript, /Version \$\{state\.version\}/);
+  assert.match(setupScript, /t\("common\.version"/);
   assert.match(setup, /Where do you own Stardew Valley/);
   assert.match(setup, /It does not download or install SMAPI itself/);
   assert.match(main, /Array\.isArray\(previousConfig\?\.legacyDataDirs\)/);
@@ -1253,8 +1253,8 @@ test("Support and Help have one clear native-menu location each", async () => {
     readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(page, /Support development on Ko-fi/);
-  assert.match(desktop, /label: "Support me"/);
-  assert.match(desktop, /label: "Help & diagnostics"/);
+  assert.match(desktop, /label: t\("menu\.support"\)/);
+  assert.match(desktop, /label: t\("menu\.helpDiagnostics"\)/);
 });
 
 test("feedback links prefill a safe structured GitHub issue", async () => {
@@ -1453,7 +1453,7 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
       "utf8",
     ),
   ]);
-  assert.match(page, /\["storage", "Storage"\]/);
+  assert.match(page, /\["storage", t\("planning\.storage"\)\]/);
   assert.match(page, /className="storage-dashboard"/);
   assert.match(page, /Search by item or location/);
   assert.match(page, /Group by container/);
@@ -1487,7 +1487,7 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(bridge, /furniture\.defaultSourceRect\.Value\.Width/);
   assert.match(bridge, /containerColor/);
   assert.match(bridge, /containerLocation/);
-  assert.match(page, /\["goals", "Goals"\]/);
+  assert.match(page, /\["goals", t\("planning\.goals"\)\]/);
   assert.match(page, /className="goal-planner"/);
   assert.match(page, /\.\.\.constructionTargets,\s*\.\.\.toolTargets,\s*\.\.\.craftingTargets,\s*\.\.\.bundleTargets/s);
   assert.match(page, /Link a construction, tool, recipe, or bundle/);
@@ -1649,7 +1649,7 @@ test("development, LIVE help, storage locating, and unlocked weekly orders are d
   assert.match(setup, /nexusmods\.com\/stardewvalley\/mods\/2400/);
   assert.match(setup, /curseforge\.com\/stardewvalley\/mods\/smapi/);
   assert.match(setupScript, /\.smapi-links"\)\.hidden = state\.smapiDetected/);
-  assert.match(setupScript, /Maglucen Companion Development Settings/);
+  assert.match(setupScript, /`Maglucen Companion \$\{t\("window\.settings"\)\}`/);
 });
 
 test("main navigation shortcuts and route item artwork are visible and safe", async () => {
@@ -1659,8 +1659,8 @@ test("main navigation shortcuts and route item artwork are visible and safe", as
   ]);
   assert.match(page, /window\.addEventListener\("keydown", openSection\)/);
   assert.match(page, /input, select, textarea, \[contenteditable='true'\]/);
-  assert.match(page, /Today <kbd>1<\/kbd>/);
-  assert.match(page, /Progress <kbd>6<\/kbd>/);
+  assert.match(page, /\{t\("nav\.today"\)\} <kbd>1<\/kbd>/);
+  assert.match(page, /\{t\("nav\.progress"\)\} <kbd>6<\/kbd>/);
   assert.match(page, /<h3>Quick controls<\/h3>/);
   assert.match(page, /displayedItems\.map\([\s\S]*?<ItemMentionArtwork name=\{item\.name\}/);
   assert.match(styles, /\.world-items \.item-mention-artwork \{[^}]*width: 28px;[^}]*height: 28px;/s);
@@ -1687,7 +1687,7 @@ test("Progress exploration is interactive, searchable, and permanently anchored"
   assert.match(page, /className="next-event"/);
   assert.match(styles, /\.achievement-card\.focused/);
   assert.match(page, /https:\/\/stardewvalleywiki\.com\/Stardew_Valley_Wiki/);
-  assert.match(desktop, /Official Stardew Valley Wiki/);
+  assert.match(desktop, /t\("menu\.wiki"\)/);
 });
 
 test("long-term collection cards open exact missing-item checklists", async () => {
@@ -1760,8 +1760,8 @@ test("navigation history supports header controls, keyboard shortcuts, and mouse
     readFile(new URL("../desktop/preload.cjs", import.meta.url), "utf8"),
   ]);
   assert.match(page, /className="history-navigation"/);
-  assert.match(page, /aria-label="Back"/);
-  assert.match(page, /aria-label="Forward"/);
+  assert.match(page, /aria-label=\{t\("shell\.back"\)\}/);
+  assert.match(page, /aria-label=\{t\("shell\.forward"\)\}/);
   assert.match(page, /event\.altKey/);
   assert.match(page, /event\.key !== "ArrowLeft" && event\.key !== "ArrowRight"/);
   assert.match(page, /event\.button !== 3 && event\.button !== 4/);
