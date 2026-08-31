@@ -109,7 +109,7 @@ test("full game dates consistently put the year first", async () => {
   );
   assert.match(
     page,
-    /`Year \$\{date\.year\}, \$\{date\.seasonLabel\} \$\{date\.day\}`/,
+    /t\("date\.game", \{ year: date\.year, season: t\(`season\.\$\{date\.season\}`\), day: date\.day \}\)/,
   );
   assert.doesNotMatch(
     page,
@@ -684,7 +684,7 @@ test("Today lists every active journal quest with opt-in spoiler guidance", asyn
   assert.match(generator, /not bool_value\(item, "completed"\)/);
   assert.match(generator, /"acceptedQuests": accepted_quests_status/);
   assert.match(generator, /today_birthday = next/);
-  assert.match(generator, /birthday_summary/);
+  assert.match(generator, /today\.summary\.birthdayToday/);
   assert.match(generator, /quest_id == 7/);
   assert.match(generator, /quest_id == 18/);
   assert.match(page, /<h2>Accepted quests<\/h2>/);
@@ -1094,7 +1094,8 @@ test("all item mentions share the save-generated artwork catalog", async () => {
     readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
   ]);
   assert.match(snapshot, /def item_artwork_catalog\(/);
-  assert.match(snapshot, /"itemArtworkCatalog": item_artwork_catalog\(root, game_data\)/);
+  assert.match(snapshot, /"itemArtworkCatalog": artwork_catalog/);
+  assert.match(snapshot, /"localizedNamesByQualifiedId": localized_names_by_qualified_id/);
   assert.match(page, /const ItemArtworkCatalogContext = createContext/);
   assert.match(page, /const resolvedItem = item \|\| catalog\[itemArtworkKey\(name\)\]/);
   assert.match(page, /<ItemArtworkCatalogContext\.Provider value=\{data\.itemArtworkCatalog \|\| \{\}\}>/);
@@ -1335,8 +1336,8 @@ test("Fishing can plan another hour during LIVE and guides accepted fishing requ
     /const \[useLiveTime, setUseLiveTime\] = useState\(true\)/,
   );
   assert.match(page, /setUseLiveTime\(false\)/);
-  assert.match(page, /Return to LIVE time/);
-  assert.match(page, /Mission priority/);
+  assert.match(page, /t\("fishing\.returnLive"/);
+  assert.match(page, /t\("fishing\.missionPriority"\)/);
   assert.match(page, /questFishDetails/);
   assert.match(page, /mission-fish/);
   assert.match(page, /mission-fish-art/);
@@ -1348,10 +1349,10 @@ test("Fishing can plan another hour during LIVE and guides accepted fishing requ
     /acceptedMissionQuests\.filter\(\(quest\) => trackedFish\.some/,
   );
   assert.match(page, /quest\.type !== "ItemDelivery"/);
-  assert.match(page, /Ready to deliver to/);
-  assert.match(page, /Difficulty \{fish\.difficulty\}/);
+  assert.match(page, /t\("fishing\.readyToDeliver"/);
+  assert.match(page, /t\("fishing\.difficulty", \{ difficulty: fish\.difficulty \}\)/);
   assert.match(page, /stardew-tool-fishing-list/);
-  assert.match(page, /All available/);
+  assert.match(page, /t\("fishing\.allAvailable"/);
   assert.match(page, /atLiveLocation/);
   assert.match(page, /current-location-fish/);
   assert.match(page, /live\.acceptedQuests/);
@@ -1367,7 +1368,7 @@ test("Fishing renders each catch from the private object spritesheet", async () 
   ]);
   assert.match(
     page,
-    /<SheetArtwork id=\{fish\.id\} kind="object" label=\{fish\.name\}/,
+    /<SheetArtwork id=\{fish\.id\} kind="object" label=\{fish\.displayName\}/,
   );
   assert.match(page, /spritePaths\.objects/);
   assert.match(
@@ -1431,7 +1432,7 @@ test("Grandpa forecast separates projected milestones from points confirmed toda
   );
   assert.match(page, /forecastMilestonePoints/);
   assert.match(page, /Projected at your current pace/);
-  assert.match(page, /Compared with <b>\{formatGameDate\(previousSnapshot\)\}/);
+  assert.match(page, /Compared with <b>\{formatGameDate\(previousSnapshot, t\)\}/);
   assert.match(page, /scoreEvents\.map/);
   assert.match(page, /<GrandpaShrineArtwork candles=\{projectedCandles\} \/>/);
   assert.match(page, /Grandpa%20Shrine%20Scene\.png/);
@@ -1469,7 +1470,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(page, /t\("storage\.byContainer"\)/);
   assert.match(page, /t\("storage\.sortQuantityDesc"\)/);
   assert.match(page, /item\.displayName \|\| item\.name/);
-  assert.match(page, /displayName: item\.displayName \|\| gameName\(item\.name\)/);
+  assert.match(page, /displayName: gameName\(item\.displayName \|\| item\.name, item\.id\)/);
+  assert.match(page, /current\.localizedNamesByQualifiedId/);
   assert.match(page, /t\("crops\.currentlyPlanted"\)/);
   assert.match(page, /crop\.displayName/);
   assert.match(page, /storageLocation/);
@@ -1486,7 +1488,10 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Weapons\.xnb/);
   assert.match(extractor, /Strings\/Shirts\.xnb/);
   assert.match(extractor, /Strings\/Furniture\.xnb/);
-  assert.match(extractor, /catalogVersion: 2/);
+  assert.match(extractor, /catalogVersion: 3/);
+  assert.match(extractor, /localizedNamesByQualifiedId/);
+  assert.match(generator, /def localized_message\(/);
+  assert.match(generator, /today\.luck\.\{luck_tier\}/);
   assert.match(generator, /"spriteKind": "fallback"/);
   assert.match(generator, /"Furniture"/);
   assert.match(generator, /bool_value\(node, "bigCraftable"\)/);

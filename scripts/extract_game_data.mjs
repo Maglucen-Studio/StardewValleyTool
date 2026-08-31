@@ -81,20 +81,29 @@ const localizedObjectNamesByEnglish = Object.assign(
   )),
 );
 const localizedObjectNames = await unpackLocalized("Strings/Objects.xnb");
+const fish = await unpack("Data/Fish.xnb");
+const localizedNamesByQualifiedId = Object.fromEntries(
+  Object.entries(fish).flatMap(([id, raw]) => {
+    const englishName = typeof raw === "string" ? raw.split("/", 1)[0] : "";
+    const localizedName = localizedObjectNamesByEnglish[englishName];
+    return localizedName ? [[`(O)${id}`, localizedName]] : [];
+  }),
+);
 
 const gameData = {
-  _localization: { language, locale, xnbSuffix, catalogVersion: 2 },
+  _localization: { language, locale, xnbSuffix, catalogVersion: 3 },
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
   craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),
   cookingChannel: await unpack("Data/TV/CookingChannel.xnb"),
   tipChannel: await unpack("Data/TV/TipChannel.xnb"),
-  fish: await unpack("Data/Fish.xnb"),
+  fish,
   hair: await unpack("Data/HairData.xnb"),
   hats: await unpack("Data/hats.xnb"),
   furniture: await unpack("Data/Furniture.xnb"),
   objectNames: localizedObjectNames,
   localizedObjectNamesByEnglish,
+  localizedNamesByQualifiedId,
   specialOrderStrings: await unpackLocalized("Strings/SpecialOrderStrings.xnb"),
 };
 

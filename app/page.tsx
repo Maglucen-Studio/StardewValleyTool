@@ -11,7 +11,7 @@ import {
   type CSSProperties,
 } from "react";
 import packageMetadata from "../package.json";
-import { useI18n } from "./i18n";
+import { useI18n, type MessageDescriptor } from "./i18n";
 
 const APPLICATION_VERSION = packageMetadata.version;
 
@@ -96,6 +96,7 @@ type Snapshot = {
   fishingBrief: FishingBrief;
   planningBrief: PlanningBrief;
   localizedObjectNamesByEnglish?: Record<string, string>;
+  localizedNamesByQualifiedId?: Record<string, string>;
   itemArtworkCatalog?: Record<string, ItemArtwork>;
   map: { width: number; height: number; tileSize: number; blocked: number[][] };
   objects: FarmObject[];
@@ -109,6 +110,7 @@ type Snapshot = {
   >;
   suggestions: Suggestion[];
 };
+type LocalizedValue = string | MessageDescriptor;
 type Progress = {
   farming: number;
   mining: number;
@@ -220,9 +222,9 @@ type DailyQuest = {
   accepted: boolean;
   available?: boolean;
   daily?: boolean;
-  title: string;
-  description: string;
-  objective: string;
+  title: LocalizedValue;
+  description: LocalizedValue;
+  objective: LocalizedValue;
   type: string;
   requester: string | null;
   reward: number;
@@ -233,21 +235,22 @@ type DailyQuest = {
   owned: number;
   hasRequestedItems: boolean;
   stock: { name: string; count: number; sources: string[] }[];
-  stockNote: string | null;
-  tips?: string[];
+  stockNote: LocalizedValue | null;
+  tips?: LocalizedValue[];
   requestedId?: string | null;
   requestedName?: string | null;
 };
 type DailyBrief = {
-  weatherTomorrow: { code: string; label: string };
+  weatherTomorrow: { code: string };
   luck: {
     value: number;
-    label: string;
-    advice: string;
-    recommendations: string[];
-    explanation: string;
+    tier: string;
+    label: LocalizedValue;
+    advice: LocalizedValue;
+    recommendations: LocalizedValue[];
+    explanation: LocalizedValue;
   };
-  tv: { channel: string; title: string; detail: string }[];
+  tv: { id: string; channel: LocalizedValue; title: LocalizedValue; detail: LocalizedValue }[];
   world: { location: string; items: { name: string; count: number }[] }[];
   beach: { name: string; count: number; tiles: number[][] }[];
   birthdays: BirthdayBrief[];
@@ -272,7 +275,7 @@ type DailyBrief = {
   specialOrdersUnlocked?: boolean;
   boardQuest?: DailyQuest | null;
   inventoryItemsChecked: number;
-  summary: string;
+  summary: LocalizedValue;
 };
 type FishingFish = {
   id: string;
@@ -288,6 +291,7 @@ type FishingFish = {
   minFishingLevel: number;
   caught: boolean;
 };
+type DisplayFishingFish = FishingFish & { displayName: string };
 type FishingBrief = {
   season: string;
   day: number;
@@ -508,7 +512,7 @@ type StorageInventoryItem = LiveInventoryItem & {
   sourceDetails?: StorageSourceDetail[];
 };
 type LiveStorageItem = LiveInventoryItem & {
-  source: string;
+  source?: string;
   containerKind?: "chest";
   containerName?: string;
   containerItemId?: string;
@@ -517,6 +521,8 @@ type LiveStorageItem = LiveInventoryItem & {
   containerX?: number;
   containerY?: number;
 };
+const liveStorageSource = (item: LiveStorageItem) =>
+  item.source || `chest:${item.containerLocation || "unknown"}:${item.containerX ?? "?"}:${item.containerY ?? "?"}`;
 type LiveMachine = {
   id?: string;
   name: string;
@@ -528,6 +534,7 @@ type LiveMachine = {
   minutesUntilReady?: number;
 };
 type LiveFriendship = {
+  id?: string;
   name: string;
   points: number;
   hearts: number;
@@ -652,11 +659,10 @@ const seasonName = (season: string) =>
   ({ spring: "Spring", summer: "Summer", fall: "Fall", winter: "Winter" })[
     season
   ] || season;
-const formatGameDate = (date: {
-  year: number;
-  seasonLabel: string;
-  day: number;
-}) => `Year ${date.year}, ${date.seasonLabel} ${date.day}`;
+const formatGameDate = (
+  date: { year: number; season: string; day: number },
+  t: (key: string, variables?: Record<string, string | number>) => string,
+) => t("date.game", { year: date.year, season: t(`season.${date.season}`), day: date.day });
 const qualifyItemId = (
   id?: string | null,
   spriteKind: ItemSpriteKind = "object",
@@ -744,7 +750,7 @@ function sessionSummary(snapshot: Snapshot, live?: LiveState): SessionSummary {
       .map((item) => item.id),
     activeQuests: (quests || [])
       .filter((quest) => quest.accepted)
-      .map((quest) => quest.title),
+      .map((quest) => typeof quest.title === "string" ? quest.title : quest.title.key),
   };
 }
 const LIVE_ROUTE_LOCATION_NAMES: Record<string, string> = {
@@ -2817,12 +2823,14 @@ export default function Home() {
           sourceCounts: [{ source: "Backpack · LIVE", count: item.count, quality: item.quality }],
           sourceDetails: [{ source: "Backpack · LIVE", kind: "backpack" as const }],
         })),
-        ...(live.storage || []).map((item) => ({
+        ...(live.storage || []).map((item) => {
+          const source = liveStorageSource(item);
+          return ({
           ...item,
-          sources: [item.source],
-          sourceCounts: [{ source: item.source, count: item.count, quality: item.quality }],
+          sources: [source],
+          sourceCounts: [{ source, count: item.count, quality: item.quality }],
           sourceDetails: [{
-            source: item.source,
+            source,
             kind: "chest" as const,
             name: item.containerName,
             itemId: item.containerItemId,
@@ -2831,7 +2839,7 @@ export default function Home() {
             x: item.containerX,
             y: item.containerY,
           }],
-        })),
+        });}),
       ]
     : data.planningBrief.inventory;
   const locationMatches = locatedItemName
@@ -4440,8 +4448,9 @@ function InteriorView({
     const ctx = element?.getContext("2d");
     if (!element || !ctx) return;
     ctx.imageSmoothingEnabled = false;
-    if (background?.path === interior.background) {
-      ctx.drawImage(background.image, 0, 0, element.width, element.height);
+    const currentBackground = background;
+    if (currentBackground?.path === interior.background) {
+      ctx.drawImage(currentBackground!.image, 0, 0, element.width, element.height);
     } else {
       ctx.fillStyle = "#6f5437";
       ctx.fillRect(0, 0, element.width, element.height);
@@ -5141,7 +5150,11 @@ function StorageLocationPreviewCanvas({
         : current.buildings
       : [];
     const furniture = interior?.furniture || [];
-    const entities = [
+    const entities: Array<
+      | { type: "object"; bottom: number; item: FarmObject }
+      | { type: "building"; bottom: number; item: Building }
+      | { type: "furniture"; bottom: number; item: Interior["furniture"][number] }
+    > = [
       ...objects.map((item) => ({ type: "object" as const, bottom: item.y + 1, item })),
       ...buildings.map((item) => ({ type: "building" as const, bottom: item.y + item.height, item })),
       ...furniture.map((item) => ({ type: "furniture" as const, bottom: item.y + 1, item })),
@@ -5152,14 +5165,17 @@ function StorageLocationPreviewCanvas({
         drawBuildingSprite(ctx, sprites, entity.item);
         continue;
       }
-      const item = entity.item;
-      const px = item.x * TILE;
-      const py = item.y * TILE;
       if (entity.type === "furniture") {
+        const item = entity.item;
+        const px = item.x * TILE;
+        const py = item.y * TILE;
         if (item.sourceWidth && item.sourceHeight && sprites.furniture)
           sprite(ctx, sprites.furniture, [item.sourceX || 0, item.sourceY || 0, item.sourceWidth, item.sourceHeight], [px, py - Math.max(0, item.sourceHeight - TILE)]);
         continue;
       }
+      const item = entity.item;
+      const px = item.x * TILE;
+      const py = item.y * TILE;
       const index = Number(item.id);
       if (!Number.isFinite(index)) continue;
       const color = item.color || chestColors.get(`${normalizedLocation}:${item.x}:${item.y}`);
@@ -5341,8 +5357,23 @@ function FishingView({
   current: Snapshot;
   live: LiveState;
 }) {
-  const { t } = useI18n();
+  const { t, text } = useI18n();
   const brief = current.fishingBrief;
+  const locationName = (name: string) => {
+    const key = ({
+      "Town River": "townRiver", "Forest River": "forestRiver", "Mountain Lake": "mountainLake",
+      "Forest Pond": "forestPond", Ocean: "ocean", "Secret Woods": "secretWoods", Sewers: "sewers",
+      Desert: "desert", "Ginger Island": "gingerIsland", "Ginger Island Ocean": "gingerOcean",
+      "Ginger Island River/Pond": "gingerRiverPond", "Witch's Swamp": "witchSwamp",
+      "Mutant Bug Lair": "mutantLair", "Night Market submarine": "nightMarketSubmarine",
+      "The Mines · floor 20/60": "mines2060", "The Mines · floor 20": "mines20",
+      "The Mines · floor 60": "mines60", "The Mines · floor 100": "mines100",
+      "Ocean · east pier": "oceanEastPier", "Town · north of JojaMart": "townNorthJoja",
+      "Mountain Lake · log island": "mountainLogIsland", "Forest · Arrowhead Island": "forestArrowhead",
+      "Ginger Island · Pirate Cove": "pirateCove",
+    } as Record<string, string>)[name];
+    return key ? t(`fishing.location.${key}`) : name;
+  };
   const [hour, setHour] = useState(600);
   const [useLiveTime, setUseLiveTime] = useState(true);
   const [fishListMode, setFishListMode] = useState<"collection" | "all">(() =>
@@ -5369,6 +5400,10 @@ function FishingView({
       : null;
   const trackedFish = brief.fish.map((fish) => ({
     ...fish,
+    displayName:
+      current.localizedNamesByQualifiedId?.[`(O)${normalizeObjectId(fish.id)}`] ||
+      current.localizedObjectNamesByEnglish?.[fish.name] ||
+      fish.name,
     caught: liveCaught
       ? liveCaught.has(fish.id.replace("(O)", ""))
       : fish.caught,
@@ -5468,7 +5503,7 @@ function FishingView({
     );
   const locationScores = new Map<
     string,
-    { location: string; fish: FishingFish[]; score: number }
+    { location: string; fish: DisplayFishingFish[]; score: number }
   >();
   for (const fish of available)
     for (const location of fish.accessibleLocations) {
@@ -5534,10 +5569,9 @@ function FishingView({
           </p>
           <h1>{t("fishing.title")}</h1>
           <p>
-            {formatGameDate(current)} ·{" "}
-            {liveWeather === "rainy" ? "Raining" : "Dry weather"} · Fishing
-            Level {fishingLevel}
-            {live.active ? ` · ${live.location || "unknown location"}` : ""}
+            {t("date.game", { year: current.year, season: t(`season.${current.season}`), day: current.day })} ·{" "}
+            {t(`fishing.weather.${liveWeather}`)} · {t("fishing.level", { level: fishingLevel })}
+            {live.active ? ` · ${live.location || t("shell.unknownLocation")}` : ""}
           </p>
         </div>
         <div className="fish-progress">
@@ -5554,8 +5588,7 @@ function FishingView({
           </p>
           <h2>{fishTime(displayedHour)}</h2>
           <small>
-            Choose any hour to plan ahead. ✓ means you already have every
-            accessible fish for that hour.
+            {t("fishing.clockHelp")}
           </small>
           {live.active && !followingLiveTime && (
             <button
@@ -5563,7 +5596,7 @@ function FishingView({
               className="use-live-time"
               onClick={() => setUseLiveTime(true)}
             >
-              Return to LIVE time · {fishTime(live.timeOfDay || 600)}
+              {t("fishing.returnLive", { time: fishTime(live.timeOfDay || 600) })}
             </button>
           )}
         </div>
@@ -5577,7 +5610,7 @@ function FishingView({
                   setHour(value);
                   setUseLiveTime(false);
                 }}
-                aria-label={`${fishTime(value)} · ${status.complete ? "collection complete" : status.missing ? `${status.missing} fish missing` : "no fish available"}`}
+                aria-label={t(status.complete ? "fishing.hourComplete" : status.missing ? "fishing.hourMissing" : "fishing.hourEmpty", { time: fishTime(value), count: status.missing })}
                 key={value}
               >
                 <span>{fishTime(value).replace(" (+1)", "")}</span>
@@ -5598,46 +5631,44 @@ function FishingView({
                 <SheetArtwork
                   id={normalizeObjectId(quest.requestedId)}
                   kind="object"
-                  label={quest.requestedName || "Requested fish"}
+                  label={quest.requestedName || t("fishing.requestedFish")}
                 />
               </div>
               <div className="mission-fish-copy">
                 <p className="eyebrow">
-                  Mission priority · {live.active ? "LIVE" : "latest save"}
+                  {t("fishing.missionPriority")} · {live.active ? "LIVE" : t("status.localSave")}
                 </p>
                 <h2>
-                  {quest.requestedName || quest.title}
-                  {quest.requester && <small> for {quest.requester}</small>}
+                   {quest.requestedName || text(quest.title)}
+                  {quest.requester && <small> {t("fishing.forRequester", { requester: quest.requester })}</small>}
                 </h2>
                 <strong>
-                  {quest.objective ||
-                    `Catch ${quest.target || 1} ${quest.requestedName || "fish"}`}
+                   {text(quest.objective) ||
+                    t("fishing.catchTarget", { count: quest.target || 1, fish: quest.requestedName || t("fishing.fish") })}
                 </strong>
                 {fish ? (
                   <div className="mission-fish-conditions">
                     <span>
-                      {fish.accessibleLocations.join(" · ") ||
-                        fish.locations.join(" · ")}
+                      {(fish.accessibleLocations.length ? fish.accessibleLocations : fish.locations).map(locationName).join(" · ")}
                     </span>
                     <span>{fishWindow(fish)}</span>
                     <span>
                       {fish.weather === "both"
-                        ? "Any weather"
+                        ? t("fishing.anyWeather")
                         : fish.weather === "rainy"
-                          ? "Rain required"
-                          : "Dry weather"}
+                          ? t("fishing.rainRequired")
+                          : t("fishing.weather.sunny")}
                     </span>
-                    <span>Difficulty {fish.difficulty}</span>
+                    <span>{t("fishing.difficulty", { difficulty: fish.difficulty })}</span>
                     {atLiveLocation(fish) && (
                       <span className="current-area-chip">
-                        Available where you are
+                        {t("fishing.availableHere")}
                       </span>
                     )}
                   </div>
                 ) : (
                   <p>
-                    {quest.requestedName || "The requested fish"} is not present
-                    in the current fishing catalog.
+                    {t("fishing.notInCatalog", { fish: quest.requestedName || t("fishing.requestedFish") })}
                   </p>
                 )}
               </div>
@@ -5648,10 +5679,10 @@ function FishingView({
                 <small>
                   {quest.type === "ItemDelivery" &&
                   questProgress(quest) >= (quest.target || 1)
-                    ? `Ready to deliver to ${quest.requester || "the requester"}`
+                    ? t("fishing.readyToDeliver", { requester: quest.requester || t("fishing.requester") })
                     : catchableNow
-                      ? "Catchable at this planned time"
-                      : "Change time or conditions"}
+                      ? t("fishing.catchableNow")
+                      : t("fishing.changeConditions")}
                 </small>
               </div>
             </section>
@@ -5674,14 +5705,14 @@ function FishingView({
                   className={fishListMode === "collection" ? "active" : ""}
                   onClick={() => chooseFishListMode("collection")}
                 >
-                  Collection · {missingNow.length}
+                  {t("fishing.collectionCount", { count: missingNow.length })}
                 </button>
                 <button
                   type="button"
                   className={fishListMode === "all" ? "active" : ""}
                   onClick={() => chooseFishListMode("all")}
                 >
-                  All available · {allAvailable.length}
+                  {t("fishing.allAvailable", { count: allAvailable.length })}
                 </button>
               </div>
             </div>
@@ -5700,24 +5731,24 @@ function FishingView({
                     <SheetArtwork
                       id={fish.id}
                       kind="object"
-                      label={fish.name}
+                      label={fish.displayName}
                     />
                     <div>
                       <strong>
-                        {fish.name}
-                        {mission && <em>MISSION</em>}
-                        {here && <em className="here-badge">HERE</em>}
+                        {fish.displayName}
+                        {mission && <em>{t("fishing.mission")}</em>}
+                        {here && <em className="here-badge">{t("fishing.here")}</em>}
                         {fishListMode === "all" && fish.caught && (
-                          <em className="caught-badge">CAUGHT</em>
+                          <em className="caught-badge">{t("fishing.caught")}</em>
                         )}
                       </strong>
-                      <small>{fish.accessibleLocations.join(" · ")}</small>
-                      <WikiLink name={fish.name} />
+                      <small>{fish.accessibleLocations.map(locationName).join(" · ")}</small>
+                      <WikiLink name={fish.name} label={t("fishing.wiki")} />
                     </div>
                     <div className="fish-meta">
                       <b>{fish.basePrice}g</b>
                       <span>
-                        {fishWindow(fish)} · difficulty {fish.difficulty}
+                        {fishWindow(fish)} · {t("fishing.difficulty", { difficulty: fish.difficulty })}
                       </span>
                     </div>
                   </div>
@@ -5727,22 +5758,22 @@ function FishingView({
           ) : (
             <p className="fish-empty">
               {fishListMode === "collection"
-                ? "No available fish are missing at this time in this weather. Change the time to plan the rest of the day."
-                : "No fish are available at this time in this weather."}
+                ? t("fishing.noneMissingNow")
+                : t("fishing.noneAvailableNow")}
             </p>
           )}
           {laterToday.length > 0 && (
             <div className="later-fish">
-              <strong>Later today</strong>
+              <strong>{t("fishing.laterToday")}</strong>
               {laterToday.slice(0, 6).map((fish) => (
                 <span
                   className={questForFish(fish) ? "mission-fish" : ""}
                   key={fish.id}
                 >
-                  <SheetArtwork id={fish.id} kind="object" label={fish.name} />
-                  <b>{fish.name}</b>
-                  {questForFish(fish) && <em>MISSION</em>} · {fishWindow(fish)}{" "}
-                  · {fish.accessibleLocations[0]}
+                  <SheetArtwork id={fish.id} kind="object" label={fish.displayName} />
+                  <b>{fish.displayName}</b>
+                  {questForFish(fish) && <em>{t("fishing.mission")}</em>} · {fishWindow(fish)}{" "}
+                  · {locationName(fish.accessibleLocations[0])}
                 </span>
               ))}
             </div>
@@ -5751,27 +5782,24 @@ function FishingView({
         <article className="fish-panel money-panel">
           <div className="card-title">
             <div>
-              <p className="eyebrow">Optimize income</p>
+              <p className="eyebrow">{t("fishing.optimizeIncome")}</p>
               <h2>
                 {bestSpot
-                  ? `Go to ${bestSpot.location}`
-                  : "No area is available"}
+                  ? t("fishing.goTo", { location: locationName(bestSpot.location) })
+                  : t("fishing.noArea")}
               </h2>
             </div>
             {bestSpot && (
               <strong className="money-score">
                 {bestSpot.score}
-                <small>score</small>
+                <small>{t("fishing.score")}</small>
               </strong>
             )}
           </div>
           {bestSpot ? (
             <>
               <p className="money-explanation">
-                This is the best estimated opportunity for this hour based on
-                base price, difficulty, and your Fishing Level. It is not exact
-                gold per hour: casting distance, quality, bait, and time between
-                bites also matter.
+                {t("fishing.incomeExplanation")}
               </p>
               <div className="money-targets">
                 {bestSpot.fish.slice(0, 5).map((fish, index) => (
@@ -5783,18 +5811,18 @@ function FishingView({
                     <SheetArtwork
                       id={fish.id}
                       kind="object"
-                      label={fish.name}
+                      label={fish.displayName}
                     />
                     <strong>
-                      {fish.name}
-                      {questForFish(fish) && <em>MISSION</em>}
+                      {fish.displayName}
+                      {questForFish(fish) && <em>{t("fishing.mission")}</em>}
                     </strong>
                     <b>{fish.basePrice}g</b>
                     <small>
                       {fish.caught
-                        ? "Already caught"
-                        : "New for the collection"}{" "}
-                      · difficulty {fish.difficulty}
+                        ? t("fishing.alreadyCaught")
+                        : t("fishing.newCollection")}{" "}
+                      · {t("fishing.difficulty", { difficulty: fish.difficulty })}
                     </small>
                   </div>
                 ))}
@@ -5802,16 +5830,15 @@ function FishingView({
             </>
           ) : (
             <p className="fish-empty">
-              No rod-caught fish are recorded for this time and weather
-              combination.
+              {t("fishing.noRodFish")}
             </p>
           )}
           {moneySpots.length > 1 && (
             <div className="alternative-spots">
-              <strong>Alternatives</strong>
+              <strong>{t("fishing.alternatives")}</strong>
               {moneySpots.slice(1, 5).map((spot) => (
                 <span key={spot.location}>
-                  <b>{spot.location}</b>
+                  <b>{locationName(spot.location)}</b>
                   <i
                     style={{
                       width: `${Math.max(8, (spot.score / Math.max(1, bestSpot?.score || 1)) * 100)}%`,
@@ -5825,9 +5852,7 @@ function FishingView({
         </article>
       </div>
       <p className="fishing-note">
-        When Stardew is connected, the collection updates immediately after
-        catching a new species; while the game is closed it uses the latest
-        save.
+        {t("fishing.liveNote")}
       </p>
     </section>
   );
@@ -6021,8 +6046,10 @@ function PlanningView({
   }, []);
 
   const plan = current.planningBrief;
-  const gameName = (name: string) =>
-    current.localizedObjectNamesByEnglish?.[name] || name;
+  const gameName = (name: string, qualifiedId?: string) =>
+    (qualifiedId ? current.localizedNamesByQualifiedId?.[qualifiedId] : undefined) ||
+    current.localizedObjectNamesByEnglish?.[name] ||
+    name;
   const savedBackpackInventory = plan.inventory.filter(
     (item) => item.sources.includes("Backpack"),
   );
@@ -6052,13 +6079,14 @@ function PlanningView({
           }),
           ...(live.storage !== undefined
               ? live.storage.map((item) => {
+                const source = liveStorageSource(item);
                 const savedItem = savedChestInventory.find(
                   (candidate) =>
                     inventoryItemId(candidate) === inventoryItemId(item) &&
                     candidate.name === item.name,
                 );
                 const savedDetail = savedItem?.sourceDetails?.find(
-                  (detail) => detail.source === item.source,
+                  (detail) => detail.source === source,
                 );
                 return {
                   ...savedItem,
@@ -6067,10 +6095,10 @@ function PlanningView({
                   spriteIndex: item.spriteIndex || savedItem?.spriteIndex,
                   spriteWidth: item.spriteWidth || savedItem?.spriteWidth,
                   spriteHeight: item.spriteHeight || savedItem?.spriteHeight,
-                  sources: [item.source],
-                  sourceCounts: [{ source: item.source, count: item.count, quality: item.quality }],
+                  sources: [source],
+                  sourceCounts: [{ source, count: item.count, quality: item.quality }],
                   sourceDetails: [{
-                    source: item.source,
+                    source,
                     kind: "chest" as const,
                     name: item.containerName || savedDetail?.name,
                     itemId: item.containerItemId || savedDetail?.itemId,
@@ -6103,7 +6131,7 @@ function PlanningView({
       const existing = index[key] || {
         id: item.id,
         name: item.name,
-        displayName: item.displayName || gameName(item.name),
+        displayName: gameName(item.displayName || item.name, item.id),
         count: 0,
         quality: item.quality,
         qualities: [],
@@ -6318,7 +6346,7 @@ function PlanningView({
       const entry = grouped[crop.name] || {
         id: crop.id,
         name: crop.name,
-        displayName: gameName(crop.name),
+        displayName: gameName(crop.name, `(O)${crop.id}`),
         count: 0,
         watered: 0,
         daysRemaining: crop.daysRemaining,
@@ -8053,11 +8081,11 @@ function DailyBriefModal({
   onClose: () => void;
   onOpenAgenda: () => void;
 }) {
+  const { t, text, date } = useI18n();
   const brief = current.dailyBrief;
   const birthday = brief.birthdays[0];
   const extraTv = brief.tv.find(
-    (program) =>
-      !["Weather Report", "Fortune Teller"].includes(program.channel),
+    (program) => !["weather", "fortune"].includes(program.id),
   );
   const quest = brief.boardQuest ?? brief.dailyQuest;
   const readyCrops = brief.crops
@@ -8084,24 +8112,24 @@ function DailyBriefModal({
         >
           ×
         </button>
-        <p className="eyebrow">Automatic agenda · {formatGameDate(current)}</p>
-        <h1 id="daily-title">Good morning, {current.farmer}</h1>
-        <p className="daily-lead">{brief.summary}</p>
+        <p className="eyebrow">{t("today.automaticAgenda")} · {date(current)}</p>
+        <h1 id="daily-title">{t("today.goodMorning", { farmer: current.farmer })}</h1>
+        <p className="daily-lead">{text(brief.summary)}</p>
         <div className="daily-modal-grid">
           <div>
             <span>☀</span>
             <strong>Tomorrow</strong>
-            <p>{brief.weatherTomorrow.label}</p>
+            <p>{t(`weather.${brief.weatherTomorrow.code}`)}</p>
           </div>
           <div>
             <span>✦</span>
             <strong>Luck</strong>
-            <p>{brief.luck.label}</p>
+            <p>{text(brief.luck.label)}</p>
           </div>
           <div>
             <span>▣</span>
             <strong>Channel</strong>
-            <p>{extraTv?.title || "None"}</p>
+            <p>{extraTv ? text(extraTv.title) : t("common.none")}</p>
           </div>
           <div>
             <span>♟</span>
@@ -8116,15 +8144,15 @@ function DailyBriefModal({
             <span>!</span>
             <strong>Help Wanted</strong>
             <p>
-              {quest.available || quest.accepted ? quest.title : "Nothing new"}
+              {quest.available || quest.accepted ? text(quest.title) : t("common.none")}
             </p>
           </div>
         </div>
         <div className="modal-tv">
           <strong>On TV</strong>
           {brief.tv.map((program) => (
-            <p key={program.channel}>
-              <b>{program.channel}:</b> {program.title}
+            <p key={program.id}>
+              <b>{text(program.channel)}:</b> {text(program.title)}
             </p>
           ))}
         </div>
@@ -8316,7 +8344,7 @@ function DailyBriefView({
   sessionBaseline: SessionSummary | null;
   onOpenCommunityCenter: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, text, date } = useI18n();
   const todaySectionOptions = [
     { id: "overview", label: "Daily overview" },
     { id: "priorities", label: "Priorities right now" },
@@ -8351,8 +8379,7 @@ function DailyBriefView({
     ? liveReadyMachines.length
     : savedReadyMachines.length;
   const extraTv = brief.tv.filter(
-    (program) =>
-      !["Weather Report", "Fortune Teller"].includes(program.channel),
+    (program) => !["weather", "fortune"].includes(program.id),
   );
   const currentEconomy = history.entries.find(
     (entry) => entry.dateKey === current.dateKey,
@@ -8748,12 +8775,12 @@ function DailyBriefView({
           .map((quest) => `${quest} left the journal`),
       ].filter(Boolean) as string[]
     : [];
-  const completableToday = [
+  const completableToday: { kind: string; title: string; detail: string; action?: "community" }[] = [
     ...acceptedQuests
       .filter((quest) => quest.ready || (quest.target > 0 && quest.progress >= quest.target))
       .map((quest) => ({
         kind: "Quest",
-        title: quest.title,
+        title: text(quest.title),
         detail: quest.requester ? `Ready to deliver to ${quest.requester}.` : "The objective is complete; claim or deliver it now.",
       })),
     ...bundleDeliveries.map((delivery) => ({
@@ -8789,7 +8816,7 @@ function DailyBriefView({
           <p className="eyebrow">{t("today.savedBrief")}</p>
           <h1>{t("today.goodMorning", { farmer: current.farmer })}</h1>
           <p>
-            {formatGameDate(current)} · {brief.summary}
+            {date(current)} · {text(brief.summary)}
           </p>
         </div>
         <div className="page-heading-actions">
@@ -8815,7 +8842,7 @@ function DailyBriefView({
           <span className="daily-symbol">☀</span>
           <div>
             <p className="eyebrow">{t("today.tomorrowWeather")}</p>
-            <h2>{brief.weatherTomorrow.label}</h2>
+            <h2>{t(`weather.${brief.weatherTomorrow.code}`)}</h2>
             <small>{t("today.forecast")}</small>
           </div>
         </article>
@@ -8834,22 +8861,22 @@ function DailyBriefView({
                   ? t("today.unfavorable")
                   : t("today.normal")}
             </h2>
-            <small>{brief.luck.label}</small>
+            <small>{text(brief.luck.label)}</small>
           </div>
           <div
             className="luck-summary-tooltip"
             id="luck-summary-tooltip"
             role="tooltip"
           >
-            <strong>{brief.luck.advice}</strong>
+            <strong>{text(brief.luck.advice)}</strong>
             <span>
               {brief.luck.value > 0 ? "+" : ""}
               {brief.luck.value.toFixed(3)}
             </span>
             {brief.luck.recommendations.map((item, index) => (
-              <p key={index}>{item}</p>
+              <p key={index}>{text(item)}</p>
             ))}
-            <small>{brief.luck.explanation}</small>
+            <small>{text(brief.luck.explanation)}</small>
           </div>
         </button>
         <button
@@ -8860,10 +8887,10 @@ function DailyBriefView({
           <span className="daily-symbol">▣</span>
           <div>
             <p className="eyebrow">Extra channel</p>
-            <h2>{extraTv[0]?.title || "None"}</h2>
+            <h2>{extraTv[0] ? text(extraTv[0].title) : t("common.none")}</h2>
             <small>
               {extraTv.length
-                ? extraTv.map((program) => program.channel).join(" · ")
+                ? extraTv.map((program) => text(program.channel)).join(" · ")
                 : "No additional program"}
             </small>
           </div>
@@ -8874,11 +8901,11 @@ function DailyBriefView({
               role="tooltip"
             >
               {extraTv.map((program) => (
-                <div key={program.channel}>
+                <div key={program.id}>
                   <strong>
-                    {program.channel} · {program.title}
+                    {text(program.channel)} · {text(program.title)}
                   </strong>
-                  <p>{program.detail}</p>
+                  <p>{text(program.detail)}</p>
                 </div>
               ))}
             </div>
@@ -8919,7 +8946,7 @@ function DailyBriefView({
           <span className="daily-symbol">!</span>
           <div>
             <p className="eyebrow">Help Wanted</p>
-            <h2>{questVisible ? displayedQuest.title : "Nothing new"}</h2>
+            <h2>{questVisible ? text(displayedQuest.title) : t("common.none")}</h2>
             <small>
               {questVisible ? questPossession : "No new notice today"}
             </small>
@@ -8931,7 +8958,7 @@ function DailyBriefView({
           >
             {questVisible ? (
               <>
-                <strong>{displayedQuest.objective}</strong>
+                <strong>{text(displayedQuest.objective)}</strong>
                 <p>
                   {questCompletedNow
                     ? "Completed today"
@@ -8955,12 +8982,12 @@ function DailyBriefView({
                   </small>
                 ))}
                 {displayedQuest.stockNote && (
-                  <small>{displayedQuest.stockNote}</small>
+                  <small>{text(displayedQuest.stockNote)}</small>
                 )}
                 {hasSeparateAcceptedQuest && (
                   <small>
-                    Also: {brief.dailyQuest.title} ·{" "}
-                    {brief.dailyQuest.objective}
+                    Also: {text(brief.dailyQuest.title)} ·{" "}
+                    {text(brief.dailyQuest.objective)}
                   </small>
                 )}
               </>
@@ -9065,7 +9092,7 @@ function DailyBriefView({
           </div>
           <span>
             {previous
-              ? `${formatGameDate(previous)} → today`
+              ? `${formatGameDate(previous, t)} → today`
               : "Waiting for another snapshot"}
           </span>
         </div>
@@ -9119,7 +9146,7 @@ function DailyBriefView({
               return (
                 <article
                   className={acceptedQuest.ready ? "ready" : ""}
-                  key={`${acceptedQuest.id}-${acceptedQuest.title}`}
+                  key={`${acceptedQuest.id}-${text(acceptedQuest.title)}`}
                 >
                   <div className="accepted-quest-title">
                     <div>
@@ -9128,7 +9155,7 @@ function DailyBriefView({
                           ? `Timed · ${acceptedQuest.daysLeft} day${acceptedQuest.daysLeft === 1 ? "" : "s"} left`
                           : "Story quest"}
                       </span>
-                      <h3>{acceptedQuest.title}</h3>
+                      <h3>{text(acceptedQuest.title)}</h3>
                     </div>
                     {acceptedQuest.reward > 0 && (
                       <strong>
@@ -9136,7 +9163,7 @@ function DailyBriefView({
                       </strong>
                     )}
                   </div>
-                  <p>{acceptedQuest.objective}</p>
+                  <p>{text(acceptedQuest.objective)}</p>
                   {hasMeasuredProgress && (
                     <div className="accepted-quest-progress">
                       <i>
@@ -9175,17 +9202,17 @@ function DailyBriefView({
                   )}
                   {acceptedQuest.stockNote && (
                     <small className="accepted-quest-note">
-                      {acceptedQuest.stockNote}
+                      {text(acceptedQuest.stockNote)}
                     </small>
                   )}
                   <details className="quest-spoilers">
                     <summary>Show guidance and possible spoilers</summary>
                     {acceptedQuest.description && (
-                      <p>{acceptedQuest.description}</p>
+                      <p>{text(acceptedQuest.description)}</p>
                     )}
                     <ol>
                       {(acceptedQuest.tips || []).map((tip, index) => (
-                        <li key={index}>{tip}</li>
+                        <li key={index}>{text(tip)}</li>
                       ))}
                     </ol>
                   </details>
@@ -10081,7 +10108,7 @@ function GrowthView({
             <div className="history-event-list">
               {annotatedEntries.map((entry) => (
                 <article key={entry.dateKey}>
-                  <time>{formatGameDate(entry)}</time>
+                  <time>{formatGameDate(entry, t)}</time>
                   <div>{entry.annotations!.map((annotation) => <span key={annotation}>{annotation}</span>)}</div>
                 </article>
               ))}
@@ -10197,7 +10224,7 @@ function GrowthView({
             <p>
               {previousSnapshot ? (
                 <>
-                  Compared with <b>{formatGameDate(previousSnapshot)}</b>, your
+                  Compared with <b>{formatGameDate(previousSnapshot, t)}</b>, your
                   confirmed total is <b>{currentActualScore}/21</b>
                   {earnedSources.length ? (
                     <> ({earnedSources.join(" · ")})</>
@@ -10376,7 +10403,7 @@ function GrowthView({
             </div>
             {[...entries].reverse().map((entry) => (
               <div className="history-row" key={entry.dateKey}>
-                <strong>{formatGameDate(entry)}</strong>
+                <strong>{formatGameDate(entry, t)}</strong>
                 <span>{entry.money.toLocaleString("en-US")}g</span>
                 <span className="positive">
                   +{entry.income.toLocaleString("en-US")}g
@@ -11113,6 +11140,7 @@ function AchievementsView({
 }
 
 function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLCanvasElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const width = 920;
@@ -11269,7 +11297,7 @@ function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
           style={{ left: `${hoverLeft}%` }}
           role="status"
         >
-          <strong>{formatGameDate(hovered)}</strong>
+          <strong>{formatGameDate(hovered, t)}</strong>
           <span><i className="balance-key" />Balance <b>{hovered.money.toLocaleString("en-US")}g</b></span>
           <span><i className="earned-key" />Total earnings <b>{hovered.totalMoneyEarned.toLocaleString("en-US")}g</b></span>
         </div>

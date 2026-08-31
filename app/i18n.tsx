@@ -13,6 +13,10 @@ import english from "../locales/en.json";
 import spanish from "../locales/es.json";
 
 type Messages = Record<string, string>;
+export type MessageDescriptor = {
+  key: string;
+  variables?: Record<string, string | number | MessageDescriptor>;
+};
 type LocalizationPayload = {
   language: "en" | "es";
   locale: string;
@@ -21,7 +25,9 @@ type LocalizationPayload = {
 };
 type LocalizationContextValue = LocalizationPayload & {
   t: (key: string, variables?: Record<string, string | number>) => string;
+  text: (value: string | MessageDescriptor | null | undefined) => string;
   number: (value: number) => string;
+  date: (value: { year: number; season: string; day: number }) => string;
 };
 
 const fallback: LocalizationPayload = {
@@ -43,10 +49,34 @@ function translateMessage(
   );
 }
 
+function translateValue(
+  messages: Messages,
+  fallbackMessages: Messages,
+  value: string | MessageDescriptor | null | undefined,
+): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return translateMessage(
+    messages,
+    fallbackMessages,
+    value.key,
+    Object.fromEntries(
+      Object.entries(value.variables || {}).map(([key, variable]) => [
+        key,
+        typeof variable === "object"
+          ? translateValue(messages, fallbackMessages, variable)
+          : variable,
+      ]),
+    ),
+  );
+}
+
 const LocalizationContext = createContext<LocalizationContextValue>({
   ...fallback,
   t: (key, variables) => translateMessage(english, english, key, variables),
+  text: value => translateValue(english, english, value),
   number: value => value.toLocaleString("en-US"),
+  date: value => translateMessage(english, english, "date.game", value),
 });
 
 export function LocalizationProvider({ children }: { children: ReactNode }) {
@@ -89,9 +119,23 @@ export function LocalizationProvider({ children }: { children: ReactNode }) {
     (value: number) => value.toLocaleString(state.locale),
     [state.locale],
   );
+  const text = useCallback(
+    (value: string | MessageDescriptor | null | undefined) =>
+      translateValue(state.messages, state.fallbackMessages, value),
+    [state.fallbackMessages, state.messages],
+  );
+  const date = useCallback(
+    (value: { year: number; season: string; day: number }) =>
+      t("date.game", {
+        year: value.year,
+        season: t(`season.${value.season.toLowerCase()}`),
+        day: value.day,
+      }),
+    [t],
+  );
   const value = useMemo(
-    () => ({ ...state, t, number }),
-    [number, state, t],
+    () => ({ ...state, t, text, number, date }),
+    [date, number, state, t, text],
   );
   return <LocalizationContext.Provider value={value}>{children}</LocalizationContext.Provider>;
 }

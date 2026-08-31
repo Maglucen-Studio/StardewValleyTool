@@ -77,3 +77,12 @@ test("farm switching and storage feedback are localized", () => {
   assert.equal(t("storage.chest"), "Cofre");
   assert.equal(t("storage.sortQuantityDesc"), "Cantidad: de mayor a menor");
 });
+
+test("semantic daily and fishing messages are available in both catalogs", () => {
+  const en = createTranslator(english, english);
+  const es = createTranslator(spanish, english);
+  assert.equal(en("weather.Rain"), "Rain");
+  assert.equal(es("weather.Rain"), "Lluvia");
+  assert.match(es("today.luck.favorable.label"), /suerte favorable/);
+  assert.equal(es("fishing.level", { level: 8 }), "Nivel de pesca 8");
+});

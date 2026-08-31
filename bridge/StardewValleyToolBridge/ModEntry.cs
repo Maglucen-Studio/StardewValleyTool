@@ -237,7 +237,6 @@ public sealed class ModEntry : Mod
                                     spriteIndex = SpriteIndex(item),
                                     spriteWidth = SpriteWidth(item),
                                     spriteHeight = SpriteHeight(item),
-                                    source = $"Chest · {locationKey} ({(int)pair.Key.X}, {(int)pair.Key.Y})",
                                     containerKind = "chest",
                                     containerName = chest.Name,
                                     containerItemId = chest.ItemId,
