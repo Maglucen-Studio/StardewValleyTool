@@ -946,6 +946,8 @@ test("the header and farm selector use each save's locally composed farmer", asy
   assert.match(page, /src=\{data\.farmerAvatar \|\| "\/app-icon\.png"\}/);
   assert.match(page, /className="farmer-avatar"/);
   assert.match(page, /className="farmer-name">[\s\S]*?\{data\.farmer\}[\s\S]*?development-badge/);
+  assert.match(page, /className="app-version-badge"[\s\S]*?v\{APPLICATION_VERSION\}/);
+  assert.match(page, /Maglucen Stardew Valley Companion · v\$\{APPLICATION_VERSION\}/);
   assert.doesNotMatch(page, />Maglucen · Stardew Valley Companion<\/span>/);
   assert.match(page, /className="farm-option-avatar"/);
   assert.match(styles, /\.farmer-avatar \{[^}]*image-rendering: pixelated/s);
@@ -960,6 +962,9 @@ test("the header and farm selector use each save's locally composed farmer", asy
   assert.match(desktop, /function ensureFarmAvatars\(/);
   assert.match(desktop, /avatar: `\/assets\/farmers\/\$\{profileIdForSave\(file\)\}\.png/);
   assert.match(localServer, /syncRuntimePublic\(\["data", "assets\/farmers", "assets\/location-maps", "assets\/sprites"\]\)/);
+  assert.match(styles, /\.friend-gifts \{[^}]*grid-column: 1\/-1;/s);
+  assert.match(styles, /\.friend-gifts \.gift-list \{[\s\S]*?auto-fit,[\s\S]*?minmax\(min\(210px, 100%\), 1fr\)/);
+  assert.match(styles, /\.friend-gifts \.gift-list strong \{[^}]*overflow-wrap: break-word;[^}]*word-break: normal;/s);
 });
 
 test("the desktop refreshes extracted NPC assets after a mod changes", async () => {

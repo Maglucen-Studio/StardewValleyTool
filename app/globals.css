@@ -383,6 +383,12 @@ button {
   align-items: center;
   gap: 7px;
 }
+.app-version-badge {
+  color: #aebaaa;
+  font: 700 8px Arial, sans-serif;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
 .development-badge {
   padding: 2px 5px;
   border: 1px solid #e1b64f;
@@ -5987,6 +5993,7 @@ button {
 }
 .friend-gifts {
   min-width: 0;
+  grid-column: 1/-1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
@@ -5996,12 +6003,19 @@ button {
   min-width: 0;
 }
 .friend-gifts .gift-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(210px, 100%), 1fr)
+  );
 }
 .friend-gifts .gift-list div {
   min-width: 0;
 }
-.friend-gifts .gift-list strong,
+.friend-gifts .gift-list strong {
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
 .friend-gifts .gift-list small {
   overflow-wrap: anywhere;
 }

@@ -10,6 +10,9 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import packageMetadata from "../package.json";
+
+const APPLICATION_VERSION = packageMetadata.version;
 
 type Tile = { x: number; y: number };
 type Terrain = Tile & {
@@ -1607,8 +1610,8 @@ export default function Home() {
 
   useEffect(() => {
     document.title = diagnostics?.development
-      ? "Maglucen Companion Development"
-      : "Maglucen Stardew Valley Companion";
+      ? `Maglucen Companion Development · v${APPLICATION_VERSION}`
+      : `Maglucen Stardew Valley Companion · v${APPLICATION_VERSION}`;
   }, [diagnostics?.development]);
 
   useEffect(() => {
@@ -3001,6 +3004,9 @@ export default function Home() {
             </button>
             <span className="farmer-name">
               {data.farmer}
+              <b className="app-version-badge" title="App version">
+                v{APPLICATION_VERSION}
+              </b>
               {diagnostics?.development && (
                 <b className="development-badge">Development</b>
               )}
