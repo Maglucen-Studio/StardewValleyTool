@@ -1,0 +1,9 @@
+{
+  "Name": "Maglucen Companion Bridge",
+  "Author": "maglucen",
+  "Version": "5.0.0",
+  "Description": "Exports read-only live state for Maglucen Stardew Valley Companion without adding an in-game interface.",
+  "UniqueID": "maglucen.StardewValleyToolBridge",
+  "EntryDll": "StardewValleyToolBridge.dll",
+  "MinimumApiVersion": "4.0.0"
+}

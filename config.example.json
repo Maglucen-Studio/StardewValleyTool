@@ -1,0 +1,7 @@
+{
+  "stardewPath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Stardew Valley",
+  "savePath": "C:\\Users\\YOUR_USER\\AppData\\Roaming\\StardewValley\\Saves\\Farm_123456789\\Farm_123456789",
+  "pythonCommand": "python",
+  "port": 3000,
+  "autoLaunch": true
+}

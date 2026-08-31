@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - development
+  push:
+    branches:
+      - main
+      - development
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Use Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify public-source boundaries
+        run: npm run verify:public
+      - name: Audit runtime dependencies
+        run: npm run audit:runtime
+      - name: Lint
+        run: npm run lint
+      - name: Build and test
+        run: npm test
+
+  windows-package:
+    name: Windows desktop package
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Use Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Check out public API reference assemblies
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: StardewModders/mod-reference-assemblies
+          ref: 0141355fecb8536715ecff22f99374b5e632cbed
+          path: .stardew-reference-assemblies
+      - name: Build unpacked desktop application
+        env:
+          STARDEW_PATH: ${{ github.workspace }}\.stardew-reference-assemblies
+        run: npm run desktop:dir

@@ -1,0 +1,87 @@
+name: Publish Windows release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: Build and publish verified installer
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check out public API reference assemblies
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: StardewModders/mod-reference-assemblies
+          ref: 0141355fecb8536715ecff22f99374b5e632cbed
+          path: .stardew-reference-assemblies
+
+      - name: Verify tag and source
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          if ("${{ github.ref_name }}" -ne "v$version") {
+            throw "Tag ${{ github.ref_name }} does not match package version $version."
+          }
+          npm run verify:public
+          npm run audit:runtime
+          npm run lint
+          npm test
+
+      - name: Build NSIS installer
+        env:
+          STARDEW_PATH: ${{ github.workspace }}\.stardew-reference-assemblies
+        run: npm run desktop:installer
+
+      - name: Create SHA-256 checksums
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $releaseFiles = @(
+            "release/Maglucen-Stardew-Valley-Companion-Setup-$version.exe",
+            "release/Maglucen-Stardew-Valley-Companion-Setup-$version.exe.blockmap",
+            "release/latest.yml"
+          )
+          $checksums = foreach ($file in $releaseFiles) {
+            $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $(Split-Path -Leaf $file)"
+          }
+          $checksums | Set-Content -LiteralPath "release/SHA256SUMS.txt" -Encoding ascii
+
+      - name: Attest installer provenance
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-path: release/Maglucen-Stardew-Valley-Companion-Setup-*.exe
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $assets = @(
+            "release/Maglucen-Stardew-Valley-Companion-Setup-$version.exe",
+            "release/Maglucen-Stardew-Valley-Companion-Setup-$version.exe.blockmap",
+            "release/latest.yml",
+            "release/SHA256SUMS.txt"
+          )
+          gh release create "${{ github.ref_name }}" @assets --title "${{ github.ref_name }} · Maglucen Stardew Valley Companion" --generate-notes --latest --verify-tag

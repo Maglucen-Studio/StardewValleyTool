@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+  <title>Maglucen Stardew Valley Companion Setup</title>
+  <link rel="stylesheet" href="setup.css">
+  <link rel="stylesheet" href="setup-platform.css">
+</head>
+<body>
+  <main>
+    <header><img class="leaf" src="resources/icon.png" alt=""><div><p id="setup-kicker">FIRST-RUN SETUP</p><h1 id="setup-title">Connect your farm</h1><span id="setup-environment">The companion stays private and reads only safe copies of your save.</span></div></header>
+    <section class="status-grid">
+      <article><b id="game-status">Detecting…</b><span>Game installation</span></article>
+      <article><b id="save-status">Detecting…</b><span>Farm saves</span></article>
+      <article><b id="smapi-status">Detecting…</b><span>Live connection</span></article>
+    </section>
+    <form id="setup-form">
+      <label for="platform">Where do you own Stardew Valley?</label>
+      <select id="platform">
+        <option value="steam">Steam</option>
+        <option value="gog">GOG</option>
+        <option value="xbox">Xbox app / Microsoft Store</option>
+        <option value="other">Other or manual installation</option>
+      </select>
+      <small id="platform-help" class="path-guide"></small>
+      <label>Stardew Valley installation</label>
+      <div class="field"><input id="game-path" autocomplete="off" spellcheck="false"><button id="browse-game" type="button">Browse…</button></div>
+      <small>Select the folder that directly contains <code>Stardew Valley.dll</code>. The path can be different if you chose another drive.</small>
+      <label>Farm / save</label>
+      <div class="field"><select id="save-path"></select><button id="browse-save" type="button">Browse…</button></div>
+      <small>The main extensionless save file. It is never modified.</small>
+      <label class="checkbox"><input id="auto-launch" type="checkbox" checked><span><b>Track automatically</b><small>Start quietly with Windows and update the farm whenever Stardew Valley runs. The dashboard stays closed until you open it.</small></span></label>
+      <label class="checkbox"><input id="close-to-tray" type="checkbox" checked><span><b>Keep running in the system tray</b><small>Closing the dashboard hides it while tracking continues. Turn this off to quit the companion completely when you close its window.</small></span></label>
+      <label class="checkbox"><input id="follow-active-save" type="checkbox" checked><span><b>Follow the farm opened in Stardew</b><small>When another save starts producing fresh LIVE data, switch the dashboard to that farm automatically. Histories and proposals remain separate.</small></span></label>
+      <aside class="live-note"><b>How LIVE works</b><span>If SMAPI is already installed, this setup adds the included Maglucen Companion Bridge to the game&apos;s <code>Mods</code> folder. It does not download or install SMAPI itself.</span><span class="smapi-links">Need SMAPI? <a href="https://www.nexusmods.com/stardewvalley/mods/2400" target="_blank" rel="noreferrer">Install from Nexus Mods</a><a href="https://www.curseforge.com/stardewvalley/mods/smapi" target="_blank" rel="noreferrer">Install from CurseForge</a></span></aside>
+      <div id="progress" role="status" aria-live="polite"></div>
+      <footer><div><p>Assets are extracted from your own installation and remain on this computer.</p><small id="app-version" class="app-version"></small></div><button id="finish" type="submit">Finish setup</button></footer>
+    </form>
+  </main>
+  <script src="setup.js"></script>
+</body>
+</html>
