@@ -30,9 +30,22 @@ const fallback: LocalizationPayload = {
   messages: english,
   fallbackMessages: english,
 };
+
+function translateMessage(
+  messages: Messages,
+  fallbackMessages: Messages,
+  key: string,
+  variables: Record<string, string | number> = {},
+) {
+  const template = messages[key] ?? fallbackMessages[key] ?? key;
+  return String(template).replace(/\{([a-zA-Z0-9_]+)\}/g, (match, name) =>
+    Object.hasOwn(variables, name) ? String(variables[name]) : match,
+  );
+}
+
 const LocalizationContext = createContext<LocalizationContextValue>({
   ...fallback,
-  t: key => english[key as keyof typeof english] || key,
+  t: (key, variables) => translateMessage(english, english, key, variables),
   number: value => value.toLocaleString("en-US"),
 });
 
@@ -63,12 +76,13 @@ export function LocalizationProvider({ children }: { children: ReactNode }) {
   }, [state.language]);
 
   const t = useCallback(
-    (key: string, variables: Record<string, string | number> = {}) => {
-      const template = state.messages[key] ?? state.fallbackMessages[key] ?? key;
-      return String(template).replace(/\{([a-zA-Z0-9_]+)\}/g, (match, name) =>
-        Object.hasOwn(variables, name) ? String(variables[name]) : match,
-      );
-    },
+    (key: string, variables: Record<string, string | number> = {}) =>
+      translateMessage(
+        state.messages,
+        state.fallbackMessages,
+        key,
+        variables,
+      ),
     [state.fallbackMessages, state.messages],
   );
   const number = useCallback(

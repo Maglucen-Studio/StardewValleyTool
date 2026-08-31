@@ -40,6 +40,16 @@ test("server renders the local Maglucen companion shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
+test("the localization context interpolates variables before and after desktop hydration", async () => {
+  const localization = await readFile(
+    new URL("../app/i18n.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(localization, /function translateMessage\(/);
+  assert.match(localization, /t: \(key, variables\) => translateMessage\(english, english, key, variables\)/);
+  assert.match(localization, /translateMessage\([\s\S]*?state\.messages,[\s\S]*?variables/);
+});
+
 test("planner includes live state, safe save reading, and decision support", async () => {
   const [page, localServer, generator] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
