@@ -639,9 +639,6 @@ function resolveGameDisplayName(
   id?: string,
 ) {
   const qualifiedId = id && id.startsWith("(") ? id : id ? `(O)${id}` : "";
-  const direct = (qualifiedId ? byId[qualifiedId] : undefined) || byEnglish[name];
-  if (direct && direct !== name) return direct;
-
   const normalizedInternalName = (value: string) =>
     value
       .replace(/\bL\.\s*/g, "Large ")
@@ -649,28 +646,56 @@ function resolveGameDisplayName(
       .replace(/\s+/g, " ")
       .trim()
       .toLocaleLowerCase("en-US");
-  const normalizedName = normalizedInternalName(name);
-  for (const [englishName, localizedName] of Object.entries(byEnglish)) {
-    if (
-      localizedName !== englishName &&
-      normalizedInternalName(englishName) === normalizedName
-    ) return localizedName;
-  }
+  const localizeEnglishName = (candidate: string) => {
+    const exact = byEnglish[candidate];
+    if (exact && exact !== candidate) return exact;
+    const normalizedName = normalizedInternalName(candidate);
+    for (const [englishName, localizedName] of Object.entries(byEnglish)) {
+      if (
+        localizedName !== englishName &&
+        normalizedInternalName(englishName) === normalizedName
+      ) return localizedName;
+    }
 
-  for (const [englishTemplate, localizedTemplate] of Object.entries(byEnglish)) {
-    if (!englishTemplate.includes("{0}") || !localizedTemplate.includes("{0}")) continue;
-    const [prefix, suffix] = englishTemplate.split("{0}", 2);
-    if (!name.startsWith(prefix) || !name.endsWith(suffix)) continue;
-    const value = name.slice(prefix.length, name.length - suffix.length || undefined);
-    if (!value) continue;
-    return localizedTemplate.replace("{0}", byEnglish[value] || value);
+    for (const [englishTemplate, localizedTemplate] of Object.entries(byEnglish)) {
+      if (!englishTemplate.includes("{0}") || !localizedTemplate.includes("{0}")) continue;
+      const [prefix, suffix] = englishTemplate.split("{0}", 2);
+      if (!candidate.startsWith(prefix) || !candidate.endsWith(suffix)) continue;
+      const value = candidate.slice(prefix.length, candidate.length - suffix.length || undefined);
+      if (!value) continue;
+      return localizedTemplate.replace("{0}", byEnglish[value] || value);
+    }
+    return candidate;
+  };
+
+  const identityName = qualifiedId ? byId[qualifiedId] : undefined;
+  for (const candidate of [identityName, name]) {
+    if (!candidate) continue;
+    const localized = localizeEnglishName(candidate);
+    if (localized !== candidate) return localized;
+    if (candidate === name && !identityName) return localized;
   }
+  if (identityName && /^Item\s+\S+$/i.test(name)) return identityName;
   return name;
 }
 
 function localizeSnapshotGameNames(snapshot: Snapshot): Snapshot {
   const byId = snapshot.localizedNamesByQualifiedId || {};
   const byEnglish = snapshot.localizedObjectNamesByEnglish || {};
+  const registerIdentity = (item: { id?: string; name: string }) => {
+    if (!item.id || /^Item\s+\S+$/i.test(item.name)) return;
+    const qualifiedId = item.id.startsWith("(") ? item.id : `(O)${item.id}`;
+    const current = byId[qualifiedId];
+    if (!current || /^Item\s+\S+$/i.test(current)) byId[qualifiedId] = item.name;
+  };
+  for (const item of [
+    ...snapshot.planningBrief.inventory,
+    ...snapshot.fishingBrief.fish,
+    ...(snapshot.collectionBrief?.shipping || []),
+    ...(snapshot.collectionBrief?.cooking || []),
+    ...(snapshot.collectionBrief?.crafting || []),
+    ...snapshot.museumBrief.sources.flatMap(source => source.items || []),
+  ]) registerIdentity(item);
   const localizedName = (name: string, id?: string) =>
     resolveGameDisplayName(byId, byEnglish, name, id);
   const attach = <T extends DisplayNamedGameValue>(item: T) => {

@@ -1577,6 +1577,10 @@ test("game-owned names are localized once for every snapshot-backed view", async
   assert.match(page, /englishTemplate\.includes\("\{0\}"\)/);
   assert.match(page, /normalizedInternalName/);
   assert.match(page, /replace\(\/\\bL\\\.\\s\*\/g, "Large "\)/);
+  assert.match(page, /const identityName = qualifiedId \? byId\[qualifiedId\]/);
+  assert.match(page, /const registerIdentity = \(item:/);
+  assert.match(page, /snapshot\.collectionBrief\?\.shipping \|\| \[\]/);
+  assert.match(page, /snapshot\.museumBrief\.sources\.flatMap\(source => source\.items/);
   assert.match(page, /function localizeSnapshotGameNames\(/);
   assert.match(page, /snapshot\.dailyBrief\.world\.flatMap/);
   assert.match(page, /snapshot\.planningBrief\.crops\.forEach/);
