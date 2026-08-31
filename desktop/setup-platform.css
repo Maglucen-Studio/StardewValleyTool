@@ -1,0 +1,42 @@
+.path-guide {
+  min-height: 34px;
+  padding: 8px 10px;
+  color: #59685e;
+  background: #f2ecdf;
+  border-left: 3px solid #9c8254;
+  line-height: 1.45;
+}
+
+.live-note {
+  margin-top: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #486052;
+  background: #e6eee2;
+  border-left: 3px solid #63845f;
+  font-size: 12px;
+}
+
+.live-note span {
+  line-height: 1.45;
+}
+
+.live-note .smapi-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+  padding-top: 7px;
+  border-top: 1px solid #bdcdb8;
+  font-weight: 700;
+}
+.live-note .smapi-links[hidden] {
+  display: none;
+}
+
+.smapi-links a {
+  color: #315d3a;
+}

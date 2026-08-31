@@ -1,0 +1,133 @@
+{
+  "name": "maglucen-stardew-valley-companion",
+  "version": "1.8.2",
+  "description": "Maglucen's local, save-aware companion for Stardew Valley.",
+  "author": "maglucen",
+  "main": "desktop/main.mjs",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "node scripts/dev-local.mjs",
+    "build": "vinext build && node scripts/prepare-built-public.mjs",
+    "start": "vinext start",
+    "test": "npm run build && node --test tests/rendered-html.test.mjs",
+    "verify:public": "node scripts/verify-public-safety.mjs",
+    "audit:runtime": "npm audit --omit=dev --audit-level=high",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .local --ignore-pattern outputs --ignore-pattern release",
+    "electron:prepare": "node node_modules/electron/install.js",
+    "postinstall": "npm run electron:prepare",
+    "desktop:bridge": "node scripts/prepare-bridge.mjs",
+    "desktop": "npm run desktop:bridge && npm run build && npm run electron:prepare && electron .",
+    "desktop:dev": "npm run desktop:bridge && node scripts/prepare-portable-python.mjs && npm run electron:prepare && node scripts/desktop-development.mjs",
+    "desktop:dist": "npm run desktop:installer",
+    "desktop:installer": "npm run desktop:bridge && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win nsis --publish never",
+    "desktop:portable": "npm run desktop:bridge && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win portable",
+    "desktop:dir": "npm run desktop:bridge && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win dir"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "json5": "^2.2.3",
+    "pngjs": "^7.0.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "xnb": "^1.3.0-a"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.4",
+    "@next/eslint-plugin-next": "16.2.6",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "@vitejs/plugin-rsc": "^0.5.34",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "9.39.4",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "16.4.0",
+    "react-server-dom-webpack": "^19.2.8",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.59.3",
+    "vinext": "^1.0.0-beta.8",
+    "vite": "^8.0.16"
+  },
+  "type": "module",
+  "build": {
+    "appId": "io.github.maglucenstudio.stardewvalleycompanion",
+    "productName": "Maglucen Stardew Valley Companion",
+    "asar": true,
+    "asarUnpack": [
+      "dist/**",
+      "scripts/**",
+      "assetbuild/**",
+      "desktop/resources/**",
+      "bridge/**",
+      "node_modules/**"
+    ],
+    "npmRebuild": false,
+    "electronDist": "node_modules/electron/dist",
+    "electronLanguages": [
+      "en-US",
+      "es"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "!dist/assets/**",
+      "!dist/data/**",
+      "!dist/client/assets/**",
+      "!dist/client/data/**",
+      "desktop/**",
+      "!desktop/resources/python/**",
+      "scripts/**",
+      "bridge/StardewValleyToolBridge/manifest.json",
+      "public/favicon.png",
+      "public/app-icon.png",
+      "vite.config.ts",
+      "next.config.ts",
+      "package.json",
+      "!scripts/__pycache__/**"
+    ],
+    "extraResources": [
+      {
+        "from": "desktop/resources/python",
+        "to": "python"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "executableName": "MaglucenStardewValleyCompanion",
+      "icon": "desktop/resources/icon.ico"
+    },
+    "nsis": {
+      "artifactName": "Maglucen-Stardew-Valley-Companion-Setup-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Maglucen Stardew Valley Companion",
+      "runAfterFinish": true
+    },
+    "portable": {
+      "artifactName": "Maglucen-Stardew-Valley-Companion-Portable-${version}.${ext}",
+      "unpackDirName": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Maglucen-Studio",
+        "repo": "StardewValleyTool",
+        "releaseType": "release"
+      }
+    ]
+  }
+}

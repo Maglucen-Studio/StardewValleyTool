@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  A private, local-first desktop companion that turns your Stardew Valley save into a practical daily plan.
+  A local-first, open-source desktop companion that turns your Stardew Valley save into a practical daily plan.
 </p>
 
 <p align="center">
@@ -14,6 +14,8 @@
   <a href="SUPPORT.md">Support</a>
   ·
   <a href="PRIVACY.md">Privacy</a>
+  ·
+  <a href="CONTRIBUTING.md">Contribute</a>
 </p>
 
 > The application is currently in active development and its interface is available in English. Release notes describe changes and known limitations for each version.
@@ -34,7 +36,7 @@
 3. Run the installer and open **Maglucen Stardew Valley Companion**.
 4. On first launch, choose your Stardew Valley installation and farm if they are not detected automatically.
 
-The setup assistant checks Steam libraries and common GOG and Xbox locations. It also shows store-specific example paths when manual selection is needed. The application extracts required visual assets from the user's own game installation; Stardew Valley assets are not bundled in this repository or its installer.
+The setup assistant checks Steam libraries and common GOG and Xbox locations. It also shows store-specific example paths when manual selection is needed. The application extracts required visual assets from the user's own game installation; Stardew Valley assets are **not** distributed in this repository or its installer.
 
 ### Windows security notice
 
@@ -86,7 +88,11 @@ Use [GitHub Issues](https://github.com/Maglucen-Studio/StardewValleyTool/issues)
 
 ## About this repository
 
-This public repository is the distribution and support home for Maglucen Stardew Valley Companion. Stable installers, update metadata, release notes, user documentation, and public issue tracking live here. Development source remains in a separate private repository.
+This is the canonical source, distribution, and support repository for Maglucen Stardew Valley Companion. Stable installers are built from public tagged source by GitHub Actions. The workflow publishes SHA-256 checksums and a build-provenance attestation with each new release.
+
+The source is available under the [MIT License](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes, [SECURITY.md](SECURITY.md) for private vulnerability reports, [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for dependency notices, and [AI_USAGE.md](AI_USAGE.md) for the project's AI-assisted development disclosure.
+
+Stardew Valley assets and game assemblies are deliberately absent. Required images and data are extracted locally from each user's legitimate game installation. Continuous integration compiles the optional SMAPI bridge against public API-only reference assemblies.
 
 ## Disclaimer
 
