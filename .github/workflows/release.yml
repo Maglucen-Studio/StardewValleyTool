@@ -84,4 +84,9 @@ jobs:
             "release/latest.yml",
             "release/SHA256SUMS.txt"
           )
-          gh release create "${{ github.ref_name }}" @assets --title "${{ github.ref_name }} · Maglucen Stardew Valley Companion" --generate-notes --latest --verify-tag
+          $policyNote = @"
+          ## Code signing policy
+
+          See the project [Code signing policy](https://github.com/Maglucen-Studio/StardewValleyTool/blob/${{ github.ref_name }}/CODE_SIGNING_POLICY.md) for signature status, scope, roles, and release approval requirements.
+          "@
+          gh release create "${{ github.ref_name }}" @assets --title "${{ github.ref_name }} · Maglucen Stardew Valley Companion" --notes $policyNote --generate-notes --latest --verify-tag
