@@ -21,6 +21,7 @@
 ## What it does
 
 - Builds daily priorities and a location-aware suggested route.
+- Renders the matching tile-accurate layout for all eight vanilla farm types, with buildings, crops, machines, and interiors drawn from the user's local game installation.
 - Shows fish by season, weather, time, location, fishing level, collection status, and active quest.
 - Tracks crops, production, friendships, achievements, museum progress, and Community Center bundles.
 - Reads the current game state through the optional included SMAPI bridge for LIVE updates.
@@ -34,10 +35,6 @@
 4. On first launch, choose your Stardew Valley installation and farm if they are not detected automatically.
 
 The setup assistant checks Steam libraries and common GOG and Xbox locations. It also shows store-specific example paths when manual selection is needed. The application extracts required visual assets from the user's own game installation; Stardew Valley assets are not bundled in this repository or its installer.
-
-### Updating from the former Stardew Valley Tool
-
-Version 1.4 and later use the permanent Maglucen application identity and data directory. On first launch, the companion detects `%APPDATA%\stardew-valley-tool` and migrates compatible settings, window state, and farm history into `%APPDATA%\maglucen-stardew-valley-companion`. Keep the former data directory until the new application has opened the farm successfully. Stardew Valley save files are never moved or changed by this migration.
 
 ## LIVE tracking
 

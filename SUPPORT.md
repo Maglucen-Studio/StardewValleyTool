@@ -16,3 +16,9 @@ When reporting a bug, include:
 
 Do not upload Stardew Valley save files or local diagnostic logs publicly unless you have checked their contents and intentionally choose to share them.
 
+## Upgrading from the former Stardew Valley Tool
+
+Version 1.4 and later use the permanent Maglucen application identity and data directory. On first launch, the companion detects `%APPDATA%\stardew-valley-tool` and migrates compatible settings, window state, and farm history into `%APPDATA%\maglucen-stardew-valley-companion`.
+
+Keep the former data directory until the new application has opened the farm successfully. Stardew Valley save files are never moved or changed by this migration.
+

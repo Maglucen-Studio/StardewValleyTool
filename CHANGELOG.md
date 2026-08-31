@@ -2,6 +2,19 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.8.2 — 2026-08-30
+
+### Improved
+
+- Farm, interior, and chest previews now use the matching maps extracted from the local game installation, including all eight vanilla farm layouts.
+- Item identities now preserve their Stardew Valley namespaces so unrelated objects, tools, clothing, furniture, and big craftables with the same numeric ID are not confused.
+- Help diagnostics now report the installed bridge, Stardew Valley process, and LIVE output status more clearly.
+
+### Fixed
+
+- LIVE tracking now recovers automatically when Windows misses a bridge file-change event.
+- Farm dimensions and blocked planning tiles now come from the selected farm's actual map instead of the standard layout.
+
 ## 1.8.1 — 2026-08-30
 
 ### Improved
