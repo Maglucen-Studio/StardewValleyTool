@@ -69,3 +69,11 @@ test("Spanish Companion messages cover every English key and interpolate", () =>
   assert.equal(t("common.version", { version: "2.0.0" }), "Versión 2.0.0");
   assert.equal(t("missing.key"), "missing.key");
 });
+
+test("farm switching and storage feedback are localized", () => {
+  const t = createTranslator(spanish, english);
+  assert.match(t("shell.changingFarmDetail", { farm: "Pradera" }), /Pradera/);
+  assert.equal(t("storage.backpack"), "Mochila");
+  assert.equal(t("storage.chest"), "Cofre");
+  assert.equal(t("storage.sortQuantityDesc"), "Cantidad: de mayor a menor");
+});

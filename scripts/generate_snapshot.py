@@ -901,6 +901,7 @@ def item_artwork_catalog(root: ET.Element, game_data: dict | None = None) -> dic
                 saved_item_qualifier(node, sprite_details.get("spriteKind", "fallback")),
             ),
             "name": name,
+            "displayName": game_data.get("localizedObjectNamesByEnglish", {}).get(name, name),
             **sprite_details,
         }
         key = " ".join(name.casefold().split())
@@ -931,6 +932,7 @@ def inventory_items(root: ET.Element, player: ET.Element, locations: ET.Element,
                 sprite_details.get("spriteKind", "fallback"),
                 saved_item_qualifier(node, sprite_details.get("spriteKind", "fallback")),
             ), "name": name,
+            "displayName": game_data.get("localizedObjectNamesByEnglish", {}).get(name, name),
             "category": number(node, "category", -999), "quality": number(node, "quality"),
             "count": stack, "source": source,
             **({"sourceDetail": source_detail} if source_detail else {}),
@@ -1257,7 +1259,7 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
     return {
         "communityCenter": community_center_status(root, available, money), "buildings": buildings, "crops": crops,
         "friendships": friendships, "pet": pet, "machines": machines,
-        "inventory": [{key: item[key] for key in ("id", "name", "count", "quality", "sources", "sourceCounts", "sourceDetails", "spriteKind", "spriteIndex", "spriteWidth", "spriteHeight") if key in item} for item in available],
+        "inventory": [{key: item[key] for key in ("id", "name", "displayName", "count", "quality", "sources", "sourceCounts", "sourceDetails", "spriteKind", "spriteIndex", "spriteWidth", "spriteHeight") if key in item} for item in available],
     }
 
 

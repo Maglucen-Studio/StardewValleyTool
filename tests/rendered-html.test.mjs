@@ -1455,9 +1455,10 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   ]);
   assert.match(page, /\["storage", t\("planning\.storage"\)\]/);
   assert.match(page, /className="storage-dashboard"/);
-  assert.match(page, /Search by item or location/);
-  assert.match(page, /Group by container/);
-  assert.match(page, /Quantity: high to low/);
+  assert.match(page, /t\("storage\.searchLabel"\)/);
+  assert.match(page, /t\("storage\.byContainer"\)/);
+  assert.match(page, /t\("storage\.sortQuantityDesc"\)/);
+  assert.match(page, /item\.displayName \|\| item\.name/);
   assert.match(page, /storageLocation/);
   assert.match(page, /sourceCounts/);
   assert.match(page, /function StorageContainerArtwork/);
@@ -1465,6 +1466,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(page, /sourceDetails/);
   assert.match(generator, /playerChoiceColor/);
   assert.match(generator, /"sourceDetails"/);
+  assert.match(generator, /"localizedObjectNamesByEnglish"/);
+  assert.match(generator, /"displayName"/);
   assert.match(generator, /"spriteKind": "fallback"/);
   assert.match(generator, /"Furniture"/);
   assert.match(generator, /bool_value\(node, "bigCraftable"\)/);

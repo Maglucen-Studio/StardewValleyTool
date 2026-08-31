@@ -479,6 +479,7 @@ type LiveAlert = {
 type LiveInventoryItem = {
   id: string;
   name: string;
+  displayName?: string;
   count: number;
   quality: number;
   spriteKind?: ItemSpriteKind;
@@ -489,7 +490,7 @@ type LiveInventoryItem = {
 type ItemArtwork = Pick<
   LiveInventoryItem,
   "id" | "name" | "spriteKind" | "spriteIndex" | "spriteWidth" | "spriteHeight"
->;
+> & { displayName?: string };
 type StorageSourceDetail = {
   source: string;
   kind: "backpack" | "chest";
@@ -839,7 +840,7 @@ type DesktopUpdates = {
     activePath: string;
     farms: FarmOption[];
   }>;
-  switchFarm: (savePath: string) => Promise<{ ok: boolean }>;
+  switchFarm: (savePath: string) => Promise<{ ok: boolean; busy?: boolean }>;
   openSettings: () => Promise<{ ok: boolean }>;
   getDiagnostics: () => Promise<DesktopDiagnostics>;
   copyText: (value: string) => Promise<{ ok: boolean }>;
@@ -1550,13 +1551,14 @@ export default function Home() {
       return;
     }
     setSwitchingFarm(farm.path);
+    setShowFarmSwitcher(false);
     try {
-      await desktop.switchFarm(farm.path);
+      const result = await desktop.switchFarm(farm.path);
+      if (!result.ok) throw new Error(t("shell.farmSwitchBusy"));
       setActiveSavePath(farm.path);
-      setShowFarmSwitcher(false);
     } catch (error) {
       setDataLoadError(
-        error instanceof Error ? error.message : "The farm could not be changed.",
+        error instanceof Error ? error.message : t("shell.farmSwitchFailed"),
       );
     } finally {
       setSwitchingFarm("");
@@ -2982,6 +2984,17 @@ export default function Home() {
         } as CSSProperties
       }
     >
+      {switchingFarm && (
+        <div className="farm-switch-feedback" role="status" aria-live="assertive">
+          <span className="farm-switch-spinner" aria-hidden="true" />
+          <div>
+            <strong>{t("shell.changingFarm")}</strong>
+            <span>{t("shell.changingFarmDetail", {
+              farm: farmOptions.find((farm) => farm.path === switchingFarm)?.name || "",
+            })}</span>
+          </div>
+        </div>
+      )}
       <header className="topbar" ref={topbarRef}>
         <div className="brand">
           {/* The selected save's farmer is composed locally from the user's own game assets. */}
@@ -3004,6 +3017,8 @@ export default function Home() {
               type="button"
               className="farm-switcher-trigger"
               onClick={() => setShowFarmSwitcher((value) => !value)}
+              disabled={Boolean(switchingFarm)}
+              aria-busy={Boolean(switchingFarm)}
               aria-expanded={showFarmSwitcher}
               title={t("shell.changeFarm")}
             >
@@ -4761,6 +4776,7 @@ function SheetArtwork({
 }
 
 function StorageArtwork({ item }: { item: ItemArtwork }) {
+  const label = item.displayName || item.name;
   const qualifier = /^\(([A-Z]+)\)/.exec(item.id)?.[1];
   const qualifiedKind: ItemSpriteKind | undefined = {
     O: "object",
@@ -4779,13 +4795,13 @@ function StorageArtwork({ item }: { item: ItemArtwork }) {
     kind === "fallback" ||
     (!kind && !Number.isFinite(Number(spriteIndex)))
   ) {
-    return <SheetArtwork kind="object" label={item.name} />;
+    return <SheetArtwork kind="object" label={label} />;
   }
   return (
     <SheetArtwork
       id={spriteIndex}
       kind={(kind || "object") as Exclude<ItemSpriteKind, "fallback">}
-      label={item.name}
+      label={label}
       sourceWidth={item.spriteWidth}
       sourceHeight={item.spriteHeight}
       fit
@@ -6136,19 +6152,26 @@ function PlanningView({
       .map((detail) => [detail.source, detail] as const),
   );
   const displayStorageSource = (source: string) =>
-    readableStorageSource(source, storageDetailBySource.get(source), current);
+    readableStorageSource(source, storageDetailBySource.get(source), current)
+      .replace(/^Backpack\b/, t("storage.backpack"))
+      .replace(/^Chest\b/, t("storage.chest"))
+      .replace(/\bFarm\b/g, t("nav.farm"))
+      .replace(/ · tile /g, ` · ${t("storage.tile")} `);
+  const displayStorageLocation = (detail: StorageSourceDetail | undefined) =>
+    readableStorageLocation(detail, current)
+      .replace(/\bFarm\b/g, t("nav.farm"));
   const effectiveStorageLocation =
     storageLocation === "all" || storageLocations.includes(storageLocation)
       ? storageLocation
       : "all";
   const storageSearch = storageQuery.trim().toLowerCase();
-  const sortStorageItems = <T extends { name: string; count: number }>(items: T[]) =>
+  const sortStorageItems = <T extends { name: string; displayName?: string; count: number }>(items: T[]) =>
     [...items].sort((a, b) => {
       if (storageSort === "quantity-desc")
-        return b.count - a.count || a.name.localeCompare(b.name);
+        return b.count - a.count || (a.displayName || a.name).localeCompare(b.displayName || b.name, locale);
       if (storageSort === "quantity-asc")
-        return a.count - b.count || a.name.localeCompare(b.name);
-      return a.name.localeCompare(b.name);
+        return a.count - b.count || (a.displayName || a.name).localeCompare(b.displayName || b.name, locale);
+      return (a.displayName || a.name).localeCompare(b.displayName || b.name, locale);
     });
   const visibleStorage = sortStorageItems(
     storageIndex
@@ -6170,7 +6193,7 @@ function PlanningView({
         };
       })
       .filter((item) =>
-          `${item.name} ${item.sources.map(displayStorageSource).join(" ")}`
+          `${item.displayName || ""} ${item.name} ${item.sources.map(displayStorageSource).join(" ")}`
           .toLowerCase()
           .includes(storageSearch),
       ),
@@ -6196,7 +6219,7 @@ function PlanningView({
           .filter(
             (item) =>
               item.count > 0 &&
-              `${item.name} ${displayStorageSource(source)}`.toLowerCase().includes(storageSearch),
+              `${item.displayName || ""} ${item.name} ${displayStorageSource(source)}`.toLowerCase().includes(storageSearch),
           ),
       ),
     }))
@@ -7469,56 +7492,53 @@ function PlanningView({
           <div className="storage-heading">
             <div>
               <p className="eyebrow">
-                Global storage index {live.active && <span className="live-badge">LIVE</span>}
+                {t("storage.eyebrow")} {live.active && <span className="live-badge">LIVE</span>}
               </p>
-              <h2>Find anything on the farm</h2>
-              <p>
-                Backpack and chest stacks are merged into one searchable index,
-                while every physical source remains visible.
-              </p>
+              <h2>{t("storage.title")}</h2>
+              <p>{t("storage.description")}</p>
             </div>
             <div className="storage-totals">
               <strong>{storageIndex.length}</strong>
-              <span>item types</span>
-              <b>{inventory.reduce((sum, item) => sum + item.count, 0).toLocaleString("en-US")} units</b>
+              <span>{t("storage.itemTypes")}</span>
+              <b>{t("storage.units", { count: inventory.reduce((sum, item) => sum + item.count, 0).toLocaleString(locale) })}</b>
             </div>
           </div>
           <div className="storage-controls">
             <label className="storage-search">
-              <span>Search by item or location</span>
+              <span>{t("storage.searchLabel")}</span>
               <input
                 type="search"
                 value={storageQuery}
                 onChange={(event) => setStorageQuery(event.target.value)}
-                placeholder="e.g. Wood, Farmhouse, chest…"
+                placeholder={t("storage.searchPlaceholder")}
               />
             </label>
             <label>
-              <span>View</span>
+              <span>{t("storage.view")}</span>
               <select
                 value={storageView}
                 onChange={(event) =>
                   setStorageView(event.target.value as "combined" | "containers")
                 }
               >
-                <option value="combined">Combined items</option>
-                <option value="containers">Group by container</option>
+                <option value="combined">{t("storage.combined")}</option>
+                <option value="containers">{t("storage.byContainer")}</option>
               </select>
             </label>
             <label>
-              <span>Location</span>
+              <span>{t("storage.location")}</span>
               <select
                 value={effectiveStorageLocation}
                 onChange={(event) => setStorageLocation(event.target.value)}
               >
-                <option value="all">All locations</option>
+                <option value="all">{t("storage.allLocations")}</option>
                 {storageLocations.map((location) => (
                   <option key={location} value={location}>{displayStorageSource(location)}</option>
                 ))}
               </select>
             </label>
             <label>
-              <span>Sort</span>
+              <span>{t("storage.sort")}</span>
               <select
                 value={storageSort}
                 onChange={(event) =>
@@ -7530,9 +7550,9 @@ function PlanningView({
                   )
                 }
               >
-                <option value="name">Name A–Z</option>
-                <option value="quantity-desc">Quantity: high to low</option>
-                <option value="quantity-asc">Quantity: low to high</option>
+                <option value="name">{t("storage.sortName")}</option>
+                <option value="quantity-desc">{t("storage.sortQuantityDesc")}</option>
+                <option value="quantity-asc">{t("storage.sortQuantityAsc")}</option>
               </select>
             </label>
           </div>
@@ -7542,15 +7562,15 @@ function PlanningView({
                 <article
                   className="locatable-item-card"
                   data-storage-item={item.name}
-                  title={`Click to locate ${item.name}`}
+                  title={t("storage.clickToLocate", { item: item.displayName || item.name })}
                   key={`${item.id}:${item.name}`}
                 >
                   <StorageArtwork item={item} />
                   <div>
-                    <strong>{item.name}</strong>
+                    <strong>{item.displayName || item.name}</strong>
                     <span>{item.sources.map(displayStorageSource).join(" · ")}</span>
                   </div>
-                  <b>{item.count.toLocaleString("en-US")}</b>
+                  <b>{item.count.toLocaleString(locale)}</b>
                 </article>
               ))}
             </div>
@@ -7562,12 +7582,12 @@ function PlanningView({
                     <div className="storage-container-identity">
                       <StorageContainerArtwork detail={group.detail} />
                       <div>
-                        <h3>{readableStorageSource(group.source, group.detail, current)}</h3>
+                        <h3>{displayStorageSource(group.source)}</h3>
                         {group.detail?.kind === "chest" && group.detail.location && (
                           <small>
-                            {readableStorageLocation(group.detail, current)}
+                            {displayStorageLocation(group.detail)}
                             {typeof group.detail.x === "number" && typeof group.detail.y === "number"
-                              ? ` · tile ${group.detail.x}, ${group.detail.y}`
+                              ? ` · ${t("storage.tile")} ${group.detail.x}, ${group.detail.y}`
                               : ""}
                           </small>
                         )}
@@ -7580,15 +7600,15 @@ function PlanningView({
                         live={live}
                         sprites={sprites}
                       />
-                      <span>{group.items.length} item types · {group.items.reduce((sum, item) => sum + item.count, 0).toLocaleString("en-US")} units</span>
+                      <span>{t("storage.groupSummary", { types: group.items.length, units: group.items.reduce((sum, item) => sum + item.count, 0).toLocaleString(locale) })}</span>
                     </div>
                   </header>
                   <div className="storage-results">
                     {group.items.map((item) => (
                       <article key={`${group.source}:${item.id}:${item.name}`}>
                         <StorageArtwork item={item} />
-                        <div><strong>{item.name}</strong></div>
-                        <b>{item.count.toLocaleString("en-US")}</b>
+                        <div><strong>{item.displayName || item.name}</strong></div>
+                        <b>{item.count.toLocaleString(locale)}</b>
                       </article>
                     ))}
                   </div>
@@ -7597,12 +7617,12 @@ function PlanningView({
             </div>
           )}
           {!visibleStorage.length && !storageGroups.length && (
-            <p className="empty-daily">No stored item matches that search.</p>
+            <p className="empty-daily">{t("storage.noMatches")}</p>
           )}
           <small className="inventory-source-note">
             {live.active && live.storage !== undefined
-              ? "Locations and quantities update while Stardew is running."
-              : "This index reflects the latest save. It is read-only and never moves game items."}
+              ? t("storage.liveNote")
+              : t("storage.savedNote")}
           </small>
         </section>
       )}

@@ -1462,7 +1462,14 @@ function installIpc() {
     );
     setupWindow?.destroy();
     setupWindow = null;
-    await createDashboard();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      await mainWindow.loadURL(
+        `http://${localServiceHost}:${servicePort(config)}/`,
+      );
+      revealWindow(mainWindow);
+    } else {
+      await createDashboard();
+    }
     return { ok: true };
   });
 }
