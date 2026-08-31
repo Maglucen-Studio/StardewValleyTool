@@ -355,7 +355,7 @@ test("crop planning explains the one-tile simulation and its assumptions", async
   assert.match(page, /a\.daysRemaining - b\.daysRemaining/);
   assert.match(
     page,
-    /<SheetArtwork id=\{crop\.id\} kind="object" label=\{crop\.name\}/,
+    /<SheetArtwork id=\{crop\.id\} kind="object" label=\{crop\.displayName \|\| crop\.name\}/,
   );
   assert.match(page, /ItemArtworkCatalogContext/);
   assert.match(page, /SummerSquash: 81/);
@@ -369,11 +369,11 @@ test("production machine artwork keeps the complete two-tile sprite", async () =
   ]);
   assert.match(
     page,
-    /kind=\{isCrabPot \? "object" : "craftable"\}[\s\S]*?label=\{machine\.name\}/,
+    /kind=\{isCrabPot \? "object" : "craftable"\}[\s\S]*?label=\{machine\.displayName \|\| machine\.name\}/,
   );
   assert.doesNotMatch(
     page,
-    /<SheetArtwork\s+id=\{machine\.id\}\s+kind=\{isCrabPot \? "object" : "craftable"\}\s+label=\{machine\.name\}\s+fit\s*\/>/,
+    /<SheetArtwork\s+id=\{machine\.id\}\s+kind=\{isCrabPot \? "object" : "craftable"\}\s+label=\{machine\.displayName \|\| machine\.name\}\s+fit\s*\/>/,
   );
   assert.match(styles, /\.sheet-artwork\.object,\s*\.sheet-artwork\.object2/);
   assert.match(styles, /\.machine-heading > span \{/);
@@ -1500,7 +1500,9 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Weapons\.xnb/);
   assert.match(extractor, /Strings\/Shirts\.xnb/);
   assert.match(extractor, /Strings\/Furniture\.xnb/);
-  assert.match(extractor, /catalogVersion: 3/);
+  assert.match(extractor, /Data\/Boots\.xnb/);
+  assert.match(extractor, /Data\/hats\.xnb/);
+  assert.match(extractor, /catalogVersion: 4/);
   assert.match(extractor, /localizedNamesByQualifiedId/);
   assert.match(generator, /def localized_message\(/);
   assert.match(generator, /today\.luck\.\{luck_tier\}/);
@@ -1567,6 +1569,28 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(generator, /"spriteHeight": 1 if item_type == "FishingRod" else 2/);
   assert.match(styles, /\.history-timeline > summary/);
   assert.match(styles, /\.completion-card-grid \{/);
+});
+
+test("game-owned names are localized once for every snapshot-backed view", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /function resolveGameDisplayName\(/);
+  assert.match(page, /englishTemplate\.includes\("\{0\}"\)/);
+  assert.match(page, /normalizedInternalName/);
+  assert.match(page, /replace\(\/\\bL\\\.\\s\*\/g, "Large "\)/);
+  assert.match(page, /function localizeSnapshotGameNames\(/);
+  assert.match(page, /snapshot\.dailyBrief\.world\.flatMap/);
+  assert.match(page, /snapshot\.planningBrief\.crops\.forEach/);
+  assert.match(page, /snapshot\.planningBrief\.buildings\.flatMap/);
+  assert.match(page, /snapshot\.dailyBrief\.birthdays\.forEach/);
+  assert.match(page, /snapshot\.planningBrief\.friendships\.forEach/);
+  assert.match(page, /snapshot\.collectionBrief\?\.shipping/);
+  assert.match(page, /snapshot\.museumBrief\.sources\.flatMap/);
+  assert.match(page, /material\.displayName \|\| material\.name/);
+  assert.match(page, /machine\.displayName \|\| machine\.name/);
+  assert.match(page, /snapshot = localizeSnapshotGameNames\(snapshot\)/);
+  assert.match(page, /localizeSnapshotGameNames\(\{ \.\.\.snapshot, seasonLabel:/);
+  assert.match(page, /live\.routeState\?\.worldTasks/);
+  assert.match(page, /item\.displayName \|\| resolveGameDisplayName\(/);
 });
 
 test("desktop development reloads the interface and restarts Electron runtime changes", async () => {

@@ -63,6 +63,22 @@ async function localizedNamesByEnglish(relativePath, includeKey) {
   );
 }
 
+async function localizedLegacyRecordNames(relativePath) {
+  const base = await unpack(relativePath);
+  const localized = await unpackLocalized(relativePath);
+  return Object.fromEntries(
+    Object.entries(base).flatMap(([key, raw]) => {
+      const localizedRaw = localized[key];
+      if (typeof raw !== "string" || typeof localizedRaw !== "string") return [];
+      const englishFields = raw.split("/");
+      const localizedFields = localizedRaw.split("/");
+      const englishName = englishFields.at(-1) || englishFields[0];
+      const localizedName = localizedFields.at(-1) || localizedFields[0];
+      return englishName && localizedName ? [[englishName, localizedName]] : [];
+    }),
+  );
+}
+
 const nameCatalogs = [
   ["Strings/Objects.xnb", key => key.endsWith("_Name")],
   ["Strings/BigCraftables.xnb", key => key.endsWith("_Name")],
@@ -79,6 +95,8 @@ const localizedObjectNamesByEnglish = Object.assign(
       localizedNamesByEnglish(path, includeKey),
     ),
   )),
+  await localizedLegacyRecordNames("Data/Boots.xnb"),
+  await localizedLegacyRecordNames("Data/hats.xnb"),
 );
 const localizedObjectNames = await unpackLocalized("Strings/Objects.xnb");
 const fish = await unpack("Data/Fish.xnb");
@@ -91,7 +109,7 @@ const localizedNamesByQualifiedId = Object.fromEntries(
 );
 
 const gameData = {
-  _localization: { language, locale, xnbSuffix, catalogVersion: 3 },
+  _localization: { language, locale, xnbSuffix, catalogVersion: 4 },
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
   craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),

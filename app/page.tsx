@@ -167,7 +167,7 @@ type MuseumSource = {
   id: string;
   label: string;
   itemIds: string[];
-  items?: { id: string; name: string }[];
+  items?: { id: string; name: string; displayName?: string }[];
   available: boolean;
   hint: string;
   unavailableHint?: string | null;
@@ -182,6 +182,7 @@ type MuseumBrief = {
 type GiftItem = {
   id?: string;
   name: string;
+  displayName?: string;
   count: number;
   quality: number;
   sources: string[];
@@ -209,6 +210,7 @@ type BirthdayBrief = {
 type CropForecast = {
   id: string;
   name: string;
+  displayName?: string;
   count: number;
   daysRemaining: number;
   watered: number;
@@ -234,7 +236,7 @@ type DailyQuest = {
   ready: boolean;
   owned: number;
   hasRequestedItems: boolean;
-  stock: { name: string; count: number; sources: string[] }[];
+  stock: { name: string; displayName?: string; count: number; sources: string[] }[];
   stockNote: LocalizedValue | null;
   tips?: LocalizedValue[];
   requestedId?: string | null;
@@ -251,17 +253,18 @@ type DailyBrief = {
     explanation: LocalizedValue;
   };
   tv: { id?: string; channel: LocalizedValue; title: LocalizedValue; detail: LocalizedValue }[];
-  world: { location: string; items: { name: string; count: number }[] }[];
-  beach: { name: string; count: number; tiles: number[][] }[];
+  world: { location: string; items: { name: string; displayName?: string; count: number }[] }[];
+  beach: { name: string; displayName?: string; count: number; tiles: number[][] }[];
   birthdays: BirthdayBrief[];
   fruitCave: {
     unlocked: boolean;
     type: string;
     count: number;
-    items: { name: string; count: number }[];
+    items: { name: string; displayName?: string; count: number }[];
   };
   toolUpgrade: {
     name: string;
+    displayName?: string;
     type: string;
     level: number;
     daysRemaining: number;
@@ -287,6 +290,7 @@ const isCoreTvProgram = (program: DailyBrief["tv"][number]) => {
 type FishingFish = {
   id: string;
   name: string;
+  displayName?: string;
   difficulty: number;
   behavior: string;
   windows: number[][];
@@ -310,6 +314,7 @@ type FishingBrief = {
 type BundleRequirement = {
   id: string;
   name: string;
+  displayName?: string;
   count: number;
   quality: number;
   donated: boolean;
@@ -347,11 +352,12 @@ type BuildingPlan = {
   footprint?: string;
   prerequisite?: string;
   unlock?: string;
-  materials: { name: string; owned: number; needed: number }[];
+  materials: { name: string; displayName?: string; owned: number; needed: number }[];
 };
 type CropPlan = {
   id?: string;
   name: string;
+  displayName?: string;
   seed: number;
   growth: number;
   regrow: number;
@@ -374,10 +380,11 @@ type FriendshipPlan = {
   gifts: { love: GiftItem[]; like: GiftItem[]; neutral: GiftItem[] };
 };
 type PetPlan = { name: string; type: string; points: number };
-type MachineOutput = { name: string; count: number };
+type MachineOutput = { name: string; displayName?: string; count: number };
 type MachinePlan = {
   id?: string;
   name: string;
+  displayName?: string;
   count: number;
   ready: number;
   working: number;
@@ -550,7 +557,7 @@ type LiveFriendship = {
   giftsThisWeek: number;
 };
 type LiveRouteState = {
-  worldTasks: { location: string; items: { name: string; count: number }[] }[];
+  worldTasks: { location: string; items: { name: string; displayName?: string; count: number }[] }[];
   readyCrops: number;
   readyMachines: number;
   toolPickupReady: boolean;
@@ -622,6 +629,103 @@ type LiveState = {
   farmMap?: LiveFarmMap;
   specialOrders?: SpecialOrderBrief[];
 };
+
+type DisplayNamedGameValue = { id?: string; name: string; displayName?: string };
+
+function resolveGameDisplayName(
+  byId: Record<string, string>,
+  byEnglish: Record<string, string>,
+  name: string,
+  id?: string,
+) {
+  const qualifiedId = id && id.startsWith("(") ? id : id ? `(O)${id}` : "";
+  const direct = (qualifiedId ? byId[qualifiedId] : undefined) || byEnglish[name];
+  if (direct && direct !== name) return direct;
+
+  const normalizedInternalName = (value: string) =>
+    value
+      .replace(/\bL\.\s*/g, "Large ")
+      .replace(/\s*\([^)]*\)\s*/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLocaleLowerCase("en-US");
+  const normalizedName = normalizedInternalName(name);
+  for (const [englishName, localizedName] of Object.entries(byEnglish)) {
+    if (
+      localizedName !== englishName &&
+      normalizedInternalName(englishName) === normalizedName
+    ) return localizedName;
+  }
+
+  for (const [englishTemplate, localizedTemplate] of Object.entries(byEnglish)) {
+    if (!englishTemplate.includes("{0}") || !localizedTemplate.includes("{0}")) continue;
+    const [prefix, suffix] = englishTemplate.split("{0}", 2);
+    if (!name.startsWith(prefix) || !name.endsWith(suffix)) continue;
+    const value = name.slice(prefix.length, name.length - suffix.length || undefined);
+    if (!value) continue;
+    return localizedTemplate.replace("{0}", byEnglish[value] || value);
+  }
+  return name;
+}
+
+function localizeSnapshotGameNames(snapshot: Snapshot): Snapshot {
+  const byId = snapshot.localizedNamesByQualifiedId || {};
+  const byEnglish = snapshot.localizedObjectNamesByEnglish || {};
+  const localizedName = (name: string, id?: string) =>
+    resolveGameDisplayName(byId, byEnglish, name, id);
+  const attach = <T extends DisplayNamedGameValue>(item: T) => {
+    item.displayName = localizedName(item.name, item.id);
+  };
+  const attachGifts = (gifts: BirthdayBrief["gifts"] | FriendshipPlan["gifts"]) =>
+    [...gifts.love, ...gifts.like, ...gifts.neutral].forEach(attach);
+
+  snapshot.planningBrief.inventory.forEach(attach);
+  for (const object of [
+    ...snapshot.objects,
+    ...snapshot.interiors.flatMap(interior => interior.objects),
+  ]) {
+    if (object.output) object.output = localizedName(object.output);
+    if (object.input) object.input = localizedName(object.input);
+  }
+  snapshot.dailyBrief.crops.forEach(attach);
+  snapshot.planningBrief.crops.forEach(attach);
+  snapshot.planningBrief.buildings.flatMap(building => building.materials).forEach(attach);
+  snapshot.fishingBrief.fish.forEach(attach);
+  snapshot.dailyBrief.world.flatMap(entry => entry.items).forEach(attach);
+  snapshot.dailyBrief.beach.forEach(attach);
+  snapshot.dailyBrief.fruitCave.items.forEach(attach);
+  snapshot.dailyBrief.birthdays.forEach(birthday => attachGifts(birthday.gifts));
+  snapshot.planningBrief.friendships.forEach(friend => attachGifts(friend.gifts));
+  snapshot.planningBrief.communityCenter.rooms
+    .flatMap(room => room.bundles)
+    .flatMap(bundle => bundle.requirements)
+    .forEach(attach);
+  for (const machine of snapshot.planningBrief.machines) {
+    attach(machine);
+    for (const output of [
+      ...(machine.readyOutputs || []),
+      ...(machine.workingOutputs || []),
+      ...(machine.inputs || []),
+    ]) attach(output);
+  }
+  if (snapshot.dailyBrief.toolUpgrade) attach(snapshot.dailyBrief.toolUpgrade);
+  for (const quest of [
+    snapshot.dailyBrief.dailyQuest,
+    ...(snapshot.dailyBrief.acceptedQuests || []),
+    ...(snapshot.dailyBrief.boardQuest ? [snapshot.dailyBrief.boardQuest] : []),
+  ]) {
+    quest.stock.forEach(item => Object.assign(item, { displayName: localizedName(item.name) }));
+    if (quest.requestedName)
+      quest.requestedName = localizedName(quest.requestedName, quest.requestedId || undefined);
+  }
+  for (const group of [
+    snapshot.collectionBrief?.shipping,
+    snapshot.collectionBrief?.cooking,
+    snapshot.collectionBrief?.crafting,
+  ]) group?.forEach(attach);
+  snapshot.museumBrief.sources.flatMap(source => source.items || []).forEach(attach);
+  return snapshot;
+}
 
 const VANILLA_FRIENDSHIP_NPCS = new Set([
   "Abigail",
@@ -2004,6 +2108,7 @@ export default function Home() {
         }),
       ])
         .then(([snapshot, farmHistory]: [Snapshot, FarmHistory]) => {
+          snapshot = localizeSnapshotGameNames(snapshot);
           const profileId = snapshot.profileId || "default";
           const sessionStorageKey = `stardew-tool-last-session-${profileId}`;
           if (sessionProfileRef.current !== profileId) {
@@ -2095,7 +2200,7 @@ export default function Home() {
       .then((snapshot) =>
         setPreviousDay(
           snapshot
-            ? { ...snapshot, seasonLabel: seasonName(snapshot.season) }
+            ? localizeSnapshotGameNames({ ...snapshot, seasonLabel: seasonName(snapshot.season) })
             : null,
         ),
       )
@@ -4409,11 +4514,11 @@ function BuildingPreview({
 }
 
 function formatBundleRequirement(
-  item: Pick<BundleRequirement, "id" | "count" | "name">,
+  item: Pick<BundleRequirement, "id" | "count" | "name" | "displayName">,
 ) {
   return item.id === "-1"
     ? `${item.count.toLocaleString("en-US")}g payment`
-    : `${item.count}× ${item.name}`;
+    : `${item.count}× ${item.displayName || item.name}`;
 }
 
 function InteriorView({
@@ -6054,9 +6159,12 @@ function PlanningView({
 
   const plan = current.planningBrief;
   const gameName = (name: string, qualifiedId?: string) =>
-    (qualifiedId ? current.localizedNamesByQualifiedId?.[qualifiedId] : undefined) ||
-    current.localizedObjectNamesByEnglish?.[name] ||
-    name;
+    resolveGameDisplayName(
+      current.localizedNamesByQualifiedId || {},
+      current.localizedObjectNamesByEnglish || {},
+      name,
+      qualifiedId,
+    );
   const savedBackpackInventory = plan.inventory.filter(
     (item) => item.sources.includes("Backpack"),
   );
@@ -6644,7 +6752,7 @@ function PlanningView({
               ? missing
                   .map(
                     (item) =>
-                      `${item.needed - item.owned} ${item.name}`,
+                      `${item.needed - item.owned} ${item.displayName || item.name}`,
                   )
                   .join(" · ")
               : "No bottleneck",
@@ -6662,7 +6770,7 @@ function PlanningView({
             suffix: "g",
           },
           ...materials.map((material) => ({
-            name: material.name,
+            name: material.displayName || material.name,
             available: material.owned,
             required: material.needed,
             artwork: artworkForItem(material.name),
@@ -6688,18 +6796,20 @@ function PlanningView({
     const targetTier = currentTier + 1;
     if (targetTier >= toolTiers.length) return [];
     const bar = upgradeBars[targetTier];
+    const localizedBar = gameName(bar);
+    const localizedTool = gameName(`${toolTiers[targetTier]} ${tool}`);
     const barMissing = Math.max(0, 5 - inventoryCount(bar));
     const moneyMissing = Math.max(0, upgradeCosts[targetTier] - buildingMoney);
     const ready = barMissing === 0 && moneyMissing === 0;
     return [{
       id: `tool:${tool}:${targetTier}`,
       category: "Tool upgrade" as const,
-      title: `${toolTiers[targetTier]} ${tool}`,
-      progress: `${inventoryCount(bar)}/5 ${bar} · ${buildingMoney.toLocaleString("en-US")}/${upgradeCosts[targetTier].toLocaleString("en-US")}g`,
+      title: localizedTool,
+      progress: `${inventoryCount(bar)}/5 ${localizedBar} · ${buildingMoney.toLocaleString("en-US")}/${upgradeCosts[targetTier].toLocaleString("en-US")}g`,
       bottleneck: ready
         ? "Take the tool, bars, and money to Clint."
         : [
-            barMissing ? `${barMissing} ${bar}` : "",
+            barMissing ? `${barMissing} ${localizedBar}` : "",
             moneyMissing ? `${moneyMissing.toLocaleString("en-US")}g` : "",
           ].filter(Boolean).join(" · "),
       forecast:
@@ -6717,7 +6827,7 @@ function PlanningView({
           suffix: "g",
         },
         {
-          name: bar,
+          name: localizedBar,
           available: inventoryCount(bar),
           required: 5,
           artwork: artworkForItem(bar),
@@ -6730,6 +6840,7 @@ function PlanningView({
       const materials = (Object.entries(recipe.materials) as [string, number][]).map(
         ([name, amount]) => ({
           name,
+          displayName: gameName(name),
           needed: amount * craftingQuantity,
           owned: inventoryCount(name),
         }),
@@ -6744,12 +6855,12 @@ function PlanningView({
         bottleneck: ready
           ? "All listed ingredients are in storage."
           : missing
-              .map((item) => `${item.needed - item.owned} ${item.name}`)
+              .map((item) => `${item.needed - item.owned} ${item.displayName || item.name}`)
               .join(" · "),
         forecast: ready ? "Ready to craft now" : "Waiting for the missing ingredients",
         ready,
         requirements: materials.map((material) => ({
-          name: material.name,
+          name: material.displayName || material.name,
           available: material.owned,
           required: material.needed,
           artwork: artworkForItem(material.name),
@@ -6768,7 +6879,7 @@ function PlanningView({
         const missing = remaining
           .filter((item) => !item.ready)
           .slice(0, 4)
-          .map((item) => item.name);
+          .map((item) => item.displayName || item.name);
         return {
           id: `bundle:${room.id}:${bundle.id}`,
           category: "Community Center",
@@ -6926,7 +7037,7 @@ function PlanningView({
                   <article
                     className="locatable-item-card"
                     data-storage-item={item.name}
-                    title={`Click to locate ${item.name}`}
+                    title={`Click to locate ${item.displayName || item.name}`}
                     key={`${item.room}-${item.bundle}-${item.id}`}
                   >
                     <ItemMentionArtwork
@@ -7017,7 +7128,7 @@ function PlanningView({
                           <div
                             className={`${item.donated ? "donated" : item.ready ? "ready" : "missing"} locatable-item-card`}
                             data-storage-item={item.name}
-                            title={`Click to locate ${item.name}`}
+                            title={`Click to locate ${item.displayName || item.name}`}
                             key={`${bundle.id}-${item.id}-${index}`}
                           >
                             <span className="bundle-item-status">
@@ -7158,9 +7269,9 @@ function PlanningView({
                     <SheetArtwork
                       id={crop.id}
                       kind="object"
-                      label={crop.name}
+                      label={crop.displayName || crop.name}
                     />
-                    <h2>{crop.name}</h2>
+                    <h2>{crop.displayName || crop.name}</h2>
                   </div>
                   <strong
                     className={
@@ -7323,7 +7434,7 @@ function PlanningView({
                                     name={material.name}
                                     item={artworkForItem(material.name)}
                                   />
-                                  <b>{material.name}</b>
+                                  <b>{material.displayName || material.name}</b>
                                   <em>
                                     {material.owned}/{material.needed}
                                   </em>
@@ -7431,10 +7542,10 @@ function PlanningView({
                         <SheetArtwork
                           id={machine.id}
                           kind={isCrabPot ? "object" : "craftable"}
-                          label={machine.name}
+                          label={machine.displayName || machine.name}
                         />
                         <span className="machine-heading">
-                          <strong>{machine.name}</strong>
+                          <strong>{machine.displayName || machine.name}</strong>
                           <span>{machine.count} built</span>
                           <b>
                             {machine.ready} ready · {machine.working} working ·{" "}
@@ -7447,7 +7558,7 @@ function PlanningView({
                           <p className="ready-output">
                             <b>Collect</b>
                             {machine.readyOutputs
-                              .map((item) => `${item.count}× ${item.name}`)
+                              .map((item) => `${item.count}× ${item.displayName || item.name}`)
                               .join(" · ")}
                           </p>
                         ) : null}
@@ -7455,10 +7566,10 @@ function PlanningView({
                           <p>
                             <b>Processing</b>
                             {machine.inputs
-                              .map((item) => `${item.count}× ${item.name}`)
+                              .map((item) => `${item.count}× ${item.displayName || item.name}`)
                               .join(" · ")}
                             {machine.workingOutputs?.length
-                              ? ` → ${machine.workingOutputs.map((item) => `${item.count}× ${item.name}`).join(" · ")}`
+                              ? ` → ${machine.workingOutputs.map((item) => `${item.count}× ${item.displayName || item.name}`).join(" · ")}`
                               : ""}
                           </p>
                         ) : machine.working ? (
@@ -8168,8 +8279,8 @@ function DailyBriefModal({
               <p className={brief.toolUpgrade.ready ? "urgent" : ""}>
                 ⚒{" "}
                 {brief.toolUpgrade.ready
-                  ? `Collect ${brief.toolUpgrade.name} from Clint today.`
-                  : `${brief.toolUpgrade.name}: ${brief.toolUpgrade.daysRemaining} day(s) until pickup.`}
+                  ? `Collect ${brief.toolUpgrade.displayName || brief.toolUpgrade.name} from Clint today.`
+                  : `${brief.toolUpgrade.displayName || brief.toolUpgrade.name}: ${brief.toolUpgrade.daysRemaining} day(s) until pickup.`}
               </p>
             )}
             {brief.fruitCave.count > 0 && (
@@ -8493,7 +8604,15 @@ function DailyBriefView({
   const liveWorldItems = new Map(
     (live.active ? live.routeState?.worldTasks || [] : []).map((stop) => [
       LIVE_ROUTE_LOCATION_NAMES[stop.location] || stop.location,
-      stop.items,
+      stop.items.map((item) => ({
+        ...item,
+        displayName:
+          item.displayName || resolveGameDisplayName(
+            current.localizedNamesByQualifiedId || {},
+            current.localizedObjectNamesByEnglish || {},
+            item.name,
+          ),
+      })),
     ]),
   );
   const routeSource = brief.world
@@ -8571,8 +8690,8 @@ function DailyBriefView({
       if (brief.toolUpgrade)
         notes.push(
           brief.toolUpgrade.ready
-            ? `${brief.toolUpgrade.name} ready at Clint's`
-            : `${brief.toolUpgrade.name} still at Clint's`,
+            ? `${brief.toolUpgrade.displayName || brief.toolUpgrade.name} ready at Clint's`
+            : `${brief.toolUpgrade.displayName || brief.toolUpgrade.name} still at Clint's`,
         );
     }
     return notes;
@@ -8712,7 +8831,7 @@ function DailyBriefView({
     (live.active ? live.routeState?.toolPickupReady : brief.toolUpgrade?.ready)
       ? {
           level: "urgent",
-          title: `Collect ${brief.toolUpgrade?.name || "your upgraded tool"}`,
+          title: `Collect ${brief.toolUpgrade?.displayName || brief.toolUpgrade?.name || "your upgraded tool"}`,
           detail: "It is ready at Clint's.",
         }
       : null,
@@ -8793,7 +8912,7 @@ function DailyBriefView({
       action: "community" as const,
     })),
     ...((live.active ? live.routeState?.toolPickupReady : brief.toolUpgrade?.ready)
-      ? [{ kind: "Pickup", title: brief.toolUpgrade?.name || "Upgraded tool", detail: "Ready to collect at Clint's." }]
+      ? [{ kind: "Pickup", title: brief.toolUpgrade?.displayName || brief.toolUpgrade?.name || "Upgraded tool", detail: "Ready to collect at Clint's." }]
       : []),
     ...(readyCrops
       ? [{ kind: "Farm", title: `Harvest ${readyCrops} crop${readyCrops === 1 ? "" : "s"}`, detail: "Available on the farm now." }]
@@ -8981,7 +9100,7 @@ function DailyBriefView({
                 </p>
                 {displayedQuest.stock.map((item, index) => (
                   <small key={`${item.name}-${index}`}>
-                    {item.count}× {item.name} · {item.sources.join(" · ")}
+                    {item.count}× {item.displayName || item.name} · {item.sources.join(" · ")}
                   </small>
                 ))}
                 {displayedQuest.stockNote && (
@@ -9194,11 +9313,11 @@ function DailyBriefView({
                         <p
                           className="locatable-item-card"
                           data-storage-item={item.name}
-                          title={`Click to locate ${item.name}`}
+                          title={`Click to locate ${item.displayName || item.name}`}
                           key={`${item.name}-${index}`}
                         >
                           <ItemMentionArtwork name={item.name} />
-                          <span>{item.count}× {item.name} · {item.sources.join(" · ")}</span>
+                          <span>{item.count}× {item.displayName || item.name} · {item.sources.join(" · ")}</span>
                         </p>
                       ))}
                     </div>
@@ -9343,7 +9462,7 @@ function DailyBriefView({
                           key={`${item.name}-${itemIndex}`}
                         >
                           <ItemMentionArtwork name={item.name} locatable={false} />
-                          <b>{item.count}×</b> {item.name}
+                          <b>{item.count}×</b> {item.displayName || item.name}
                         </span>
                       ))}
                     </div>
@@ -9357,7 +9476,7 @@ function DailyBriefView({
                         <strong>Farm Cave · {brief.fruitCave.type}</strong>
                         <span>
                           {brief.fruitCave.items
-                            .map((item) => `${item.count}× ${item.name}`)
+                            .map((item) => `${item.count}× ${item.displayName || item.name}`)
                             .join(" · ")}
                         </span>
                       </div>
@@ -9367,7 +9486,7 @@ function DailyBriefView({
                       <span>⚒</span>
                       <div>
                         <strong>
-                          Collect your {brief.toolUpgrade.name} today
+                          Collect your {brief.toolUpgrade.displayName || brief.toolUpgrade.name} today
                         </strong>
                         <small>
                           {
@@ -9426,10 +9545,10 @@ function DailyBriefView({
                 }
                 key={`${crop.id}-${crop.daysRemaining}-${index}`}
               >
-                <SheetArtwork id={crop.id} kind="object" label={crop.name} />
+                <SheetArtwork id={crop.id} kind="object" label={crop.displayName || crop.name} />
                 <span className="crop-forecast-copy">
                   <strong>
-                    {crop.count}× {crop.name}
+                    {crop.count}× {crop.displayName || crop.name}
                   </strong>
                   <span>
                     {crop.ready
@@ -9532,7 +9651,7 @@ function GiftGroup({
             <div
               className="locatable-item-card"
               data-storage-item={item.name}
-              title={`Click to locate ${item.name}`}
+              title={`Click to locate ${item.displayName || item.name}`}
               key={`${item.name}-${item.quality}-${index}`}
             >
               <ItemMentionArtwork
@@ -9540,7 +9659,7 @@ function GiftGroup({
                 name={item.name}
                 item={item.id ? { ...item, id: item.id } : undefined}
               />
-              <strong>{item.name}</strong>
+              <strong>{item.displayName || item.name}</strong>
               <span>
                 {item.count}× · {quality[item.quality] || "normal"}
               </span>
@@ -10441,6 +10560,14 @@ function AchievementsView({
   live: LiveState;
 }) {
   const { t } = useI18n();
+  const gameDisplayName = (name: string, id?: string) => {
+    return resolveGameDisplayName(
+      current.localizedNamesByQualifiedId || {},
+      current.localizedObjectNamesByEnglish || {},
+      name,
+      id,
+    );
+  };
   const achievementSectionOptions = [
     { id: "overview", label: "Achievement overview" },
     { id: "collections", label: "Long-term collections" },
@@ -10633,7 +10760,7 @@ function AchievementsView({
     item?: ItemArtwork;
   };
   const museumNames = new Map(
-    current.museumBrief.sources.flatMap((source) => source.items || []).map((item) => [item.id, item.name]),
+    current.museumBrief.sources.flatMap((source) => source.items || []).map((item) => [item.id, item.displayName || gameDisplayName(item.name, item.id)]),
   );
   const missingMuseum: CollectionChecklistEntry[] = [
     ...current.museumBrief.artifactIds,
@@ -10650,7 +10777,7 @@ function AchievementsView({
     .filter((fish) => !caughtFish.has(fish.id))
     .map((fish) => ({
       key: `fish-${fish.id}`,
-      name: fish.name,
+      name: fish.displayName || gameDisplayName(fish.name, fish.id),
       detail: `${fish.seasons.join(" / ")} · ${fish.locations.join(" / ")}`,
       item: { id: fish.id, name: fish.name, spriteKind: "object", spriteIndex: fish.id },
     }));
@@ -10670,7 +10797,7 @@ function AchievementsView({
           };
       return [{
         key: `bundle-${bundle.id}-${requirement.id}-${index}`,
-        name: requirement.name,
+        name: requirement.displayName || gameDisplayName(requirement.name, requirement.id),
         detail: `${bundle.name} · ${requirement.owned}/${requirement.count} stored${requirement.quality ? ` · quality ${requirement.quality >= 4 ? "iridium" : requirement.quality === 2 ? "gold" : "silver"}` : ""}`,
         item,
       }];
@@ -10681,7 +10808,7 @@ function AchievementsView({
       .filter((item) => !item.complete)
       .map((item) => ({
         key: `${kind}-${item.name}`,
-        name: item.name,
+        name: item.displayName || gameDisplayName(item.name, item.id),
         detail: item.learned
           ? kind === "cooking" ? "Recipe learned · not cooked yet" : "Recipe learned · not crafted yet"
           : "Recipe not learned yet",
@@ -10694,7 +10821,7 @@ function AchievementsView({
     .filter((item) => !item.complete)
     .map((item) => ({
       key: `shipping-${item.id}`,
-      name: item.name,
+      name: item.displayName || gameDisplayName(item.name, item.id),
       detail: "Not shipped yet",
       item,
     }));
@@ -11012,8 +11139,8 @@ function AchievementsView({
                         .filter((item) => !donatedMuseum.has(item.id))
                         .map((item) => (
                           <span key={item.id}>
-                            <SheetArtwork id={item.id} kind="object" label={item.name} />
-                            <b>{item.name}</b>
+                            <SheetArtwork id={item.id} kind="object" label={item.displayName || item.name} />
+                            <b>{item.displayName || item.name}</b>
                           </span>
                         ))}
                     </div>
