@@ -36,6 +36,18 @@
 
 The setup assistant checks Steam libraries and common GOG and Xbox locations. It also shows store-specific example paths when manual selection is needed. The application extracts required visual assets from the user's own game installation; Stardew Valley assets are not bundled in this repository or its installer.
 
+### Windows security notice
+
+The installer is currently unsigned, so Microsoft Defender SmartScreen may identify it as an unrecognized application or an unknown publisher. Only download it from this repository's official [Releases](https://github.com/Maglucen-Studio/StardewValleyTool/releases) page.
+
+Every release includes `SHA256SUMS.txt`. To verify a downloaded installer in PowerShell, run:
+
+```powershell
+Get-FileHash .\Maglucen-Stardew-Valley-Companion-Setup-<version>.exe -Algorithm SHA256
+```
+
+Compare the resulting hash with the installer entry in `SHA256SUMS.txt`. If they match, the downloaded file is byte-for-byte identical to the installer published by the release workflow. This integrity check does not replace a digital signature, so Windows may still display its warning.
+
 ## LIVE tracking
 
 Normal save reading works without SMAPI. For updates while Stardew Valley is running, install [SMAPI](https://smapi.io/) first and let the setup assistant add the included companion bridge to the game's `Mods` folder.
