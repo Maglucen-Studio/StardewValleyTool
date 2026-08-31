@@ -340,8 +340,8 @@ test("crop planning explains the one-tile simulation and its assumptions", async
     /Every possible regrowth before the season ends is included/,
   );
   assert.match(page, /stardew-tool-planted-crop-sort/);
-  assert.match(page, /Quantity: most first/);
-  assert.match(page, /Next harvest/);
+  assert.match(page, /t\("crops\.sortQuantity"\)/);
+  assert.match(page, /t\("crops\.sortHarvest"\)/);
   assert.match(page, /a\.daysRemaining - b\.daysRemaining/);
   assert.match(
     page,
@@ -544,7 +544,7 @@ test("update checks always show immediate and final feedback", async () => {
   assert.match(styles, /\.update-feedback/);
   assert.match(styles, /\.update-feedback\s*\{[^}]*position: fixed/s);
   assert.match(styles, /\.update-feedback\s*\{[^}]*z-index: 1000/s);
-  assert.match(page, /aria-label="Dismiss update message"/);
+  assert.match(page, /aria-label=\{t\("updates\.dismiss"\)\}/);
   assert.match(page, /status === "error" \? 10000 : 6500/);
   assert.deepEqual(JSON.parse(manifest).build.electronLanguages, [
     "en-US",
@@ -1459,6 +1459,9 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(page, /t\("storage\.byContainer"\)/);
   assert.match(page, /t\("storage\.sortQuantityDesc"\)/);
   assert.match(page, /item\.displayName \|\| item\.name/);
+  assert.match(page, /displayName: item\.displayName \|\| gameName\(item\.name\)/);
+  assert.match(page, /t\("crops\.currentlyPlanted"\)/);
+  assert.match(page, /crop\.displayName/);
   assert.match(page, /storageLocation/);
   assert.match(page, /sourceCounts/);
   assert.match(page, /function StorageContainerArtwork/);

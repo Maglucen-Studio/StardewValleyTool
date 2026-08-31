@@ -95,6 +95,7 @@ type Snapshot = {
   dailyBrief: DailyBrief;
   fishingBrief: FishingBrief;
   planningBrief: PlanningBrief;
+  localizedObjectNamesByEnglish?: Record<string, string>;
   itemArtworkCatalog?: Record<string, ItemArtwork>;
   map: { width: number; height: number; tileSize: number; blocked: number[][] };
   objects: FarmObject[];
@@ -3211,21 +3212,21 @@ export default function Home() {
               updateState.status === "downloading" ||
               updateState.status === "unavailable"
             }
-            title={updateState.message || "Check for application updates"}
+            title={updateState.message || t("updates.title")}
           >
             {updateState.status === "available"
-              ? `Download ${updateState.version}`
+              ? t("updates.download", { version: updateState.version || "" })
               : updateState.status === "downloaded"
-                ? "Restart & update"
+                ? t("updates.restart")
                 : updateState.status === "downloading"
                   ? `${updateState.percent || 0}%`
                   : updateState.status === "checking"
-                    ? "Checking…"
+                    ? t("updates.checking")
                     : updateState.status === "current"
-                      ? "Up to date"
+                      ? t("updates.current")
                       : updateState.status === "error"
-                        ? "Try again"
-                        : "Check updates"}
+                        ? t("common.tryAgain")
+                        : t("updates.check")}
           </button>
           {updateState.status !== "idle" && updateState.message && (
             <div
@@ -3236,7 +3237,7 @@ export default function Home() {
               <span>{updateState.message}</span>
               <button
                 type="button"
-                aria-label="Dismiss update message"
+                aria-label={t("updates.dismiss")}
                 onClick={() =>
                   setUpdateState((state) => ({
                     status: "idle",
@@ -6020,6 +6021,8 @@ function PlanningView({
   }, []);
 
   const plan = current.planningBrief;
+  const gameName = (name: string) =>
+    current.localizedObjectNamesByEnglish?.[name] || name;
   const savedBackpackInventory = plan.inventory.filter(
     (item) => item.sources.includes("Backpack"),
   );
@@ -6100,6 +6103,7 @@ function PlanningView({
       const existing = index[key] || {
         id: item.id,
         name: item.name,
+        displayName: item.displayName || gameName(item.name),
         count: 0,
         quality: item.quality,
         qualities: [],
@@ -6135,6 +6139,8 @@ function PlanningView({
       }
       if (!existing.spriteKind && item.spriteKind)
         existing.spriteKind = item.spriteKind;
+      if (!existing.displayName && item.displayName)
+        existing.displayName = item.displayName;
       if (!existing.spriteIndex && item.spriteIndex)
         existing.spriteIndex = item.spriteIndex;
       index[key] = existing;
@@ -6298,6 +6304,7 @@ function PlanningView({
         {
           id: string;
           name: string;
+          displayName: string;
           count: number;
           watered: number;
           daysRemaining: number;
@@ -6309,6 +6316,7 @@ function PlanningView({
       const entry = grouped[crop.name] || {
         id: crop.id,
         name: crop.name,
+        displayName: gameName(crop.name),
         count: 0,
         watered: 0,
         daysRemaining: crop.daysRemaining,
@@ -6326,11 +6334,20 @@ function PlanningView({
     }, {}),
   ).sort((a, b) =>
     plantedCropSort === "name"
-      ? a.name.localeCompare(b.name)
+      ? a.displayName.localeCompare(b.displayName, locale)
       : plantedCropSort === "harvest"
-        ? a.daysRemaining - b.daysRemaining || a.name.localeCompare(b.name)
-        : b.count - a.count || a.name.localeCompare(b.name),
+        ? a.daysRemaining - b.daysRemaining || a.displayName.localeCompare(b.displayName, locale)
+        : b.count - a.count || a.displayName.localeCompare(b.displayName, locale),
   );
+  const displayHarvestDate = (value: string) => {
+    if (value === "Today") return t("crops.today");
+    const match = /^(?:Year (\d+), )?(Spring|Summer|Fall|Winter) (\d+)$/.exec(value);
+    if (!match) return value;
+    const season = t(`season.${match[2].toLowerCase()}`);
+    return match[1]
+      ? t("date.game", { year: match[1], season, day: match[3] })
+      : t("date.seasonDay", { season, day: match[3] });
+  };
   const readyDeliveries = readyBundleDeliveries(community).map((item) => ({
     ...item,
     sources: inventoryForRequirement(item).flatMap((stock) => stock.sources),
@@ -6803,7 +6820,13 @@ function PlanningView({
           <span>
             {live.active
               ? `${formatLiveTime(live.timeOfDay)} · ${live.location}`
-              : `Saved · ${formatGameDate(current)}`}
+              : t("planning.savedDate", {
+                  date: t("date.game", {
+                    year: current.year,
+                    season: t(`season.${current.season}`),
+                    day: current.day,
+                  }),
+                })}
           </span>
         </div>
       </div>
@@ -6995,20 +7018,17 @@ function PlanningView({
           {mode === "farm" && <section className="planted-section">
             <div className="crop-section-title">
               <div>
-                <p className="eyebrow">Read from your save</p>
-                <h2>Currently planted</h2>
-                <p>
-                  These are your actual crops. The same crop may show two dates
-                  when plants are at different growth stages.
-                </p>
+                <p className="eyebrow">{t("crops.fromSave")}</p>
+                <h2>{t("crops.currentlyPlanted")}</h2>
+                <p>{t("crops.description")}</p>
               </div>
               <div className="planted-sort-controls">
                 <strong>
                   {plantedCrops.reduce((sum, crop) => sum + crop.count, 0)}
-                  <small> planted tiles</small>
+                  <small> {t("crops.plantedTiles")}</small>
                 </strong>
                 <label>
-                  Sort by
+                  {t("storage.sort")}
                   <select
                     value={plantedCropSort}
                     onChange={(event) =>
@@ -7017,9 +7037,9 @@ function PlanningView({
                       )
                     }
                   >
-                    <option value="name">Alphabetical</option>
-                    <option value="quantity">Quantity: most first</option>
-                    <option value="harvest">Next harvest</option>
+                    <option value="name">{t("crops.sortAlphabetical")}</option>
+                    <option value="quantity">{t("crops.sortQuantity")}</option>
+                    <option value="harvest">{t("crops.sortHarvest")}</option>
                   </select>
                 </label>
               </div>
@@ -7027,18 +7047,20 @@ function PlanningView({
             <div className="planted-grid">
               {plantedCrops.map((crop) => (
                 <article className={crop.ready ? "ready" : ""} key={crop.name}>
-                  <SheetArtwork id={crop.id} kind="object" label={crop.name} />
+                  <SheetArtwork id={crop.id} kind="object" label={crop.displayName} />
                   <div>
                     <strong>
-                      {crop.count}× {crop.name}
+                      {crop.count}× {crop.displayName}
                     </strong>
                     <span>
                       {crop.ready
-                        ? "Some are ready today"
-                        : `Next harvest: ${crop.harvestDates.join(" / ")}`}
+                        ? t("crops.readyToday")
+                        : t("crops.nextHarvest", {
+                            date: crop.harvestDates.map(displayHarvestDate).join(" / "),
+                          })}
                     </span>
                     <small>
-                      {crop.watered}/{crop.count} watered in the latest save
+                      {t("crops.watered", { watered: crop.watered, count: crop.count })}
                     </small>
                   </div>
                 </article>

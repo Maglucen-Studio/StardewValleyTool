@@ -2141,6 +2141,7 @@ def read_snapshot(save_path: Path) -> dict:
         "dailyBrief": daily_brief(root, player, locations, season, day, year, (year - 1) * 112 + season_index * 28 + day, save_path),
         "fishingBrief": fishing_brief(root, player, season, day, progress),
         "planningBrief": planning,
+        "localizedObjectNamesByEnglish": game_data.get("localizedObjectNamesByEnglish", {}),
         "itemArtworkCatalog": item_artwork_catalog(root, game_data),
         "map": {"width": 80, "height": 65, "tileSize": 16, "blocked": []},
         "objects": objects,
