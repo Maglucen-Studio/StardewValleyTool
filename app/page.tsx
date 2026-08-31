@@ -250,7 +250,7 @@ type DailyBrief = {
     recommendations: LocalizedValue[];
     explanation: LocalizedValue;
   };
-  tv: { id: string; channel: LocalizedValue; title: LocalizedValue; detail: LocalizedValue }[];
+  tv: { id?: string; channel: LocalizedValue; title: LocalizedValue; detail: LocalizedValue }[];
   world: { location: string; items: { name: string; count: number }[] }[];
   beach: { name: string; count: number; tiles: number[][] }[];
   birthdays: BirthdayBrief[];
@@ -276,6 +276,13 @@ type DailyBrief = {
   boardQuest?: DailyQuest | null;
   inventoryItemsChecked: number;
   summary: LocalizedValue;
+};
+const isCoreTvProgram = (program: DailyBrief["tv"][number]) => {
+  if (program.id === "weather" || program.id === "fortune") return true;
+  if (typeof program.channel === "object")
+    return program.channel.key === "today.tv.weather.channel" ||
+      program.channel.key === "today.tv.fortune.channel";
+  return ["Weather Report", "Fortune Teller", "El tiempo", "La adivina"].includes(program.channel);
 };
 type FishingFish = {
   id: string;
@@ -8084,9 +8091,7 @@ function DailyBriefModal({
   const { t, text, date } = useI18n();
   const brief = current.dailyBrief;
   const birthday = brief.birthdays[0];
-  const extraTv = brief.tv.find(
-    (program) => !["weather", "fortune"].includes(program.id),
-  );
+  const extraTv = brief.tv.find((program) => !isCoreTvProgram(program));
   const quest = brief.boardQuest ?? brief.dailyQuest;
   const readyCrops = brief.crops
     .filter((item) => item.ready)
@@ -8378,9 +8383,7 @@ function DailyBriefView({
   const readyMachinesCount = live.active
     ? liveReadyMachines.length
     : savedReadyMachines.length;
-  const extraTv = brief.tv.filter(
-    (program) => !["weather", "fortune"].includes(program.id),
-  );
+  const extraTv = brief.tv.filter((program) => !isCoreTvProgram(program));
   const currentEconomy = history.entries.find(
     (entry) => entry.dateKey === current.dateKey,
   );

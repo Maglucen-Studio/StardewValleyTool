@@ -723,6 +723,18 @@ test("Today presents summary, priorities, changes, journal, and route in decisio
   assert.match(page, /town\|seedshop\|saloon\|hospital/);
 });
 
+test("Extra channel excludes weather and fortune in semantic and legacy snapshots", async () => {
+  const page = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(page, /const isCoreTvProgram/);
+  assert.match(page, /program\.id === "weather" \|\| program\.id === "fortune"/);
+  assert.match(page, /today\.tv\.weather\.channel/);
+  assert.match(page, /"Weather Report", "Fortune Teller", "El tiempo", "La adivina"/);
+  assert.match(page, /brief\.tv\.filter\(\(program\) => !isCoreTvProgram\(program\)\)/);
+});
+
 test("Special Orders use the game's fully localized LIVE text", async () => {
   const [page, bridge, snapshot] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
