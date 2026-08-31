@@ -15,6 +15,8 @@
   ·
   <a href="PRIVACY.md">Privacy</a>
   ·
+  <a href="CODE_SIGNING_POLICY.md">Code signing policy</a>
+  ·
   <a href="CONTRIBUTING.md">Contribute</a>
 </p>
 
@@ -41,6 +43,8 @@ The setup assistant checks Steam libraries and common GOG and Xbox locations. It
 ### Windows security notice
 
 The installer is currently unsigned, so Microsoft Defender SmartScreen may identify it as an unrecognized application or an unknown publisher. Only download it from this repository's official [Releases](https://github.com/Maglucen-Studio/StardewValleyTool/releases) page.
+
+The project is preparing an application for free open-source signing through SignPath. See the [Code signing policy](CODE_SIGNING_POLICY.md) for its signing scope, roles, and mandatory release approval process. This documentation does not mean that the currently published installer is already signed.
 
 Every release includes `SHA256SUMS.txt`. To verify a downloaded installer in PowerShell, run:
 
@@ -90,7 +94,7 @@ Use [GitHub Issues](https://github.com/Maglucen-Studio/StardewValleyTool/issues)
 
 This is the canonical source, distribution, and support repository for Maglucen Stardew Valley Companion. Stable installers are built from public tagged source by GitHub Actions. The workflow publishes SHA-256 checksums and a build-provenance attestation with each new release.
 
-The source is available under the [MIT License](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes, [SECURITY.md](SECURITY.md) for private vulnerability reports, [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for dependency notices, and [AI_USAGE.md](AI_USAGE.md) for the project's AI-assisted development disclosure.
+The source is available under the [MIT License](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes, [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) for release-signing governance, [SECURITY.md](SECURITY.md) for private vulnerability reports, [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for dependency notices, and [AI_USAGE.md](AI_USAGE.md) for the project's AI-assisted development disclosure.
 
 Stardew Valley assets and game assemblies are deliberately absent. Required images and data are extracted locally from each user's legitimate game installation. Continuous integration compiles the optional SMAPI bridge against public API-only reference assemblies.
 
