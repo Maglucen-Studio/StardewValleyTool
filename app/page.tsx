@@ -13,7 +13,12 @@ import {
 import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
 import { furnitureDestination } from "./furniture-layout.mjs";
-import { useI18n, type MessageDescriptor } from "./i18n";
+import {
+  useI18n,
+  type AppLanguageMode,
+  type GameLocalizationCatalog,
+  type MessageDescriptor,
+} from "./i18n";
 
 const APPLICATION_VERSION = packageMetadata.version;
 
@@ -152,6 +157,7 @@ type GrandpaProgress = {
 };
 type Achievement = {
   id: string;
+  gameId?: number | null;
   name: string;
   requirement: string;
   category: string;
@@ -444,6 +450,19 @@ type PersonalGoal = {
   done: boolean;
   createdAt: string;
 };
+type TodayTaskStatus = "active" | "completed" | "dismissed" | "postponed";
+type TodayTaskRecord = {
+  id: string;
+  status: TodayTaskStatus;
+  title: string;
+  detail: string;
+  level: string;
+  completionMode?: "manual" | "automatic";
+  evidence?: string;
+  baseline?: number;
+  updatedAt: string;
+  carriedFrom?: string;
+};
 type StrategicGoalTarget = {
   id: string;
   category: string;
@@ -725,9 +744,16 @@ function resolveGameDisplayName(
 function localizeSnapshotGameNames(
   snapshot: Snapshot,
   translate: Translate = (key, variables) => String(variables?.item ?? key),
+  gameCatalog: GameLocalizationCatalog = {},
 ): Snapshot {
-  const byId = snapshot.localizedNamesByQualifiedId || {};
-  const byEnglish = snapshot.localizedObjectNamesByEnglish || {};
+  const byId = {
+    ...(gameCatalog.localizedNamesByQualifiedId || snapshot.localizedNamesByQualifiedId || {}),
+  };
+  const byEnglish = {
+    ...(gameCatalog.localizedObjectNamesByEnglish || snapshot.localizedObjectNamesByEnglish || {}),
+  };
+  snapshot.localizedNamesByQualifiedId = byId;
+  snapshot.localizedObjectNamesByEnglish = byEnglish;
   const registerIdentity = (item: { id?: string; name: string }) => {
     if (!item.id || /^Item\s+\S+$/i.test(item.name)) return;
     const qualifiedId = item.id.startsWith("(") ? item.id : `(O)${item.id}`;
@@ -794,6 +820,12 @@ function localizeSnapshotGameNames(
     ...(snapshot.dailyBrief.acceptedQuests || []),
     ...(snapshot.dailyBrief.boardQuest ? [snapshot.dailyBrief.boardQuest] : []),
   ]) {
+    const localizedQuest = quest.id === undefined || quest.daily
+      ? undefined
+      : gameCatalog.localizedQuestsById?.[String(quest.id)];
+    if (localizedQuest?.title) quest.title = localizedQuest.title;
+    if (localizedQuest?.description) quest.description = localizedQuest.description;
+    if (localizedQuest?.objective) quest.objective = localizedQuest.objective;
     quest.stock.forEach(item => Object.assign(item, { displayName: localizedName(item.name) }));
     if (quest.requestedName)
       quest.requestedName = localizedName(quest.requestedName, quest.requestedId || undefined);
@@ -804,6 +836,12 @@ function localizeSnapshotGameNames(
     snapshot.collectionBrief?.crafting,
   ]) group?.forEach(attach);
   snapshot.museumBrief.sources.flatMap(source => source.items || []).forEach(attach);
+  snapshot.achievements.items.forEach((achievement) => {
+    if (achievement.gameId === undefined || achievement.gameId === null) return;
+    const localized = gameCatalog.localizedAchievementsById?.[String(achievement.gameId)];
+    if (localized?.name) achievement.name = localized.name;
+    if (localized?.requirement) achievement.requirement = localized.requirement;
+  });
   return snapshot;
 }
 
@@ -1077,10 +1115,16 @@ function localizedUpdateMessage(state: UpdateState, t: Translate) {
 }
 type DesktopUpdates = {
   getLocalization?: () => Promise<{
+    mode: AppLanguageMode;
     language: "en" | "es";
     locale: string;
     messages: Record<string, string>;
     fallbackMessages: Record<string, string>;
+  }>;
+  setLanguageMode?: (mode: AppLanguageMode) => Promise<{
+    ok: boolean;
+    changed?: boolean;
+    restarted?: boolean;
   }>;
   getUpdateState: () => Promise<UpdateState>;
   checkForUpdates: () => Promise<UpdateState>;
@@ -1101,6 +1145,44 @@ type DesktopUpdates = {
   onNavigateHistory?: (callback: (direction: "back" | "forward") => void) => () => void;
 };
 type AppNavigationTarget = { view: ActiveView; section?: string };
+
+function LanguageModeIcon({ mode }: { mode: AppLanguageMode }) {
+  if (mode === "es") {
+    return (
+      <span className="language-mode-icon flag" aria-hidden="true">
+        <svg viewBox="0 0 30 20" focusable="false">
+          <path fill="#aa151b" d="M0 0h30v20H0z" />
+          <path fill="#f1bf00" d="M0 5h30v10H0z" />
+        </svg>
+      </span>
+    );
+  }
+  if (mode === "en") {
+    return (
+      <span className="language-mode-icon flag" aria-hidden="true">
+        <svg viewBox="0 0 30 20" focusable="false">
+          <path fill="#012169" d="M0 0h30v20H0z" />
+          <path stroke="#fff" strokeWidth="4" d="m0 0 30 20M30 0 0 20" />
+          <path stroke="#c8102e" strokeWidth="2" d="m0 0 30 20M30 0 0 20" />
+          <path stroke="#fff" strokeWidth="7" d="M15 0v20M0 10h30" />
+          <path stroke="#c8102e" strokeWidth="4" d="M15 0v20M0 10h30" />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <span className="language-mode-icon game" aria-hidden="true">
+      {/* The executable icon is extracted at runtime from the user's own installation. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/assets/ui/stardew-valley-icon.png"
+        alt=""
+        onError={(event) => { event.currentTarget.style.display = "none"; }}
+      />
+    </span>
+  );
+}
+
 type FarmAnimal = {
   id: string;
   name: string;
@@ -1581,7 +1663,7 @@ function drawBuildingSprite(
 }
 
 export default function Home() {
-  const { t, text, locale } = useI18n();
+  const { t, text, locale, gameCatalog, mode: languageMode } = useI18n();
   const appShellRef = useRef<HTMLElement>(null);
   const topbarRef = useRef<HTMLElement>(null);
   const [progressTabsTop, setProgressTabsTop] = useState(82);
@@ -1646,6 +1728,9 @@ export default function Home() {
   const livePanelCloseTimer = useRef<number | null>(null);
   const [showFarmSwitcher, setShowFarmSwitcher] = useState(false);
   const farmSwitcherRef = useRef<HTMLDivElement>(null);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const languageSwitchingRef = useRef(false);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showAppSearch, setShowAppSearch] = useState(false);
   const [appSearchQuery, setAppSearchQuery] = useState("");
@@ -1933,6 +2018,8 @@ export default function Home() {
         setShowDailyBrief(false);
       } else if (showFarmSwitcher) {
         setShowFarmSwitcher(false);
+      } else if (showLanguageMenu) {
+        setShowLanguageMenu(false);
       } else {
         return;
       }
@@ -1940,7 +2027,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", closePopup);
     return () => window.removeEventListener("keydown", closePopup);
-  }, [locatedItemName, showAppSearch, showDailyBrief, showFarmSwitcher, showHelp, showLiveAlerts]);
+  }, [locatedItemName, showAppSearch, showDailyBrief, showFarmSwitcher, showHelp, showLanguageMenu, showLiveAlerts]);
 
   useEffect(() => {
     const openSection = (event: KeyboardEvent) => {
@@ -2055,18 +2142,38 @@ export default function Home() {
   }, [activeView]);
 
   useEffect(() => {
-    const closeFarmSwitcher = (event: PointerEvent) => {
+    const closeHeaderMenus = (event: PointerEvent) => {
       if (
         showFarmSwitcher &&
         !farmSwitcherRef.current?.contains(event.target as Node)
       )
         setShowFarmSwitcher(false);
+      if (
+        showLanguageMenu &&
+        !languageMenuRef.current?.contains(event.target as Node)
+      )
+        setShowLanguageMenu(false);
     };
-    document.addEventListener("pointerdown", closeFarmSwitcher);
+    document.addEventListener("pointerdown", closeHeaderMenus);
     return () => {
-      document.removeEventListener("pointerdown", closeFarmSwitcher);
+      document.removeEventListener("pointerdown", closeHeaderMenus);
     };
-  }, [showFarmSwitcher]);
+  }, [showFarmSwitcher, showLanguageMenu]);
+
+  const switchLanguage = async (nextMode: AppLanguageMode) => {
+    setShowLanguageMenu(false);
+    if (nextMode === languageMode || languageSwitchingRef.current) return;
+    const desktop = (window as Window & { stardewDesktop?: DesktopUpdates }).stardewDesktop;
+    if (!desktop?.setLanguageMode) return;
+    languageSwitchingRef.current = true;
+    try {
+      await desktop.setLanguageMode(nextMode);
+    } catch (error) {
+      setDataLoadError(error instanceof Error ? error.message : t("language.switchFailed"));
+    } finally {
+      languageSwitchingRef.current = false;
+    }
+  };
 
   useEffect(() => {
     const scales = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -2255,7 +2362,7 @@ export default function Home() {
         }),
       ])
         .then(([snapshot, farmHistory]: [Snapshot, FarmHistory]) => {
-          snapshot = localizeSnapshotGameNames(snapshot, t);
+          snapshot = localizeSnapshotGameNames(snapshot, t, gameCatalog);
           const profileId = snapshot.profileId || "default";
           const sessionStorageKey = `stardew-tool-last-session-${profileId}`;
           if (sessionProfileRef.current !== profileId) {
@@ -2312,7 +2419,7 @@ export default function Home() {
       asset.src = path;
     });
     return () => window.clearInterval(refreshTimer);
-  }, [t]);
+  }, [t, gameCatalog]);
 
   useEffect(() => {
     const path = data?.locationMaps?.Farm?.background;
@@ -2350,12 +2457,16 @@ export default function Home() {
       .then((snapshot) =>
         setPreviousDay(
           snapshot
-            ? localizeSnapshotGameNames({ ...snapshot, seasonLabel: seasonName(snapshot.season) }, t)
+            ? localizeSnapshotGameNames(
+                { ...snapshot, seasonLabel: seasonName(snapshot.season) },
+                t,
+                gameCatalog,
+              )
             : null,
         ),
       )
       .catch(() => setPreviousDay(null));
-  }, [data, history, t]);
+  }, [data, gameCatalog, history, t]);
 
   useEffect(() => {
     if (!data || mapLocation === "farm") return;
@@ -3533,6 +3644,37 @@ export default function Home() {
             <option value={2}>200%</option>
           </select>
         </label>
+        <div className="language-selector" ref={languageMenuRef}>
+          <button
+            type="button"
+            className="language-selector-trigger"
+            aria-label={t("language.current", { language: t(`language.mode.${languageMode}`) })}
+            aria-expanded={showLanguageMenu}
+            aria-haspopup="menu"
+            title={t("language.current", { language: t(`language.mode.${languageMode}`) })}
+            onClick={() => setShowLanguageMenu((open) => !open)}
+          >
+            <LanguageModeIcon mode={languageMode} />
+          </button>
+          {showLanguageMenu && (
+            <div className="language-selector-menu" role="menu" aria-label={t("language.selector")}>
+              {(["game", "es", "en"] as AppLanguageMode[]).map((option) => (
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-label={t(`language.mode.${option}`)}
+                  aria-checked={languageMode === option}
+                  className={languageMode === option ? "active" : ""}
+                  key={option}
+                  title={t(`language.mode.${option}`)}
+                  onClick={() => void switchLanguage(option)}
+                >
+                  <LanguageModeIcon mode={option} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </header>
       {showAppSearch && (
         <div className="app-search-backdrop" onPointerDown={() => setShowAppSearch(false)}>
@@ -8692,6 +8834,46 @@ function DailyBriefView({
       todaySectionOptions.map((option) => option.id),
     );
   const brief = current.dailyBrief;
+  const [todayTaskRecords, setTodayTaskRecords] = useState<Record<string, TodayTaskRecord>>({});
+  const [todayTasksDateKey, setTodayTasksDateKey] = useState<string | null>(null);
+  const [pinnedGoals, setPinnedGoals] = useState<PersonalGoal[]>([]);
+  const persistTodayTaskRecords = useCallback((tasks: Record<string, TodayTaskRecord>) => {
+    setTodayTaskRecords(tasks);
+    fetch("/api/preferences", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ todayTaskDay: { dateKey: current.dateKey, tasks } }),
+    }).catch(() => undefined);
+  }, [current.dateKey]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/preferences", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((preferences) => {
+        if (cancelled) return;
+        setPinnedGoals(Array.isArray(preferences.goals) ? preferences.goals.filter((goal: PersonalGoal) => !goal.done) : []);
+        const days = preferences.todayTasks?.days || {};
+        const currentTasks = days[current.dateKey]?.tasks;
+        if (currentTasks && typeof currentTasks === "object") {
+          setTodayTaskRecords(currentTasks);
+        } else {
+          const previousDay = Object.entries(days)
+            .filter(([dateKey]) => dateKey !== current.dateKey)
+            .sort(([, a], [, b]) => String((a as { updatedAt?: string }).updatedAt || "").localeCompare(String((b as { updatedAt?: string }).updatedAt || "")))
+            .at(-1)?.[1] as { tasks?: Record<string, TodayTaskRecord> } | undefined;
+          const carried = Object.fromEntries(
+            Object.values(previousDay?.tasks || {})
+              .filter((task) => task.status === "postponed")
+              .map((task) => [task.id, { ...task, status: "active" as const, carriedFrom: task.updatedAt, updatedAt: new Date().toISOString() }]),
+          );
+          setTodayTaskRecords(carried);
+          if (Object.keys(carried).length) persistTodayTaskRecords(carried);
+        }
+        setTodayTasksDateKey(current.dateKey);
+      })
+      .catch(() => setTodayTasksDateKey(current.dateKey));
+    return () => { cancelled = true; };
+  }, [current.dateKey, persistTodayTaskRecords]);
   const specialOrders = live.active && live.specialOrders
     ? live.specialOrders
     : brief.specialOrders || [];
@@ -9020,9 +9202,28 @@ function DailyBriefView({
       (item) => `${formatBundleRequirement(item, t, locale)} → ${communityRoomName(item.roomId, t)} · ${communityBundleName(item.bundleId, item.bundle, t)}`,
     )
     .join(" · ");
+  const todayBirthday = brief.birthdays.find((item) => item.when.toLowerCase() === "today");
+  const birthdayFriend = todayBirthday
+    ? (live.friendships || []).find((friend) =>
+        (todayBirthday.id && friend.id === todayBirthday.id) || friend.name === todayBirthday.person)
+    : undefined;
+  const liveCompletedBundleCount = live.active
+    ? current.planningBrief.communityCenter.rooms.reduce((sum, room) => {
+        const liveBundles = new Map(
+          (live.collections?.bundleProgress || []).map((bundle) => [String(bundle.id), bundle.donated]),
+        );
+        return sum + room.bundles.filter((bundle) => {
+          const donated = liveBundles.get(bundle.id);
+          return donated
+            ? donated.slice(0, bundle.requirements.length).filter(Boolean).length >= bundle.required
+            : bundle.complete;
+        }).length;
+      }, 0)
+    : current.planningBrief.communityCenter.completed;
   const priorityItems = [
     unwateredCrops > 0 && !live.raining
       ? {
+          id: "water-crops",
           level: "urgent",
           title: t("today.priority.waterCrops", { count: unwateredCrops }),
           detail:
@@ -9033,6 +9234,7 @@ function DailyBriefView({
       : null,
     readyCrops > 0
       ? {
+          id: "harvest-crops",
           level: "ready",
           title: t("today.priority.harvestCrops", { count: readyCrops }),
           detail: t("today.priority.harvestUpdates"),
@@ -9040,6 +9242,7 @@ function DailyBriefView({
       : null,
     readyMachinesCount > 0
       ? {
+          id: "collect-machines",
           level: "ready",
           title: t("today.priority.collectMachines", { count: readyMachinesCount }),
           detail: live.active
@@ -9049,6 +9252,7 @@ function DailyBriefView({
       : null,
     (live.active ? live.routeState?.toolPickupReady : brief.toolUpgrade?.ready)
       ? {
+          id: "collect-tool",
           level: "urgent",
           title: t("today.priority.collectTool", { tool: brief.toolUpgrade?.displayName || brief.toolUpgrade?.name || t("today.priority.upgradedTool") }),
           detail: t("today.priority.readyAtClint"),
@@ -9056,13 +9260,23 @@ function DailyBriefView({
       : null,
     activeDailyQuest.accepted && activeDailyQuest.daysLeft <= 1
       ? {
+          id: "daily-quest",
           level: "urgent",
           title: activeDailyQuest.title,
           detail: t("today.priority.finalDay", { objective: text(activeDailyQuest.objective) }),
         }
       : null,
+    todayBirthday && (!live.active || !birthdayFriend?.giftsToday)
+      ? {
+          id: "birthday-gift",
+          level: "ready",
+          title: t("today.priority.birthdayGift", { person: todayBirthday.person }),
+          detail: t("today.priority.birthdayGiftDetail"),
+        }
+      : null,
     bundleDeliveries.length > 0
       ? {
+          id: "bundle-deliveries",
           level: "ready",
           title: t("today.priority.bundleDeliveries", { count: bundleDeliveries.length }),
           detail: bundleDeliveryDetail,
@@ -9071,17 +9285,92 @@ function DailyBriefView({
       : null,
     live.active && (live.energy || 0) < (live.maxEnergy || 1) * 0.2
       ? {
+          id: "low-energy",
           level: "warning",
           title: t("today.priority.lowEnergy"),
           detail: t("today.priority.lowEnergyDetail", { energy: Math.round(live.energy || 0), max: Math.round(live.maxEnergy || 0) }),
         }
       : null,
   ].filter(Boolean) as {
+    id: string;
     level: string;
     title: string;
     detail: string;
     action?: "community";
   }[];
+
+  useEffect(() => {
+    if (todayTasksDateKey !== current.dateKey) return;
+    const next = { ...todayTaskRecords };
+    let changed = false;
+    const now = new Date().toISOString();
+    for (const item of priorityItems) {
+      if (next[item.id]) continue;
+      next[item.id] = {
+        id: item.id,
+        status: "active",
+        title: item.title,
+        detail: item.detail,
+        level: item.level,
+        baseline: item.id === "bundle-deliveries" ? liveCompletedBundleCount : undefined,
+        updatedAt: now,
+      };
+      changed = true;
+    }
+    if (live.active) {
+      const satisfied: Record<string, boolean> = {
+        "water-crops": unwateredCrops === 0 || Boolean(live.raining),
+        "harvest-crops": readyCrops === 0,
+        "collect-machines": readyMachinesCount === 0,
+        "collect-tool": !live.routeState?.toolPickupReady,
+        "daily-quest": Boolean(live.dailyQuestCompleted),
+        "birthday-gift": Boolean(birthdayFriend?.giftsToday),
+        "low-energy": (live.energy || 0) >= (live.maxEnergy || 1) * 0.2,
+      };
+      for (const task of Object.values(next)) {
+        const bundleCompleted = task.id === "bundle-deliveries"
+          && liveCompletedBundleCount > (task.baseline ?? liveCompletedBundleCount);
+        if (task.status !== "active" || (!satisfied[task.id] && !bundleCompleted)) continue;
+        next[task.id] = { ...task, status: "completed", completionMode: "automatic", evidence: task.id, updatedAt: now };
+        changed = true;
+      }
+    }
+    if (changed) queueMicrotask(() => persistTodayTaskRecords(next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayTasksDateKey, current.dateKey, live, readyCrops, readyMachinesCount, unwateredCrops, liveCompletedBundleCount, birthdayFriend?.giftsToday]);
+
+  const checklistItems: { id: string; level: string; title: string; detail: string; action?: "community" }[] = [
+    ...priorityItems,
+    ...Object.values(todayTaskRecords)
+      .filter((task) => task.status === "active" && !priorityItems.some((item) => item.id === task.id))
+      .map((task) => ({ id: task.id, level: task.level, title: task.title, detail: task.detail })),
+  ].filter((item) => (todayTaskRecords[item.id]?.status || "active") === "active");
+  const checklistHistory = Object.values(todayTaskRecords).filter((task) => task.status !== "active");
+  const checklistEvidence: Record<string, string> = {
+    "water-crops": t("today.checklist.evidence.water"),
+    "harvest-crops": t("today.checklist.evidence.harvest"),
+    "collect-machines": t("today.checklist.evidence.machines"),
+    "collect-tool": t("today.checklist.evidence.tool"),
+    "daily-quest": t("today.checklist.evidence.quest"),
+    "birthday-gift": t("today.checklist.evidence.gift"),
+    "bundle-deliveries": t("today.checklist.evidence.bundles"),
+    "low-energy": t("today.checklist.evidence.energy"),
+  };
+  const updateTodayTask = (id: string, status: TodayTaskStatus) => {
+    const task = todayTaskRecords[id] || priorityItems.find((item) => item.id === id);
+    if (!task) return;
+    persistTodayTaskRecords({
+      ...todayTaskRecords,
+      [id]: {
+        ...task,
+        id,
+        status,
+        completionMode: status === "completed" ? "manual" : undefined,
+        evidence: undefined,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  };
 
   const currentSession = sessionSummary(current, live);
   const sessionChanges = sessionBaseline
@@ -9348,7 +9637,7 @@ function DailyBriefView({
             <p className="eyebrow">{t("web.dailyBrief.priorities")} {live.active ? t("today.priority.realtime") : t("today.priority.latestSave")}
             </p>
             <h2>
-              {priorityItems.length
+              {checklistItems.length
                 ? t("today.priority.mostImportant")
                 : t("today.priority.underControl")}
             </h2>
@@ -9363,37 +9652,65 @@ function DailyBriefView({
             </div>
           )}
         </div>
-        {priorityItems.length ? (
+        {checklistItems.length ? (
           <div className="priority-grid">
-            {priorityItems.slice(0, 6).map((item, index) => {
-              const content = (
-                <>
-                  <span>{index + 1}</span>
-                  <div>
-                    <strong>{item.title}</strong>
-                    <small>{item.detail}</small>
+            {checklistItems.map((item, index) => (
+              <article className={`${item.level} checklist-task`} key={item.id}>
+                <span>{index + 1}</span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <small>{item.detail}</small>
+                  <div className="checklist-actions">
+                    <button type="button" onClick={() => updateTodayTask(item.id, "completed")}>{t("today.checklist.complete")}</button>
+                    <button type="button" onClick={() => updateTodayTask(item.id, "postponed")}>{t("today.checklist.postpone")}</button>
+                    <button type="button" onClick={() => updateTodayTask(item.id, "dismissed")}>{t("today.checklist.dismiss")}</button>
+                    {item.action === "community" && (
+                      <button type="button" onClick={onOpenCommunityCenter}>{t("today.openCommunity", { item: item.title })}</button>
+                    )}
                   </div>
-                </>
-              );
-              return item.action === "community" ? (
-                <button
-                  type="button"
-                  className={`${item.level} interactive`}
-                  key={`${item.title}-${index}`}
-                  onClick={onOpenCommunityCenter}
-                  aria-label={t("today.openCommunity", { item: item.title })}
-                >
-                  {content}
-                </button>
-              ) : (
-                <article className={item.level} key={`${item.title}-${index}`}>
-                  {content}
-                </article>
-              );
-            })}
+                </div>
+              </article>
+            ))}
           </div>
         ) : (
           <p className="priority-empty">{t("web.dailyBrief.youCanSpendTheRestOfTheDayFishing")}</p>
+        )}
+        {checklistHistory.length > 0 && (
+          <div className="checklist-history">
+            {checklistHistory.map((task) => (
+              <article key={task.id}>
+                <div>
+                  <strong>{task.title}</strong>
+                  <small>
+                    {task.status === "completed"
+                      ? task.completionMode === "automatic"
+                        ? t("today.checklist.completedAutomatic")
+                        : t("today.checklist.completedManual")
+                      : task.status === "postponed"
+                        ? t("today.checklist.postponed")
+                        : t("today.checklist.dismissed")}
+                  </small>
+                  {task.completionMode === "automatic" && task.evidence && <small>{checklistEvidence[task.evidence]}</small>}
+                </div>
+                <button type="button" onClick={() => updateTodayTask(task.id, "active")}>{t("today.checklist.restore")}</button>
+              </article>
+            ))}
+          </div>
+        )}
+        <small className="checklist-sidecar-note">{t("today.checklist.savedSidecar")}</small>
+        {pinnedGoals.length > 0 && (
+          <aside className="today-personal-goals">
+            <div>
+              <strong>{t("today.checklist.personalGoals")}</strong>
+              <small>{t("today.checklist.personalGoalsDetail")}</small>
+            </div>
+            {pinnedGoals.map((goal) => (
+              <article key={goal.id}>
+                <strong>{goal.title}</strong>
+                {goal.deadline && <small>{t("goal.deadline", { date: goal.deadline })}</small>}
+              </article>
+            ))}
+          </aside>
         )}
       </section>}
       {visibleSections.completable && <section className="completable-today" style={{ order: sectionOrder.indexOf("completable") + 1 }}>

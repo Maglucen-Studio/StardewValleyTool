@@ -17,6 +17,24 @@ async function readPreferences() {
   }
 }
 
+function mergeTodayTaskDay(current: unknown, incoming: unknown) {
+  if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) return current;
+  const candidate = incoming as { dateKey?: unknown; tasks?: unknown };
+  if (typeof candidate.dateKey !== "string" || candidate.dateKey.length > 40) return current;
+  if (!candidate.tasks || typeof candidate.tasks !== "object" || Array.isArray(candidate.tasks)) return current;
+  const currentStore = current && typeof current === "object" && !Array.isArray(current)
+    ? current as { days?: Record<string, unknown> }
+    : {};
+  const days = {
+    ...(currentStore.days || {}),
+    [candidate.dateKey]: {
+      updatedAt: new Date().toISOString(),
+      tasks: Object.fromEntries(Object.entries(candidate.tasks).slice(0, 100)),
+    },
+  };
+  return { version: 1, days: Object.fromEntries(Object.entries(days).slice(-14)) };
+}
+
 export async function GET() {
   return Response.json(await readPreferences(), { headers: { "cache-control": "no-store" } });
 }
@@ -31,6 +49,9 @@ export async function POST(request: Request) {
     ...(incoming.proposalResolutions && typeof incoming.proposalResolutions === "object" && !Array.isArray(incoming.proposalResolutions) ? { proposalResolutions: incoming.proposalResolutions } : {}),
     ...(incoming.map && typeof incoming.map === "object" ? { map: incoming.map } : {}),
     ...(Array.isArray(incoming.goals) ? { goals: incoming.goals.slice(0, 100) } : {}),
+    ...(incoming.todayTaskDay ? {
+      todayTasks: mergeTodayTaskDay(current.todayTasks, incoming.todayTaskDay),
+    } : {}),
   };
   await mkdir(directory, { recursive: true });
   await writeFile(file, JSON.stringify(next, null, 2), "utf8");
