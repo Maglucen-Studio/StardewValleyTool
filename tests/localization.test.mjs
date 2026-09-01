@@ -103,16 +103,24 @@ test("semantic daily and fishing messages are available in both catalogs", () =>
 });
 
 test("desktop and renderer keep the Companion locale synchronized", async () => {
-  const [provider, layout, preload, desktop] = await Promise.all([
+  const [provider, layout, page, styles, preload, desktop, development, setup, setupScript] = await Promise.all([
     readFile(new URL("../app/i18n.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../desktop/preload.cjs", import.meta.url), "utf8"),
     readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/dev-local.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/setup.html", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/setup.js", import.meta.url), "utf8"),
   ]);
 
+  assert.match(preload, /setLanguageMode: mode => ipcRenderer\.invoke\("localization:set-mode"/);
   assert.match(preload, /onLocalizationChanged: callback =>/);
   assert.match(preload, /ipcRenderer\.on\("localization:changed", listener\)/);
   assert.match(desktop, /function localizationPayload\(config = readConfig\(\) \|\| \{\}\)/);
+  assert.match(desktop, /ipcMain\.handle\("localization:set-mode"/);
+  assert.match(desktop, /STARDEW_TOOL_LANGUAGE_MODE: language\.mode/);
   assert.match(desktop, /mainWindow\.webContents\.send\("localization:changed", payload\)/);
   assert.match(desktop, /writeFileSync\(configPath,[\s\S]*publishLocalizationState\(config\)/);
   assert.match(provider, /desktop\?\.onLocalizationChanged\?\.\(apply\)/);
@@ -123,6 +131,12 @@ test("desktop and renderer keep the Companion locale synchronized", async () => 
   assert.match(provider, /catch \{\s*applyBrowserFallback\(\);\s*\}/);
   assert.match(layout, /export const dynamic = "force-dynamic"/);
   assert.match(layout, /process\.env\.STARDEW_TOOL_LANGUAGE === "es"/);
-  assert.match(layout, /<LocalizationProvider initialLanguage=\{initialLanguage\}>/);
+  assert.match(layout, /initialMode=\{initialMode\}/);
+  assert.match(development, /STARDEW_TOOL_LANGUAGE_MODE: localization\.mode/);
+  assert.match(page, /className="language-selector"/);
+  assert.match(page, /\{ game: "🌱", es: "🇪🇸", en: "🇬🇧" \}/);
+  assert.match(styles, /\.language-selector-menu/);
+  assert.match(setup, /id="language-label"/);
+  assert.match(setupScript, /element\.hidden = Boolean\(state\.config\)/);
   assert.doesNotMatch(provider, /getLocalization\(\)\.then\(setState\)\.catch\(\(\) => undefined\)/);
 });

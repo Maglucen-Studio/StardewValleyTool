@@ -328,6 +328,83 @@ button {
     sans-serif;
   cursor: pointer;
 }
+.language-selector {
+  position: relative;
+  flex: 0 0 auto;
+}
+.language-selector-trigger {
+  width: 42px;
+  height: 28px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #f7ecd8;
+  background: #27362c;
+  border: 1px solid #61705e;
+  cursor: pointer;
+}
+.language-selector-trigger > span {
+  font-size: 16px;
+  line-height: 1;
+}
+.language-selector-trigger > i {
+  color: #aebba9;
+  font: 8px Arial, sans-serif;
+  font-style: normal;
+}
+.language-selector-trigger:hover,
+.language-selector-trigger:focus-visible,
+.language-selector-trigger[aria-expanded="true"] {
+  border-color: #d6b35d;
+  outline: none;
+}
+.language-selector-menu {
+  position: absolute;
+  z-index: 90;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 205px;
+  padding: 6px;
+  background: #202f26;
+  border: 1px solid #62715e;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+}
+.language-selector-menu button {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 7px;
+  color: #f7ecd8;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.language-selector-menu button:hover,
+.language-selector-menu button:focus-visible,
+.language-selector-menu button.active {
+  background: #304337;
+  border-color: #6f8b70;
+  outline: none;
+}
+.language-selector-menu button > span {
+  font-size: 17px;
+}
+.language-selector-menu button > b {
+  overflow: hidden;
+  font: 700 10px Arial, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.language-selector-menu button > i {
+  color: #aee486;
+  font: 800 10px Arial, sans-serif;
+  font-style: normal;
+}
 .update-button {
   min-width: 86px;
   height: 28px;

@@ -15,6 +15,7 @@ if (errors.length) {
 const localization = resolveLanguage(config, process.env.APPDATA || "");
 const localizedEnvironment = {
   ...process.env,
+  STARDEW_TOOL_LANGUAGE_MODE: localization.mode,
   STARDEW_TOOL_LANGUAGE: localization.language,
   STARDEW_TOOL_LOCALE: localization.locale,
   STARDEW_TOOL_XNB_SUFFIX: localization.xnbSuffix,

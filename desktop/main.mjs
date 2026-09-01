@@ -584,6 +584,7 @@ function childEnvironment(config) {
     STARDEW_PATH: config.stardewPath,
     STARDEW_SAVE: config.savePath,
     STARDEW_TOOL_PROFILE_ID: profileIdForSave(config.savePath),
+    STARDEW_TOOL_LANGUAGE_MODE: language.mode,
     STARDEW_TOOL_LANGUAGE: language.language,
     STARDEW_TOOL_LOCALE: language.locale,
     STARDEW_TOOL_XNB_SUFFIX: language.xnbSuffix,
@@ -1284,6 +1285,33 @@ function installIpc() {
   ipcMain.handle("localization:get-state", (event) => {
     requireDashboardSender(event);
     return localizationPayload();
+  });
+  ipcMain.handle("localization:set-mode", async (event, incomingMode) => {
+    requireDashboardSender(event);
+    const mode = ["game", "en", "es"].includes(incomingMode) ? incomingMode : null;
+    if (!mode) throw new Error(desktopTranslator()("desktop.error.requestRejected"));
+    const current = readConfig() || {};
+    if (current.languageMode === mode) return { ok: true, changed: false };
+    const config = { ...current, languageMode: mode };
+    writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    publishLocalizationState(config);
+    Menu.setApplicationMenu(createApplicationMenu());
+    if (tray) {
+      tray.destroy();
+      tray = null;
+      createTray();
+    }
+    setupWindow?.webContents.reload();
+    if (backend && !backend.killed) {
+      backend.kill();
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 500));
+    }
+    await initialize(config, (message) =>
+      event.sender.send("setup:progress", message),
+    );
+    if (mainWindow && !mainWindow.isDestroyed())
+      await mainWindow.loadURL(`http://${localServiceHost}:${servicePort(config)}/`);
+    return { ok: true, changed: true };
   });
   ipcMain.handle("display:set-scale", (event, incomingScale) => {
     requireDashboardSender(event);
