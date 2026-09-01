@@ -4980,8 +4980,8 @@ button {
   gap: 7px;
   margin-top: 13px;
 }
-.priority-grid article,
-.priority-grid button {
+.priority-grid > article,
+.priority-grid > button {
   min-height: 58px;
   padding: 9px 10px;
   display: grid;
@@ -4994,31 +4994,31 @@ button {
   border: 0;
   border-left: 3px solid #7a9273;
 }
-.priority-grid article.urgent,
-.priority-grid button.urgent {
+.priority-grid > article.urgent,
+.priority-grid > button.urgent {
   background: #513d2b;
   border-left-color: #e0a24d;
 }
-.priority-grid article.ready,
-.priority-grid button.ready {
+.priority-grid > article.ready,
+.priority-grid > button.ready {
   border-left-color: #99bf71;
 }
-.priority-grid article.warning,
-.priority-grid button.warning {
+.priority-grid > article.warning,
+.priority-grid > button.warning {
   background: #4c4030;
   border-left-color: #d7b35c;
 }
-.priority-grid button.interactive {
+.priority-grid > button.interactive {
   cursor: pointer;
 }
-.priority-grid button.interactive:hover,
-.priority-grid button.interactive:focus-visible {
+.priority-grid > button.interactive:hover,
+.priority-grid > button.interactive:focus-visible {
   background: #405a47;
   outline: 2px solid #d9bd70;
   outline-offset: 1px;
 }
-.priority-grid article > span,
-.priority-grid button > span {
+.priority-grid > article > span,
+.priority-grid > button > span {
   width: 22px;
   height: 22px;
   display: grid;
@@ -5050,6 +5050,82 @@ button {
   font:
     11px Arial,
     sans-serif;
+}
+.checklist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.checklist-actions button,
+.checklist-history button {
+  min-height: 0;
+  padding: 4px 7px;
+  color: #f4ecdc;
+  background: transparent;
+  border: 1px solid #82927e;
+  cursor: pointer;
+  font: 700 8px Arial, sans-serif;
+}
+.checklist-actions button:hover,
+.checklist-actions button:focus-visible,
+.checklist-history button:hover,
+.checklist-history button:focus-visible {
+  color: #293b2f;
+  background: #e5c16b;
+  border-color: #e5c16b;
+}
+.checklist-history {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+.checklist-history article {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #c9d4c6;
+  background: #203027;
+  border: 1px solid #405345;
+}
+.checklist-history article div,
+.today-personal-goals > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.checklist-history strong,
+.today-personal-goals strong {
+  font-size: 10px;
+}
+.checklist-history small,
+.today-personal-goals small,
+.checklist-sidecar-note {
+  color: #aebead;
+  font: 8px/1.35 Arial, sans-serif;
+}
+.checklist-sidecar-note {
+  display: block;
+  margin-top: 9px;
+}
+.today-personal-goals {
+  margin-top: 10px;
+  padding-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.2fr) repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  border-top: 1px solid #4c6250;
+}
+.today-personal-goals article {
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: column;
+  color: #e7dfcf;
+  background: #34493a;
+  border-left: 3px solid #72946a;
 }
 .planning-page {
   max-width: none;
