@@ -621,6 +621,7 @@ public sealed class ModEntry : Mod
 
         return new
         {
+            id = quest.id.Value,
             accepted = quest.accepted.Value,
             available = true,
             daily = quest.dailyQuest.Value,

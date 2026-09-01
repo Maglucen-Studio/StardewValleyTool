@@ -592,6 +592,7 @@ type LiveFarmMap = {
   buildings: Building[];
 };
 type LiveQuest = {
+  id?: number;
   accepted?: boolean;
   available?: boolean;
   daily?: boolean;
@@ -960,7 +961,32 @@ const LIVE_ROUTE_LOCATION_NAMES: Record<string, string> = {
   Backwoods: "Backwoods",
 };
 
-function liveQuestStatus(quest: LiveQuest, live: LiveState, t: Translate): DailyQuest {
+function matchingSavedQuest(quest: LiveQuest, savedQuests: DailyQuest[]) {
+  if (typeof quest.id === "number") {
+    const exact = savedQuests.find((candidate) => candidate.id === quest.id);
+    if (exact) return exact;
+  }
+  let candidates = savedQuests.filter(
+    (candidate) => Boolean(candidate.daily) === Boolean(quest.daily),
+  );
+  if (quest.type) candidates = candidates.filter((candidate) => candidate.type === quest.type);
+  if (quest.requester)
+    candidates = candidates.filter((candidate) => candidate.requester === quest.requester);
+  if (quest.requestedId) {
+    const requestedId = normalizeObjectId(quest.requestedId);
+    candidates = candidates.filter(
+      (candidate) => normalizeObjectId(candidate.requestedId) === requestedId,
+    );
+  }
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
+
+function liveQuestStatus(
+  quest: LiveQuest,
+  live: LiveState,
+  t: Translate,
+  official?: DailyQuest,
+): DailyQuest {
   const requestedId = normalizeObjectId(quest.requestedId);
   const matching = (live.inventory || []).filter(
     (item) => inventoryItemId(item) === requestedId,
@@ -970,14 +996,15 @@ function liveQuestStatus(quest: LiveQuest, live: LiveState, t: Translate): Daily
   const checksStock = quest.type === "ItemDelivery";
   const progress = checksStock ? Math.min(target, owned) : quest.progress || 0;
   return {
+    id: quest.id ?? official?.id,
     accepted: quest.accepted !== false,
     available: quest.available,
     daily: quest.daily,
     title: quest.daily && quest.requester
       ? t(`quest.dailyTitle.${quest.type || "Quest"}`, { requester: quest.requester })
-      : quest.title || t("quest.accepted"),
-    description: quest.description || "",
-    objective: quest.objective || t("quest.completeRequest"),
+      : official?.title || quest.title || t("quest.accepted"),
+    description: official?.description || quest.description || "",
+    objective: official?.objective || quest.objective || t("quest.completeRequest"),
     type: quest.type || t("quest.quest"),
     requester: quest.requester || null,
     reward: quest.reward || 0,
@@ -1532,7 +1559,7 @@ function drawBuildingSprite(
 }
 
 export default function Home() {
-  const { t, locale } = useI18n();
+  const { t, text, locale } = useI18n();
   const appShellRef = useRef<HTMLElement>(null);
   const topbarRef = useRef<HTMLElement>(null);
   const [progressTabsTop, setProgressTabsTop] = useState(82);
@@ -3017,7 +3044,7 @@ export default function Home() {
     );
   if (!data) return <main className="loading">{t("web.home.preparingYourFarm")}</main>;
 
-  const liveAlerts = deriveLiveAlerts(data, live, liveAlertSettings, t);
+  const liveAlerts = deriveLiveAlerts(data, live, liveAlertSettings, t, text);
   const canNavigateBack = navigationAvailability.back;
   const canNavigateForward = navigationAvailability.forward;
 
@@ -3242,9 +3269,6 @@ export default function Home() {
             </button>
             <span className="farmer-name">
               {data.farmer}
-              <b className="app-version-badge" title={t("shell.appVersion")}>
-                v{APPLICATION_VERSION}
-              </b>
               {diagnostics?.development && (
                 <b className="development-badge">{t("shell.development")}</b>
               )}
@@ -4149,6 +4173,7 @@ function deriveLiveAlerts(
   live: LiveState,
   settings: LiveAlertSettings,
   t: Translate,
+  text: (value: LocalizedValue | null | undefined) => string,
 ): LiveAlert[] {
   if (!live.active) return [];
   const alerts: LiveAlert[] = [];
@@ -4184,12 +4209,22 @@ function deriveLiveAlerts(
   );
   if (settings.deadlines) {
     alerts.push(
-      ...deadlineQuests.map((quest) => ({
-        kind: "deadlines" as const,
-        title: quest.title,
-        detail: t("alert.finalDay", { objective: quest.objective || t("alert.completeObjective") }),
-        tone: "urgent" as const,
-      })),
+      ...deadlineQuests.map((quest) => {
+        const official = matchingSavedQuest(
+          quest,
+          current.dailyBrief.acceptedQuests || [],
+        );
+        return {
+          kind: "deadlines" as const,
+          title: official ? text(official.title) : quest.title,
+          detail: t("alert.finalDay", {
+            objective: official
+              ? text(official.objective)
+              : quest.objective || t("alert.completeObjective"),
+          }),
+          tone: "urgent" as const,
+        };
+      }),
     );
   }
   if (
@@ -8764,7 +8799,14 @@ function DailyBriefView({
     return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
   });
   const liveAcceptedQuests = live.active
-    ? (live.acceptedQuests || []).map((quest) => liveQuestStatus(quest, live, t))
+    ? (live.acceptedQuests || []).map((quest) =>
+        liveQuestStatus(
+          quest,
+          live,
+          t,
+          matchingSavedQuest(quest, brief.acceptedQuests || []),
+        ),
+      )
     : [];
   const liveDailyQuest = liveAcceptedQuests.find((quest) => quest.daily);
   const liveBoardQuest =

@@ -423,12 +423,6 @@ button {
   align-items: center;
   gap: 7px;
 }
-.app-version-badge {
-  color: #aebaaa;
-  font: 700 8px Arial, sans-serif;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-}
 .development-badge {
   padding: 2px 5px;
   border: 1px solid #e1b64f;

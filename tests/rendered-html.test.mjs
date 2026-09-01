@@ -690,6 +690,8 @@ test("Today lists every active journal quest with opt-in spoiler guidance", asyn
   assert.match(page, /<h2>\{t\("web\.dailyBrief\.acceptedQuests"\)\}<\/h2>/);
   assert.match(page, /t\("web\.dailyBrief\.showGuidanceAndPossibleSpoilers"\)/);
   assert.match(page, /acceptedQuests\.map/);
+  assert.match(page, /function matchingSavedQuest\(/);
+  assert.match(page, /official\?\.title \|\| quest\.title/);
   assert.match(styles, /\.accepted-quest-list/);
   assert.match(styles, /\.quest-spoilers/);
 });
@@ -991,7 +993,7 @@ test("the header and farm selector use each save's locally composed farmer", asy
   assert.match(page, /src=\{data\.farmerAvatar \|\| "\/app-icon\.png"\}/);
   assert.match(page, /className="farmer-avatar"/);
   assert.match(page, /className="farmer-name">[\s\S]*?\{data\.farmer\}[\s\S]*?development-badge/);
-  assert.match(page, /className="app-version-badge"[\s\S]*?v\{APPLICATION_VERSION\}/);
+  assert.doesNotMatch(page, /className="app-version-badge"/);
   assert.match(page, /Maglucen Stardew Valley Companion · v\$\{APPLICATION_VERSION\}/);
   assert.doesNotMatch(page, />Maglucen · Stardew Valley Companion<\/span>/);
   assert.match(page, /className="farm-option-avatar"/);
@@ -1393,6 +1395,7 @@ test("Fishing can plan another hour during LIVE and guides accepted fishing requ
   assert.match(page, /live\.acceptedQuests/);
   assert.match(bridge, /DescribeActiveQuests\(Game1\.player\)/);
   assert.match(bridge, /acceptedQuests,/);
+  assert.match(bridge, /id = quest\.id\.Value/);
   assert.match(bridge, /case FishingQuest fishing:/);
 });
 
@@ -1670,7 +1673,7 @@ test("desktop development reloads the interface and restarts Electron runtime ch
   assert.doesNotMatch(desktop, /role: "reload"[^\n]*CmdOrCtrl\+R/);
   assert.match(desktop, /Date\.now\(\) - startupStartedAt < 120_000/);
   assert.match(desktop, /Date\.now\(\) - startupStartedAt >= 20_000/);
-  assert.match(desktop, /Optimizing the development app for this computer/);
+  assert.match(desktop, /t\("loading\.optimizing"\)/);
   assert.match(desktop, /launchedBackend\.exitCode !== null/);
   assert.match(desktop, /STARDEW_TOOL_DESKTOP_DEV === "1"/);
   assert.match(desktop, /"maglucen-stardew-valley-companion-development"/);
@@ -1678,7 +1681,7 @@ test("desktop development reloads the interface and restarts Electron runtime ch
   assert.match(desktop, /APP_ID}\.development/);
   assert.match(desktop, /STARDEW_TOOL_DESKTOP_PORT \|\| 43117/);
   assert.match(desktop, /async function extractGameAssets/);
-  assert.match(desktop, /Retrying safely/);
+  assert.match(desktop, /t\("loading\.assetsRetry"\)/);
   assert.match(desktop, /if \(app\.isPackaged\)\s*app\.setLoginItemSettings/);
   assert.match(
     desktop,
@@ -1707,16 +1710,22 @@ test("desktop development reloads the interface and restarts Electron runtime ch
   assert.match(desktop, /window\.moveTop\(\)/);
 });
 
-test("desktop loading screen uses the complete original brand lockup", async () => {
-  const [loading, styles] = await Promise.all([
+test("desktop loading screen uses the complete original brand lockup and localized progress", async () => {
+  const [loading, loadingScript, styles, desktop] = await Promise.all([
     readFile(new URL("../desktop/loading.html", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/loading.js", import.meta.url), "utf8"),
     readFile(new URL("../desktop/setup.css", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
   ]);
   assert.match(loading, /resources\/brand-lockup-original\.png/);
   assert.doesNotMatch(loading, /MAGLUCEN · STARD/);
   assert.match(styles, /\.loading-brand \{/);
   assert.match(styles, /width: 270px/);
   assert.match(styles, /mix-blend-mode: lighten/);
+  assert.match(loadingScript, /messages\["loading\.title"\]/);
+  assert.match(desktop, /t\("loading\.extractingAssets"\)/);
+  assert.match(desktop, /t\("loading\.optimizing"\)/);
+  assert.doesNotMatch(desktop, /progress\("Preparing your farmers/);
 });
 
 test("development, LIVE help, storage locating, and unlocked weekly orders are discoverable", async () => {

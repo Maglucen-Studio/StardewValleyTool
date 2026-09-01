@@ -607,12 +607,13 @@ function runNodeScript(relativeScript, config, onLine = () => {}) {
 }
 
 async function extractGameAssets(config, progress) {
+  const t = desktopTranslator(config);
   const script = join("scripts", "extract_game_data.mjs");
   try {
     await runNodeScript(script, config, progress);
   } catch (firstError) {
     log(`Asset extraction retry after: ${firstError?.stack || firstError}`);
-    progress("The game asset reader stopped unexpectedly. Retrying safely…");
+    progress(t("loading.assetsRetry"));
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 750));
     await runNodeScript(script, config, progress);
   }
@@ -674,7 +675,7 @@ function ensureFarmAvatars(config, progress = () => {}) {
     return !existsSync(avatar) || statSync(avatar).mtimeMs < save.modifiedAt;
   });
   if (!staleSaves.length) return;
-  progress("Preparing your farmers…");
+  progress(desktopTranslator(config)("loading.farmers"));
   const result = spawnSync(
     pythonCommand(config),
     [
@@ -843,7 +844,8 @@ async function startBackend(config, progress) {
     log(`Backend stopped with code ${code}`);
     backend = null;
   });
-  progress("Starting the private local service…");
+  const t = desktopTranslator(config);
+  progress(t("loading.service"));
   const startupStartedAt = Date.now();
   let optimizationProgressShown = false;
   while (Date.now() - startupStartedAt < 120_000) {
@@ -858,7 +860,7 @@ async function startBackend(config, progress) {
       Date.now() - startupStartedAt >= 20_000
     ) {
       optimizationProgressShown = true;
-      progress("Optimizing the development app for this computer…");
+      progress(t("loading.optimizing"));
     }
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
   }
@@ -913,13 +915,13 @@ async function initialize(config, progress = () => {}) {
       ),
     );
     if (extractedAssetsAreStale(config, requiredAssets)) {
-      progress(
-        "Extracting visual assets from your Stardew Valley installation…",
-      );
-      await extractGameAssets(config, (line) => line && progress(line));
+      const t = desktopTranslator(config);
+      progress(t("loading.extractingAssets"));
+      await extractGameAssets(config, () => {});
     }
     ensureFarmAvatars(config, progress);
-    progress(installBridge(config));
+    progress(desktopTranslator(config)("loading.preparingLive"));
+    installBridge(config);
     await startBackend(config, progress);
   })().finally(() => {
     initialization = null;
