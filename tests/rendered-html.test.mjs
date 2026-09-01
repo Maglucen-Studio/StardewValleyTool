@@ -492,7 +492,10 @@ test("desktop shell is secure, local-first, and distributable", async () => {
   assert.equal(manifest.build.publish[0].repo, "StardewValleyTool");
   assert.match(releaseWorkflow, /tags:\s+- "v\*"/);
   assert.doesNotMatch(releaseWorkflow, /PUBLIC_RELEASE_TOKEN/);
-  assert.match(releaseWorkflow, /attest-build-provenance@43d14bc/);
+  assert.match(
+    releaseWorkflow,
+    /attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a/,
+  );
   assert.match(releaseWorkflow, /SHA256SUMS\.txt/);
   assert.match(releaseWorkflow, /gh release create/);
   assert.match(
