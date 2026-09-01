@@ -61,6 +61,7 @@ type Interior = {
   width: number;
   height: number;
   background?: string;
+  foreground?: string;
   objects: FarmObject[];
   furniture: (Tile & {
     name: string;
@@ -110,7 +111,7 @@ type Snapshot = {
   interiors: Interior[];
   locationMaps?: Record<
     string,
-    { background: string; width: number; height: number }
+    { background: string; foreground?: string; width: number; height: number }
   >;
   suggestions: Suggestion[];
 };
@@ -4656,6 +4657,10 @@ function InteriorView({
     path: string;
     image: HTMLImageElement;
   } | null>(null);
+  const [foreground, setForeground] = useState<{
+    path: string;
+    image: HTMLImageElement;
+  } | null>(null);
   const size = 32;
 
   useEffect(() => {
@@ -4665,6 +4670,14 @@ function InteriorView({
     image.onload = () => setBackground({ path, image });
     image.src = path;
   }, [interior.background]);
+
+  useEffect(() => {
+    if (!interior.foreground) return;
+    const path = interior.foreground;
+    const image = new Image();
+    image.onload = () => setForeground({ path, image });
+    image.src = path;
+  }, [interior.foreground]);
 
   useEffect(() => {
     const element = canvas.current;
@@ -4783,6 +4796,11 @@ function InteriorView({
       }
     }
 
+    const currentForeground = foreground;
+    if (currentForeground && currentForeground.path === interior.foreground) {
+      ctx.drawImage(currentForeground.image, 0, 0, element.width, element.height);
+    }
+
     if (showGrid) {
       ctx.strokeStyle = "rgba(58,39,25,.28)";
       ctx.lineWidth = 1;
@@ -4811,6 +4829,7 @@ function InteriorView({
     }
   }, [
     background,
+    foreground,
     interior,
     selected,
     showGrid,
@@ -5277,6 +5296,9 @@ function StorageLocationPreviewCanvas({
   const background = normalizedLocation === "Farm"
     ? current.locationMaps?.Farm?.background
     : interior?.background || extractedLocation?.background;
+  const foreground = normalizedLocation === "Farm"
+    ? undefined
+    : interior?.foreground || extractedLocation?.foreground;
   const mapWidth = normalizedLocation === "Farm"
     ? current.map.width
     : interior?.width || extractedLocation?.width;
@@ -5452,6 +5474,16 @@ function StorageLocationPreviewCanvas({
       aria-hidden="true"
     >
       <canvas ref={canvas} width={frameWidth * TILE} height={frameHeight * TILE} />
+      {foreground ? (
+        <span
+          className="storage-location-preview-foreground"
+          style={{
+            backgroundImage: `url("${foreground}")`,
+            backgroundSize: `${mapWidth * 12}px ${mapHeight * 12}px`,
+            backgroundPosition: `${-startX * 12}px ${-startY * 12}px`,
+          }}
+        />
+      ) : null}
     </span>
   );
 }

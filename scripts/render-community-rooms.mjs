@@ -127,7 +127,11 @@ function blendPixel(target, targetOffset, source, sourceOffset) {
   target[targetOffset + 3] = Math.round(outputAlpha * 255);
 }
 
-export async function renderMap(mapPath, sheetPaths) {
+export function isForegroundMapLayer(layerId) {
+  return /^(?:Front|AlwaysFront)/i.test(String(layerId || ""));
+}
+
+export async function renderMap(mapPath, sheetPaths, { layerFilter = () => true } = {}) {
   const map = readMap(await readFile(mapPath));
   const firstLayer = map.layers[0];
   const output = new PNG({ width: firstLayer.size.width * 16, height: firstLayer.size.height * 16 });
@@ -137,7 +141,7 @@ export async function renderMap(mapPath, sheetPaths) {
     if (path) images.set(sheet.id, PNG.sync.read(await readFile(path)));
   }
   for (const layer of map.layers) {
-    if (!layer.visible || layer.id === "Paths") continue;
+    if (!layer.visible || layer.id === "Paths" || !layerFilter(layer)) continue;
     for (let y = 0; y < layer.size.height; y += 1) for (let x = 0; x < layer.size.width; x += 1) {
       const tile = layer.tiles[y * layer.size.width + x];
       const sheet = tile && map.sheets.get(tile.sheetId);

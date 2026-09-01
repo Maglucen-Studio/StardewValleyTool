@@ -7674,6 +7674,13 @@ button {
   height: 100%;
   image-rendering: pixelated;
 }
+.storage-location-preview-foreground {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
 .storage-container-groups h3 {
   margin: 0;
   font: 700 18px Georgia, serif;

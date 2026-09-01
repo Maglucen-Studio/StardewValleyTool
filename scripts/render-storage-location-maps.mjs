@@ -4,7 +4,12 @@ import { basename, dirname, resolve } from "node:path";
 import { PNG } from "pngjs";
 import { unpackToFiles } from "xnb";
 import { loadConfig, runtimeRoot, runtimePaths } from "./config.mjs";
-import { blockedMapTiles, readMap, renderMap } from "./render-community-rooms.mjs";
+import {
+  blockedMapTiles,
+  isForegroundMapLayer,
+  readMap,
+  renderMap,
+} from "./render-community-rooms.mjs";
 
 const config = loadConfig();
 const { contentRoot } = runtimePaths(config);
@@ -74,7 +79,11 @@ async function cachedTexture(source, imageSource, season) {
   return destination;
 }
 
-async function renderLocation(mapName, season, { includeBlocked = false } = {}) {
+async function renderLocation(
+  mapName,
+  season,
+  { includeBlocked = false, layered = false } = {},
+) {
   const source = mapPathFor(mapName);
   if (!source) return null;
   const tbinPath = resolve(cacheRoot, "maps", `${safeName(mapName)}.tbin`);
@@ -95,7 +104,8 @@ async function renderLocation(mapName, season, { includeBlocked = false } = {}) 
         season,
       );
   }
-  const fileName = `${safeName(mapName)}-${safeName(season)}.png`;
+  const fileStem = `${safeName(mapName)}-${safeName(season)}`;
+  const fileName = `${fileStem}${layered ? "-base" : ""}.png`;
   const destination = resolve(publicRoot, fileName);
   const destinationTime = existsSync(destination) ? (await stat(destination)).mtimeMs : 0;
   const newestInput = Math.max(
@@ -104,12 +114,38 @@ async function renderLocation(mapName, season, { includeBlocked = false } = {}) 
   );
   if (destinationTime < newestInput) {
     await mkdir(publicRoot, { recursive: true });
-    const image = await renderMap(tbinPath, sheets);
+    const image = await renderMap(tbinPath, sheets, {
+      layerFilter: layered
+        ? (layer) => !isForegroundMapLayer(layer.id)
+        : () => true,
+    });
     await writeFile(destination, PNG.sync.write(image));
+  }
+  const hasForeground = layered && map.layers.some(
+    (layer) => layer.visible
+      && isForegroundMapLayer(layer.id)
+      && layer.tiles.some(Boolean),
+  );
+  let foreground;
+  if (hasForeground) {
+    const foregroundFileName = `${fileStem}-foreground.png`;
+    const foregroundDestination = resolve(publicRoot, foregroundFileName);
+    const foregroundTime = existsSync(foregroundDestination)
+      ? (await stat(foregroundDestination)).mtimeMs
+      : 0;
+    if (foregroundTime < newestInput) {
+      await mkdir(publicRoot, { recursive: true });
+      const image = await renderMap(tbinPath, sheets, {
+        layerFilter: (layer) => isForegroundMapLayer(layer.id),
+      });
+      await writeFile(foregroundDestination, PNG.sync.write(image));
+    }
+    foreground = `/assets/location-maps/${foregroundFileName}`;
   }
   const firstLayer = map.layers[0];
   return {
     background: `/assets/location-maps/${fileName}`,
+    ...(foreground ? { foreground } : {}),
     width: firstLayer.size.width,
     height: firstLayer.size.height,
     ...(includeBlocked ? { blocked: blockedMapTiles(map) } : {}),
@@ -147,7 +183,7 @@ const farmMapNames = {
 
 function interiorMapName(interior) {
   if (interior.mapName) return interior.mapName;
-  const contextualName = /\/location-maps\/([^/]+)-(?:spring|summer|fall|winter)\.png$/i
+  const contextualName = /\/location-maps\/([^/]+)-(?:spring|summer|fall|winter)(?:-(?:base|foreground))?\.png$/i
     .exec(interior.background || "")?.[1];
   if (contextualName) return contextualName;
   const fileName = /\/([^/]+)\.png$/i.exec(interior.background || "")?.[1];
@@ -215,10 +251,11 @@ async function main() {
     const mapName = interiorMapName(interior);
     if (!mapName) continue;
     try {
-      const rendered = await renderLocation(mapName, season);
+      const rendered = await renderLocation(mapName, season, { layered: true });
       if (!rendered) continue;
       locationMaps[interior.id] = rendered;
       interior.background = rendered.background;
+      interior.foreground = rendered.foreground;
       interior.width = rendered.width;
       interior.height = rendered.height;
     } catch (error) {
