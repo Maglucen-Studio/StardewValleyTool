@@ -12,6 +12,7 @@ import {
 } from "react";
 import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
+import { furnitureDestination } from "./furniture-layout.mjs";
 import { useI18n, type MessageDescriptor } from "./i18n";
 
 const APPLICATION_VERSION = packageMetadata.version;
@@ -67,6 +68,7 @@ type Interior = {
     sourceY?: number;
     sourceWidth?: number;
     sourceHeight?: number;
+    footprintHeight?: number;
   })[];
 };
 type Suggestion = Building & { id: string; kind: string; color: string };
@@ -4751,8 +4753,7 @@ function InteriorView({
         entity.sourceHeight &&
         sprites.furniture
       ) {
-        const width = entity.sourceWidth * 2,
-          height = entity.sourceHeight * 2;
+        const destination = furnitureDestination(entity, size);
         sprite(
           ctx,
           sprites.furniture,
@@ -4762,7 +4763,7 @@ function InteriorView({
             entity.sourceWidth,
             entity.sourceHeight,
           ],
-          [px, py - Math.max(0, height - size), width, height],
+          destination,
         );
       } else {
         ctx.fillStyle = "#9a7048";
@@ -5394,10 +5395,13 @@ function StorageLocationPreviewCanvas({
       }
       if (entity.type === "furniture") {
         const item = entity.item;
-        const px = item.x * TILE;
-        const py = item.y * TILE;
         if (item.sourceWidth && item.sourceHeight && sprites.furniture)
-          sprite(ctx, sprites.furniture, [item.sourceX || 0, item.sourceY || 0, item.sourceWidth, item.sourceHeight], [px, py - Math.max(0, item.sourceHeight - TILE)]);
+          sprite(
+            ctx,
+            sprites.furniture,
+            [item.sourceX || 0, item.sourceY || 0, item.sourceWidth, item.sourceHeight],
+            furnitureDestination(item, TILE),
+          );
         continue;
       }
       const item = entity.item;
