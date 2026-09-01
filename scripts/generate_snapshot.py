@@ -679,10 +679,15 @@ def interior_views(locations: ET.Element, player: ET.Element, farm: ET.Element) 
             if pos is None:
                 continue
             source = item.find("sourceRect")
+            bounding = item.find("boundingBox")
+            footprint_height = 1
+            if bounding is not None:
+                footprint_height = max(1, (number(bounding, "Height", 64) + 63) // 64)
             furniture.append({
                 "x": number(pos, "X"), "y": number(pos, "Y"), "name": item.findtext("name", "Furniture"),
                 "sourceX": number(source, "X"), "sourceY": number(source, "Y"),
                 "sourceWidth": number(source, "Width"), "sourceHeight": number(source, "Height"),
+                "footprintHeight": footprint_height,
             })
         max_x = max([item["x"] for item in objects + furniture] + [9])
         max_y = max([item["y"] for item in objects + furniture] + [9])

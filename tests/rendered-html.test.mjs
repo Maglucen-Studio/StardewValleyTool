@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile as readRawFile } from "node:fs/promises";
 import test from "node:test";
+import { furnitureDestination } from "../app/furniture-layout.mjs";
 
 async function readFile(path, encoding) {
   const source = await readRawFile(path, encoding);
@@ -38,6 +39,48 @@ test("server renders the local Maglucen companion shell", async () => {
   );
   assert.match(html, /Preparing your farm/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
+});
+
+test("furniture sprites anchor to the bottom of their saved collision footprint", async () => {
+  assert.deepEqual(
+    furnitureDestination({
+      x: 4,
+      y: 4,
+      sourceWidth: 16,
+      sourceHeight: 32,
+      footprintHeight: 1,
+    }),
+    [64, 48, 16, 32],
+  );
+  assert.deepEqual(
+    furnitureDestination({
+      x: 5,
+      y: 4,
+      sourceWidth: 32,
+      sourceHeight: 48,
+      footprintHeight: 2,
+    }),
+    [80, 48, 32, 48],
+  );
+  assert.deepEqual(
+    furnitureDestination({
+      x: 7,
+      y: 8,
+      sourceWidth: 32,
+      sourceHeight: 48,
+      footprintHeight: 3,
+    }),
+    [112, 128, 32, 48],
+  );
+
+  const [generator, page] = await Promise.all([
+    readRawFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+    readRawFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(generator, /item\.find\("boundingBox"\)/);
+  assert.match(generator, /"footprintHeight": footprint_height/);
+  assert.match(page, /furnitureDestination\(entity, size\)/);
+  assert.match(page, /furnitureDestination\(item, TILE\)/);
 });
 
 test("the localization context interpolates variables before and after desktop hydration", async () => {
