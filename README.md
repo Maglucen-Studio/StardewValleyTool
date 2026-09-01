@@ -20,7 +20,7 @@
   <a href="CONTRIBUTING.md">Contribute</a>
 </p>
 
-> The application is currently in active development and its interface is available in English. Release notes describe changes and known limitations for each version.
+> The application is currently in active development. Its interface follows Stardew Valley's configured language, with complete English and Spanish Companion catalogs in this release. Release notes describe changes and known limitations for each version.
 
 ## What it does
 

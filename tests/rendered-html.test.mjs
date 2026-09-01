@@ -71,7 +71,7 @@ test("planner includes live state, safe save reading, and decision support", asy
 });
 
 test("portable configuration contains no personal paths", async () => {
-  const [example, configLoader, generator, readme] = await Promise.all([
+  const [example, configLoader, generator, readme, viteConfig, builtPublic] = await Promise.all([
     readFile(new URL("../config.example.json", import.meta.url), "utf8"),
     readFile(new URL("../scripts/config.mjs", import.meta.url), "utf8"),
     readFile(
@@ -79,11 +79,15 @@ test("portable configuration contains no personal paths", async () => {
       "utf8",
     ),
     readFile(new URL("../README.md", import.meta.url), "utf8"),
+    readFile(new URL("../vite.config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/prepare-built-public.mjs", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(example, /maglu|Aincrad|SteamLibrary/i);
-  assert.doesNotMatch(generator, /maglu|Aincrad_446203252|SteamLibrary/i);
+  assert.doesNotMatch(generator, /maglu|Aincrad_446203252|SteamLibrary|Trispona/i);
   assert.match(configLoader, /STARDEW_PATH/);
   assert.match(readme, /assets are \*\*not\*\* distributed/i);
+  assert.match(viteConfig, /publicDir:\s*command === "build" \? false/);
+  assert.doesNotMatch(builtPublic, /cpSync|public["'],\s*"(?:assets|data)/);
 });
 
 test("public user-facing sources are English", async () => {

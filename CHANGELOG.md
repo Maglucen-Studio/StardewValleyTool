@@ -2,6 +2,28 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.9.0 — 2026-09-01
+
+### New
+
+- Added Companion localization driven by the language selected in Stardew Valley, with complete English and Spanish interface catalogs.
+- Added centralized resolution of game-owned names from the user's local Stardew Valley data while preserving custom farm, player, mod, and user-created names.
+- Added automated localization coverage checks for the React interface and Electron desktop shell.
+
+### Improved
+
+- Localized Today, Farm, Fishing, Plan, Friendship, Progress, collections, loading, setup, update feedback, dates, quantities, statuses, and LIVE quest information through one shared locale source.
+- Farm switching now provides immediate loading feedback while the selected save is prepared.
+- Updated the Windows desktop runtime and development dependencies while retaining mutually compatible ESLint, TypeScript, and Node type versions.
+- Updated the pinned GitHub build-provenance action and its release-safety verification.
+
+### Fixed
+
+- Corrected game-item localization across storage, routes, gifts, collections, shipping, crops, production, and missing-item checklists, including qualified variants such as white and brown large eggs.
+- Corrected Mushroom Cave reminders so placed chests and garden pots are ignored and only ready cave rewards are reported.
+- Removed weather and daily luck from the Extra TV channel because those belong to Weather Report and Fortune Teller.
+- Corrected remaining untranslated desktop dialogs, development update feedback, quest text, loading progress, and semantic LIVE messages.
+
 ## 1.8.2 — 2026-08-30
 
 ### Improved

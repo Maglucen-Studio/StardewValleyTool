@@ -2147,7 +2147,7 @@ def read_snapshot(save_path: Path) -> dict:
         "profileId": PROFILE_ID,
         "farmType": number(root, "whichFarm"),
         "farmName": root.findtext("player/farmName", "My Farm"),
-        "farmer": root.findtext("player/name", "Trispona"),
+        "farmer": root.findtext("player/name", ""),
         "farmerAvatar": farmer_avatar,
         "season": season,
         "seasonLabel": season_label,
