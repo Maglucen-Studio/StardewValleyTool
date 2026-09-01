@@ -1604,8 +1604,10 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 5/);
-  assert.match(desktop, /catalogVersion !== 5/);
+  assert.match(extractor, /catalogVersion: 6/);
+  assert.match(desktop, /catalogVersion !== 6/);
+  assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
+  assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);
   assert.match(extractor, /replace\(\/\(\\d\)o\\b\/g, "\$1g"\)/);
   assert.match(extractor, /Data\/Quests\.xnb/);
@@ -1704,10 +1706,10 @@ test("game-owned names are localized once for every snapshot-backed view", async
   assert.match(page, /snapshot\.museumBrief\.sources\.flatMap/);
   assert.match(page, /material\.displayName \|\| material\.name/);
   assert.match(page, /machine\.displayName \|\| machine\.name/);
-  assert.match(page, /snapshot = localizeSnapshotGameNames\(snapshot, t\)/);
+  assert.match(page, /snapshot = localizeSnapshotGameNames\(snapshot, t, gameCatalog\)/);
   assert.match(page, /if \(document\.hidden \|\| loadingLatest\) return Promise\.resolve\(\)/);
   assert.match(page, /\.finally\(\(\) => \{\s*loadingLatest = false;/);
-  assert.match(page, /localizeSnapshotGameNames\(\{ \.\.\.snapshot, seasonLabel:/);
+  assert.match(page, /localizeSnapshotGameNames\([\s\S]*?\{ \.\.\.snapshot, seasonLabel:[\s\S]*?gameCatalog/);
   assert.match(page, /live\.routeState\?\.worldTasks/);
   assert.match(page, /item\.displayName \|\| resolveGameDisplayName\(/);
 });

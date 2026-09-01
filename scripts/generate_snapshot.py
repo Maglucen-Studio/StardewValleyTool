@@ -1831,7 +1831,7 @@ def achievement_tracking(root: ET.Element, player: ET.Element, total_earned: int
         name = localized_achievement.get("name") or name
         requirement = localized_achievement.get("requirement") or requirement
         achievements.append({
-            "id": key, "name": name, "requirement": requirement, "category": category,
+            "id": key, "gameId": save_id, "name": name, "requirement": requirement, "category": category,
             "done": done, "current": current, "target": target, "unit": unit,
             "timing": timing, "nextStep": next_step,
         })

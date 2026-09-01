@@ -13,7 +13,12 @@ import {
 import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
 import { furnitureDestination } from "./furniture-layout.mjs";
-import { useI18n, type AppLanguageMode, type MessageDescriptor } from "./i18n";
+import {
+  useI18n,
+  type AppLanguageMode,
+  type GameLocalizationCatalog,
+  type MessageDescriptor,
+} from "./i18n";
 
 const APPLICATION_VERSION = packageMetadata.version;
 
@@ -152,6 +157,7 @@ type GrandpaProgress = {
 };
 type Achievement = {
   id: string;
+  gameId?: number | null;
   name: string;
   requirement: string;
   category: string;
@@ -738,9 +744,16 @@ function resolveGameDisplayName(
 function localizeSnapshotGameNames(
   snapshot: Snapshot,
   translate: Translate = (key, variables) => String(variables?.item ?? key),
+  gameCatalog: GameLocalizationCatalog = {},
 ): Snapshot {
-  const byId = snapshot.localizedNamesByQualifiedId || {};
-  const byEnglish = snapshot.localizedObjectNamesByEnglish || {};
+  const byId = {
+    ...(gameCatalog.localizedNamesByQualifiedId || snapshot.localizedNamesByQualifiedId || {}),
+  };
+  const byEnglish = {
+    ...(gameCatalog.localizedObjectNamesByEnglish || snapshot.localizedObjectNamesByEnglish || {}),
+  };
+  snapshot.localizedNamesByQualifiedId = byId;
+  snapshot.localizedObjectNamesByEnglish = byEnglish;
   const registerIdentity = (item: { id?: string; name: string }) => {
     if (!item.id || /^Item\s+\S+$/i.test(item.name)) return;
     const qualifiedId = item.id.startsWith("(") ? item.id : `(O)${item.id}`;
@@ -807,6 +820,12 @@ function localizeSnapshotGameNames(
     ...(snapshot.dailyBrief.acceptedQuests || []),
     ...(snapshot.dailyBrief.boardQuest ? [snapshot.dailyBrief.boardQuest] : []),
   ]) {
+    const localizedQuest = quest.id === undefined || quest.daily
+      ? undefined
+      : gameCatalog.localizedQuestsById?.[String(quest.id)];
+    if (localizedQuest?.title) quest.title = localizedQuest.title;
+    if (localizedQuest?.description) quest.description = localizedQuest.description;
+    if (localizedQuest?.objective) quest.objective = localizedQuest.objective;
     quest.stock.forEach(item => Object.assign(item, { displayName: localizedName(item.name) }));
     if (quest.requestedName)
       quest.requestedName = localizedName(quest.requestedName, quest.requestedId || undefined);
@@ -817,6 +836,12 @@ function localizeSnapshotGameNames(
     snapshot.collectionBrief?.crafting,
   ]) group?.forEach(attach);
   snapshot.museumBrief.sources.flatMap(source => source.items || []).forEach(attach);
+  snapshot.achievements.items.forEach((achievement) => {
+    if (achievement.gameId === undefined || achievement.gameId === null) return;
+    const localized = gameCatalog.localizedAchievementsById?.[String(achievement.gameId)];
+    if (localized?.name) achievement.name = localized.name;
+    if (localized?.requirement) achievement.requirement = localized.requirement;
+  });
   return snapshot;
 }
 
@@ -1638,7 +1663,7 @@ function drawBuildingSprite(
 }
 
 export default function Home() {
-  const { t, text, locale, language, gameCode, mode: languageMode } = useI18n();
+  const { t, text, locale, gameCatalog, mode: languageMode } = useI18n();
   const appShellRef = useRef<HTMLElement>(null);
   const topbarRef = useRef<HTMLElement>(null);
   const [progressTabsTop, setProgressTabsTop] = useState(82);
@@ -1704,7 +1729,7 @@ export default function Home() {
   const [showFarmSwitcher, setShowFarmSwitcher] = useState(false);
   const farmSwitcherRef = useRef<HTMLDivElement>(null);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
-  const [switchingLanguage, setSwitchingLanguage] = useState(false);
+  const languageSwitchingRef = useRef(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showAppSearch, setShowAppSearch] = useState(false);
@@ -2137,20 +2162,16 @@ export default function Home() {
 
   const switchLanguage = async (nextMode: AppLanguageMode) => {
     setShowLanguageMenu(false);
-    if (nextMode === languageMode || switchingLanguage) return;
+    if (nextMode === languageMode || languageSwitchingRef.current) return;
     const desktop = (window as Window & { stardewDesktop?: DesktopUpdates }).stardewDesktop;
     if (!desktop?.setLanguageMode) return;
-    const nextLanguage = nextMode === "game"
-      ? (gameCode === "es" ? "es" : "en")
-      : nextMode;
-    const requiresRestart = nextLanguage !== language;
-    if (requiresRestart) setSwitchingLanguage(true);
+    languageSwitchingRef.current = true;
     try {
       await desktop.setLanguageMode(nextMode);
     } catch (error) {
       setDataLoadError(error instanceof Error ? error.message : t("language.switchFailed"));
     } finally {
-      if (requiresRestart) setSwitchingLanguage(false);
+      languageSwitchingRef.current = false;
     }
   };
 
@@ -2341,7 +2362,7 @@ export default function Home() {
         }),
       ])
         .then(([snapshot, farmHistory]: [Snapshot, FarmHistory]) => {
-          snapshot = localizeSnapshotGameNames(snapshot, t);
+          snapshot = localizeSnapshotGameNames(snapshot, t, gameCatalog);
           const profileId = snapshot.profileId || "default";
           const sessionStorageKey = `stardew-tool-last-session-${profileId}`;
           if (sessionProfileRef.current !== profileId) {
@@ -2398,7 +2419,7 @@ export default function Home() {
       asset.src = path;
     });
     return () => window.clearInterval(refreshTimer);
-  }, [t]);
+  }, [t, gameCatalog]);
 
   useEffect(() => {
     const path = data?.locationMaps?.Farm?.background;
@@ -2436,12 +2457,16 @@ export default function Home() {
       .then((snapshot) =>
         setPreviousDay(
           snapshot
-            ? localizeSnapshotGameNames({ ...snapshot, seasonLabel: seasonName(snapshot.season) }, t)
+            ? localizeSnapshotGameNames(
+                { ...snapshot, seasonLabel: seasonName(snapshot.season) },
+                t,
+                gameCatalog,
+              )
             : null,
         ),
       )
       .catch(() => setPreviousDay(null));
-  }, [data, history, t]);
+  }, [data, gameCatalog, history, t]);
 
   useEffect(() => {
     if (!data || mapLocation === "farm") return;
@@ -3347,15 +3372,6 @@ export default function Home() {
           </div>
         </div>
       )}
-      {switchingLanguage && (
-        <div className="farm-switch-feedback" role="status" aria-live="assertive">
-          <span className="farm-switch-spinner" aria-hidden="true" />
-          <div>
-            <strong>{t("language.switching")}</strong>
-            <span>{t("language.switchingDetail")}</span>
-          </div>
-        </div>
-      )}
       <header className="topbar" ref={topbarRef}>
         <div className="brand">
           {/* The selected save's farmer is composed locally from the user's own game assets. */}
@@ -3635,7 +3651,6 @@ export default function Home() {
             aria-label={t("language.current", { language: t(`language.mode.${languageMode}`) })}
             aria-expanded={showLanguageMenu}
             aria-haspopup="menu"
-            disabled={switchingLanguage}
             title={t("language.current", { language: t(`language.mode.${languageMode}`) })}
             onClick={() => setShowLanguageMenu((open) => !open)}
           >
