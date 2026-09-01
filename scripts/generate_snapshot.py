@@ -1582,6 +1582,35 @@ def fishing_brief(root: ET.Element, player: ET.Element, season: str, day: int, p
     }
 
 
+def farm_cave_collectibles(farm_cave: ET.Element | None, cave_choice: int) -> dict[str, int]:
+    """Return only the cave reward that can actually be collected right now."""
+    collectibles: dict[str, int] = {}
+    if farm_cave is None or cave_choice not in {1, 2}:
+        return collectibles
+    cave_objects = farm_cave.find("objects")
+    for item in cave_objects if cave_objects is not None else []:
+        obj = item.find("value/Object")
+        if obj is None:
+            continue
+        collectible = None
+        if cave_choice == 1:
+            if not bool_value(obj, "isSpawnedObject"):
+                continue
+            collectible = obj
+        else:
+            if obj.findtext("name") != "Mushroom Box" or not bool_value(obj, "readyForHarvest"):
+                continue
+            held_container = obj.find("heldObject")
+            if held_container is not None:
+                held_object = held_container.find("Object")
+                collectible = held_object if held_object is not None else held_container
+        name = collectible.findtext("name") if collectible is not None else None
+        if not name:
+            continue
+        collectibles[name] = collectibles.get(name, 0) + number(collectible, "stack", 1)
+    return collectibles
+
+
 def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, season: str, day: int, year: int, day_index: int, save_path: Path) -> dict:
     try:
         game_data = json.loads(GAME_DATA.read_text(encoding="utf-8"))
@@ -1674,26 +1703,17 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
             birthday_tomorrow.append((npc_id, character.get("displayName", npc_id)))
     available = inventory_items(root, player, locations, game_data)
     birthdays = []
-    for people, when in ((birthday_today, "Today"), (birthday_tomorrow, "Tomorrow")):
+    for people, when in ((birthday_today, "today"), (birthday_tomorrow, "tomorrow")):
         for person_id, display_name in people:
             if person_id:
                 birthdays.append({"id": person_id, "person": display_name, "when": when, "gifts": gift_options(person_id, available, game_data.get("giftTastes", {}))})
 
     farm_cave = next((location for location in locations if location.findtext("name") == "FarmCave"), None)
-    cave_items: dict[str, int] = {}
-    if farm_cave is not None:
-        cave_objects = farm_cave.find("objects")
-        for item in cave_objects if cave_objects is not None else []:
-            obj = item.find("value/Object")
-            if obj is None:
-                continue
-            original = obj.findtext("name", "Object")
-            translated = item_names.get(original, original)
-            cave_items[translated] = cave_items.get(translated, 0) + number(obj, "stack", 1)
     cave_choice = number(player, "caveChoice")
+    cave_items = farm_cave_collectibles(farm_cave, cave_choice)
     fruit_cave = {
         "unlocked": cave_choice > 0,
-        "type": "Fruit Bats" if cave_choice == 1 else "Mushrooms" if cave_choice == 2 else "Not selected",
+        "type": "fruitBats" if cave_choice == 1 else "mushrooms" if cave_choice == 2 else "notSelected",
         "count": sum(cave_items.values()),
         "items": [{"name": name, "count": count} for name, count in sorted(cave_items.items())],
     }
@@ -1717,8 +1737,8 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
 
     crops = crop_forecast(locations, season, day, year)
 
-    today_birthday = next((birthday for birthday in birthdays if birthday["when"] == "Today"), None)
-    tomorrow_birthday = next((birthday for birthday in birthdays if birthday["when"] == "Tomorrow"), None)
+    today_birthday = next((birthday for birthday in birthdays if birthday["when"] == "today"), None)
+    tomorrow_birthday = next((birthday for birthday in birthdays if birthday["when"] == "tomorrow"), None)
     result = {
         "weatherTomorrow": {"code": tomorrow_weather},
         "luck": {"value": luck, "tier": luck_tier, "label": luck_label, "advice": luck_advice, "recommendations": luck_recommendations, "explanation": localized_message("today.luck.explanation")},

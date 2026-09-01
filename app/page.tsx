@@ -287,6 +287,17 @@ const isCoreTvProgram = (program: DailyBrief["tv"][number]) => {
       program.channel.key === "today.tv.fortune.channel";
   return ["Weather Report", "Fortune Teller", "El tiempo", "La adivina"].includes(program.channel);
 };
+const caveTypeLabel = (type: string, translate: Translate) => {
+  const normalized = type.replace(/\s+/g, "").toLocaleLowerCase("en-US");
+  const key = normalized === "fruitbats"
+    ? "today.cave.fruitBats"
+    : normalized === "mushrooms"
+      ? "today.cave.mushrooms"
+      : "today.cave.notSelected";
+  return translate(key);
+};
+const birthdayWhenLabel = (when: string, translate: Translate) =>
+  translate(`today.when.${when.toLocaleLowerCase("en-US")}`);
 type FishingFish = {
   id: string;
   name: string;
@@ -631,6 +642,12 @@ type LiveState = {
 };
 
 type DisplayNamedGameValue = { id?: string; name: string; displayName?: string };
+type Translate = (key: string, variables?: Record<string, string | number>) => string;
+
+const QUALIFIED_GAME_NAME_KEYS: Record<string, string> = {
+  "(O)174": "gameName.largeEggWhite",
+  "(O)182": "gameName.largeEggBrown",
+};
 
 function resolveGameDisplayName(
   byId: Record<string, string>,
@@ -679,7 +696,10 @@ function resolveGameDisplayName(
   return name;
 }
 
-function localizeSnapshotGameNames(snapshot: Snapshot): Snapshot {
+function localizeSnapshotGameNames(
+  snapshot: Snapshot,
+  translate: Translate = (key, variables) => String(variables?.item ?? key),
+): Snapshot {
   const byId = snapshot.localizedNamesByQualifiedId || {};
   const byEnglish = snapshot.localizedObjectNamesByEnglish || {};
   const registerIdentity = (item: { id?: string; name: string }) => {
@@ -699,7 +719,15 @@ function localizeSnapshotGameNames(snapshot: Snapshot): Snapshot {
   const localizedName = (name: string, id?: string) =>
     resolveGameDisplayName(byId, byEnglish, name, id);
   const attach = <T extends DisplayNamedGameValue>(item: T) => {
-    item.displayName = localizedName(item.name, item.id);
+    const displayName = localizedName(item.name, item.id);
+    const qualifiedId = item.id?.startsWith("(") ? item.id : item.id ? `(O)${item.id}` : "";
+    const qualifiedNameKey = QUALIFIED_GAME_NAME_KEYS[qualifiedId];
+    const baseDisplayName = qualifiedNameKey
+      ? localizedName(item.name.replace(/\s*\((?:White|Brown)\)\s*$/i, ""))
+      : displayName;
+    item.displayName = qualifiedNameKey
+      ? translate(qualifiedNameKey, { item: baseDisplayName })
+      : displayName;
   };
   const attachGifts = (gifts: BirthdayBrief["gifts"] | FriendshipPlan["gifts"]) =>
     [...gifts.love, ...gifts.like, ...gifts.neutral].forEach(attach);
@@ -2133,7 +2161,7 @@ export default function Home() {
         }),
       ])
         .then(([snapshot, farmHistory]: [Snapshot, FarmHistory]) => {
-          snapshot = localizeSnapshotGameNames(snapshot);
+          snapshot = localizeSnapshotGameNames(snapshot, t);
           const profileId = snapshot.profileId || "default";
           const sessionStorageKey = `stardew-tool-last-session-${profileId}`;
           if (sessionProfileRef.current !== profileId) {
@@ -2187,7 +2215,7 @@ export default function Home() {
       asset.src = path;
     });
     return () => window.clearInterval(refreshTimer);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const path = data?.locationMaps?.Farm?.background;
@@ -2225,12 +2253,12 @@ export default function Home() {
       .then((snapshot) =>
         setPreviousDay(
           snapshot
-            ? localizeSnapshotGameNames({ ...snapshot, seasonLabel: seasonName(snapshot.season) })
+            ? localizeSnapshotGameNames({ ...snapshot, seasonLabel: seasonName(snapshot.season) }, t)
             : null,
         ),
       )
       .catch(() => setPreviousDay(null));
-  }, [data, history]);
+  }, [data, history, t]);
 
   useEffect(() => {
     if (!data || mapLocation === "farm") return;
@@ -8249,7 +8277,7 @@ function DailyBriefModal({
         <button
           className="modal-close"
           onClick={onClose}
-          aria-label="Close daily brief"
+          aria-label={t("today.brief.closeLabel")}
         >
           ×
         </button>
@@ -8259,38 +8287,41 @@ function DailyBriefModal({
         <div className="daily-modal-grid">
           <div>
             <span>☀</span>
-            <strong>Tomorrow</strong>
+            <strong>{t("today.brief.tomorrow")}</strong>
             <p>{t(`weather.${brief.weatherTomorrow.code}`)}</p>
           </div>
           <div>
             <span>✦</span>
-            <strong>Luck</strong>
+            <strong>{t("today.brief.luck")}</strong>
             <p>{text(brief.luck.label)}</p>
           </div>
           <div>
             <span>▣</span>
-            <strong>Channel</strong>
+            <strong>{t("today.brief.channel")}</strong>
             <p>{extraTv ? text(extraTv.title) : t("common.none")}</p>
           </div>
           <div>
             <span>♟</span>
-            <strong>Birthday</strong>
+            <strong>{t("today.brief.birthday")}</strong>
             <p>
               {birthday
-                ? `${birthday.when}: ${birthday.person}`
-                : "None today or tomorrow"}
+                ? t("today.brief.birthdayValue", {
+                    when: birthdayWhenLabel(birthday.when, t),
+                    person: birthday.person,
+                  })
+                : t("today.brief.noBirthday")}
             </p>
           </div>
           <div>
             <span>!</span>
-            <strong>Help Wanted</strong>
+            <strong>{t("today.brief.helpWanted")}</strong>
             <p>
               {quest.available || quest.accepted ? text(quest.title) : t("common.none")}
             </p>
           </div>
         </div>
         <div className="modal-tv">
-          <strong>On TV</strong>
+          <strong>{t("today.brief.onTv")}</strong>
           {brief.tv.map((program) => (
             <p key={program.id}>
               <b>{text(program.channel)}:</b> {text(program.title)}
@@ -8299,30 +8330,35 @@ function DailyBriefModal({
         </div>
         {(brief.toolUpgrade || brief.fruitCave.count > 0 || readyCrops > 0) && (
           <div className="daily-priority-list">
-            <strong>Before leaving the farm</strong>
+            <strong>{t("today.brief.beforeLeaving")}</strong>
             {brief.toolUpgrade && (
               <p className={brief.toolUpgrade.ready ? "urgent" : ""}>
                 ⚒{" "}
                 {brief.toolUpgrade.ready
-                  ? `Collect ${brief.toolUpgrade.displayName || brief.toolUpgrade.name} from Clint today.`
-                  : `${brief.toolUpgrade.displayName || brief.toolUpgrade.name}: ${brief.toolUpgrade.daysRemaining} day(s) until pickup.`}
+                  ? t("today.brief.collectTool", { tool: brief.toolUpgrade.displayName || brief.toolUpgrade.name })
+                  : t("today.brief.toolDays", {
+                      tool: brief.toolUpgrade.displayName || brief.toolUpgrade.name,
+                      count: brief.toolUpgrade.daysRemaining,
+                    })}
               </p>
             )}
             {brief.fruitCave.count > 0 && (
               <p>
-                ♣ There are {brief.fruitCave.count} items in the{" "}
-                {brief.fruitCave.type} cave.
+                ♣ {t("today.brief.caveCollectibles", {
+                  count: brief.fruitCave.count,
+                  cave: caveTypeLabel(brief.fruitCave.type, t),
+                })}
               </p>
             )}
             {readyCrops > 0 && (
-              <p>♨ You have {readyCrops} crops ready to harvest.</p>
+              <p>♨ {t("today.brief.readyCrops", { count: readyCrops })}</p>
             )}
           </div>
         )}
         <div className="modal-actions">
-          <button onClick={onClose}>Close</button>
+          <button onClick={onClose}>{t("today.brief.close")}</button>
           <button className="primary" onClick={onOpenAgenda}>
-            View full agenda
+            {t("today.brief.viewAgenda")}
           </button>
         </div>
       </section>
@@ -9076,12 +9112,14 @@ function DailyBriefView({
             <span className="daily-symbol">♟</span>
           )}
           <div>
-            <p className="eyebrow">Birthday</p>
-            <h2>{brief.birthdays[0]?.person || "None"}</h2>
+            <p className="eyebrow">{t("today.brief.birthday")}</p>
+            <h2>{brief.birthdays[0]?.person || t("common.none")}</h2>
             <small>
               {brief.birthdays[0]
-                ? `${brief.birthdays[0].when} · View gifts`
-                : "Not today or tomorrow · View calendar"}
+                ? t("today.birthday.viewGifts", {
+                    when: birthdayWhenLabel(brief.birthdays[0].when, t),
+                  })
+                : t("today.birthday.viewCalendar")}
             </small>
           </div>
         </button>
@@ -9498,7 +9536,11 @@ function DailyBriefView({
                   {location.location === "Farm" &&
                     brief.fruitCave.count > 0 && (
                       <div className="route-detail">
-                        <strong>Farm Cave · {brief.fruitCave.type}</strong>
+                        <strong>
+                          {t("today.cave.routeTitle", {
+                            cave: caveTypeLabel(brief.fruitCave.type, t),
+                          })}
+                        </strong>
                         <span>
                           {brief.fruitCave.items
                             .map((item) => `${item.count}× ${item.displayName || item.name}`)
@@ -9618,7 +9660,7 @@ function DailyBriefView({
                     kind="portrait"
                   />
                   <div>
-                    <span>{birthday.when}</span>
+                    <span>{birthdayWhenLabel(birthday.when, t)}</span>
                     <strong>{birthday.person}</strong>
                   </div>
                 </div>

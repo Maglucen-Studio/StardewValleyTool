@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -63,6 +63,18 @@ test("localized XNB lookup falls back to the base game file", async () => {
   }
 });
 
+test("local development extracts the same language selected by the app", async () => {
+  const [development, config] = await Promise.all([
+    readFile(new URL("../scripts/dev-local.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/config.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.match(config, /languageMode: \["game", "en", "es"\]\.includes\(file\.languageMode\)/);
+  assert.match(development, /resolveLanguage\(config, process\.env\.APPDATA \|\| ""\)/);
+  assert.match(development, /STARDEW_TOOL_LANGUAGE: localization\.language/);
+  assert.match(development, /STARDEW_TOOL_XNB_SUFFIX: localization\.xnbSuffix/);
+  assert.match(development, /env: \{ \.\.\.localizedEnvironment, STARDEW_PATH:/);
+});
+
 test("Spanish Companion messages cover every English key and interpolate", () => {
   assert.deepEqual(Object.keys(spanish).sort(), Object.keys(english).sort());
   const t = createTranslator(spanish, english);
@@ -85,4 +97,7 @@ test("semantic daily and fishing messages are available in both catalogs", () =>
   assert.equal(es("weather.Rain"), "Lluvia");
   assert.match(es("today.luck.favorable.label"), /suerte favorable/);
   assert.equal(es("fishing.level", { level: 8 }), "Nivel de pesca 8");
+  assert.equal(es("gameName.largeEggWhite", { item: "Huevo XXL" }), "Huevo XXL (blanco)");
+  assert.equal(es("gameName.largeEggBrown", { item: "Huevo XXL" }), "Huevo XXL (marrón)");
+  assert.match(es("today.brief.caveCollectibles", { count: 2, cave: "murciélagos fruteros" }), /2 objetos/);
 });

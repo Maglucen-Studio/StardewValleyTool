@@ -787,6 +787,29 @@ test("route checks distinguish manual decisions from reversible LIVE completion"
   assert.match(page, /name=\{birthday\.id \|\| birthday\.person\}/);
 });
 
+test("Farm Cave tasks ignore placed containers and only expose ready cave rewards", async () => {
+  const [page, generator, bridge] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+    readFile(new URL("../bridge/StardewValleyToolBridge/ModEntry.cs", import.meta.url), "utf8"),
+  ]);
+  assert.match(generator, /def farm_cave_collectibles\(/);
+  assert.match(generator, /if cave_choice == 1:[\s\S]*?isSpawnedObject/);
+  assert.match(generator, /obj\.findtext\("name"\) != "Mushroom Box"/);
+  assert.match(generator, /bool_value\(obj, "readyForHarvest"\)/);
+  assert.match(
+    generator,
+    /if obj\.findtext\("name"\) != "Mushroom Box"[^\n]*:\n\s{16}continue\n\s{12}held_container = obj\.find\("heldObject"\)/,
+  );
+  assert.match(generator, /held_container\.find\("Object"\)/);
+  assert.match(bridge, /DescribeRouteItems\(location, player\)/);
+  assert.match(bridge, /player\.caveChoice\.Value == 1/);
+  assert.match(bridge, /pair\.Value\.Name == "Mushroom Box"/);
+  assert.match(bridge, /pair\.Value\.readyForHarvest\.Value/);
+  assert.match(page, /today\.brief\.caveCollectibles/);
+  assert.doesNotMatch(page, /There are \{brief\.fruitCave\.count\} items/);
+});
+
 test("Today bundle priorities open the Community Center plan", async () => {
   const page = await readFile(
     new URL("../app/page.tsx", import.meta.url),
@@ -1578,6 +1601,9 @@ test("game-owned names are localized once for every snapshot-backed view", async
   assert.match(page, /normalizedInternalName/);
   assert.match(page, /replace\(\/\\bL\\\.\\s\*\/g, "Large "\)/);
   assert.match(page, /const identityName = qualifiedId \? byId\[qualifiedId\]/);
+  assert.match(page, /"\(O\)174": "gameName\.largeEggWhite"/);
+  assert.match(page, /"\(O\)182": "gameName\.largeEggBrown"/);
+  assert.match(page, /replace\(\/\\s\*\\\(\(\?:White\|Brown\)\\\)\\s\*\$\/i, ""\)/);
   assert.match(page, /const registerIdentity = \(item:/);
   assert.match(page, /snapshot\.collectionBrief\?\.shipping \|\| \[\]/);
   assert.match(page, /snapshot\.museumBrief\.sources\.flatMap\(source => source\.items/);
@@ -1591,7 +1617,7 @@ test("game-owned names are localized once for every snapshot-backed view", async
   assert.match(page, /snapshot\.museumBrief\.sources\.flatMap/);
   assert.match(page, /material\.displayName \|\| material\.name/);
   assert.match(page, /machine\.displayName \|\| machine\.name/);
-  assert.match(page, /snapshot = localizeSnapshotGameNames\(snapshot\)/);
+  assert.match(page, /snapshot = localizeSnapshotGameNames\(snapshot, t\)/);
   assert.match(page, /localizeSnapshotGameNames\(\{ \.\.\.snapshot, seasonLabel:/);
   assert.match(page, /live\.routeState\?\.worldTasks/);
   assert.match(page, /item\.displayName \|\| resolveGameDisplayName\(/);

@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, statSync, watch, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { loadConfig, projectRoot, runtimeRoot, runtimePaths, validateConfig } from "./config.mjs";
+import { resolveLanguage } from "./localization.mjs";
 import { ensureRuntimeDirectories, syncRuntimePublic } from "./runtime-files.mjs";
 
 const project = projectRoot;
@@ -11,6 +12,13 @@ if (errors.length) {
   console.error(`Incomplete configuration:\n- ${errors.join("\n- ")}\nRun the desktop application to configure it.`);
   process.exit(1);
 }
+const localization = resolveLanguage(config, process.env.APPDATA || "");
+const localizedEnvironment = {
+  ...process.env,
+  STARDEW_TOOL_LANGUAGE: localization.language,
+  STARDEW_TOOL_LOCALE: localization.locale,
+  STARDEW_TOOL_XNB_SUFFIX: localization.xnbSuffix,
+};
 const saveFile = config.savePath;
 const python = config.pythonCommand;
 const paths = runtimePaths(config);
@@ -28,7 +36,7 @@ let copiedLiveFingerprint = null;
 if (process.env.STARDEW_TOOL_SKIP_ASSET_EXTRACTION !== "1") {
   spawnSync(process.execPath, ["scripts/extract_game_data.mjs"], {
     cwd: project,
-    env: { ...process.env, STARDEW_PATH: config.stardewPath },
+    env: { ...localizedEnvironment, STARDEW_PATH: config.stardewPath },
     stdio: "inherit",
     windowsHide: true,
   });
@@ -57,7 +65,7 @@ function generate() {
   }
   const result = spawnSync(python, ["scripts/generate_snapshot.py"], {
     cwd: project,
-    env: { ...process.env, AINCRAD_SAVE: readerSave, STARDEW_TOOL_SOURCE_SAVE_DIR: dirname(saveFile), STARDEW_TOOL_RUNTIME_ROOT: runtimeRoot },
+    env: { ...localizedEnvironment, AINCRAD_SAVE: readerSave, STARDEW_TOOL_SOURCE_SAVE_DIR: dirname(saveFile), STARDEW_TOOL_RUNTIME_ROOT: runtimeRoot },
     stdio: "inherit",
     windowsHide: true,
   });
@@ -73,7 +81,7 @@ function generate() {
 function renderLocationMaps() {
   const result = spawnSync(process.execPath, ["scripts/render-storage-location-maps.mjs"], {
     cwd: project,
-    env: { ...process.env, STARDEW_PATH: config.stardewPath, STARDEW_TOOL_RUNTIME_ROOT: runtimeRoot },
+    env: { ...localizedEnvironment, STARDEW_PATH: config.stardewPath, STARDEW_TOOL_RUNTIME_ROOT: runtimeRoot },
     stdio: "inherit",
     windowsHide: true,
   });
@@ -126,7 +134,7 @@ const serverCommand = serverMode === "start"
       "--port",
       String(config.port),
     ];
-const server = spawn(process.execPath, serverCommand, { cwd: project, stdio: "inherit", windowsHide: true, env: { ...process.env, PORT: String(config.port) } });
+const server = spawn(process.execPath, serverCommand, { cwd: project, stdio: "inherit", windowsHide: true, env: { ...localizedEnvironment, PORT: String(config.port) } });
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => { server.kill(signal); process.exit(0); });
