@@ -26,6 +26,10 @@ import {
 } from "node:fs";
 import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { release as osRelease } from "node:os";
+import {
+  createTranslator,
+  resolveLanguage,
+} from "../scripts/localization.mjs";
 
 const desktopDevelopment = process.env.STARDEW_TOOL_DESKTOP_DEV === "1";
 const APP_ID = "io.github.maglucenstudio.stardewvalleycompanion";
@@ -144,6 +148,23 @@ function readConfig() {
   return readJson(configPath, null);
 }
 
+function localizationState(config = readConfig() || {}) {
+  return resolveLanguage(config, app.getPath("appData"));
+}
+
+function localizationCatalog(language) {
+  const root = projectRoot || app.getAppPath();
+  return readJson(join(root, "locales", `${language}.json`), {});
+}
+
+function desktopTranslator(config = readConfig() || {}) {
+  const state = localizationState(config);
+  return createTranslator(
+    localizationCatalog(state.language),
+    localizationCatalog("en"),
+  );
+}
+
 function publishUpdateState(next) {
   updateState = { ...updateState, ...next, currentVersion: app.getVersion() };
   if (mainWindow && !mainWindow.isDestroyed())
@@ -154,9 +175,8 @@ function configureAutoUpdates() {
   if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_FILE) {
     publishUpdateState({
       status: "unavailable",
-      message: app.isPackaged
-        ? "Install the Setup version to receive automatic updates."
-        : "Updates are disabled during development.",
+      reason: app.isPackaged ? "portable" : "development",
+      message: undefined,
     });
     return;
   }
@@ -166,28 +186,28 @@ function configureAutoUpdates() {
   autoUpdater.on("checking-for-update", () =>
     publishUpdateState({
       status: "checking",
-      message: "Checking for updates…",
+      message: undefined,
     }),
   );
   autoUpdater.on("update-available", (info) =>
     publishUpdateState({
       status: "available",
       version: info.version,
-      message: `Version ${info.version} is available.`,
+      message: undefined,
     }),
   );
   autoUpdater.on("update-not-available", () =>
     publishUpdateState({
       status: "current",
       version: app.getVersion(),
-      message: "You have the latest version.",
+      message: undefined,
     }),
   );
   autoUpdater.on("download-progress", (progress) =>
     publishUpdateState({
       status: "downloading",
       percent: Math.round(progress.percent),
-      message: `Downloading update · ${Math.round(progress.percent)}%`,
+      message: undefined,
     }),
   );
   autoUpdater.on("update-downloaded", (info) =>
@@ -195,14 +215,14 @@ function configureAutoUpdates() {
       status: "downloaded",
       version: info.version,
       percent: 100,
-      message: `Version ${info.version} is ready to install.`,
+      message: undefined,
     }),
   );
   autoUpdater.on("error", (error) => {
     log(`Updater: ${error?.stack || error}`);
     publishUpdateState({
       status: "error",
-      message: "The update could not be completed. Try again later.",
+      message: undefined,
     });
   });
   setTimeout(
@@ -313,6 +333,12 @@ function extractedAssetsAreStale(config, requiredAssets) {
   if (requiredAssets.some((asset) => !existsSync(asset))) return true;
   const gameData = join(runtimeRoot, "assetbuild", "game-data.json");
   if (!existsSync(gameData)) return true;
+  const extracted = readJson(gameData, {});
+  if (
+    extracted?._localization?.language !== localizationState(config).language ||
+    extracted?._localization?.catalogVersion !== 5
+  )
+    return true;
   return (
     newestModDataMtime(join(config.stardewPath, "Mods")) >
     statSync(gameData).mtimeMs
@@ -407,15 +433,16 @@ function detectSaves() {
       const modifiedAt = statSync(file).mtimeMs;
       let farmer = "";
       let farmName = entry.name.replace(/_\d+$/, "");
-      let gameDate = "";
+      let gameSeason = "";
+      let gameDay = 0;
+      let gameYear = 0;
       try {
         const saveText = readFileSync(file, "utf8");
         farmer = saveText.match(/<name>([^<]+)<\/name>/)?.[1] || "";
         farmName = saveText.match(/<farmName>([^<]+)<\/farmName>/)?.[1] || farmName;
-        const season = saveText.match(/<currentSeason>([^<]+)<\/currentSeason>/)?.[1];
-        const day = saveText.match(/<dayOfMonth>(\d+)<\/dayOfMonth>/)?.[1];
-        const year = saveText.match(/<year>(\d+)<\/year>/)?.[1];
-        if (season && day && year) gameDate = `Year ${year}, ${season} ${day}`;
+        gameSeason = saveText.match(/<currentSeason>([^<]+)<\/currentSeason>/)?.[1] || "";
+        gameDay = Number(saveText.match(/<dayOfMonth>(\d+)<\/dayOfMonth>/)?.[1] || 0);
+        gameYear = Number(saveText.match(/<year>(\d+)<\/year>/)?.[1] || 0);
       } catch {
         /* A damaged save can still be selected manually. */
       }
@@ -423,7 +450,9 @@ function detectSaves() {
         {
           name: farmName,
           farmer,
-          gameDate,
+          gameSeason,
+          gameDay,
+          gameYear,
           path: file,
           modifiedAt,
           avatar: `/assets/farmers/${profileIdForSave(file)}.png?v=${Math.trunc(modifiedAt)}`,
@@ -438,6 +467,7 @@ function detectSaves() {
 
 function setupState() {
   const config = readConfig();
+  const language = localizationState(config || {});
   const installs = detectGameInstalls();
   const saves = detectSaves();
   const suggestedInstall = validConfig(config)
@@ -452,20 +482,19 @@ function setupState() {
   return {
     version: app.getVersion(),
     config,
+    localization: {
+      ...language,
+      catalogs: {
+        en: localizationCatalog("en"),
+        es: localizationCatalog("es"),
+      },
+    },
     installs,
     saves,
     suggestedInstall,
     suggestedSave: validConfig(config) ? config.savePath : saves[0]?.path || "",
     suggestedPlatform: config?.platform || platformForInstall(suggestedInstall),
     platformInstalls,
-    platformGuides: {
-      steam:
-        "Steam usually installs it in C:\\Program Files (x86)\\Steam\\steamapps\\common\\Stardew Valley. Libraries on other drives are detected too.",
-      gog: "GOG commonly uses C:\\Program Files (x86)\\GOG Galaxy\\Games\\Stardew Valley or a GOG Games folder on another drive.",
-      xbox: "The Xbox app commonly uses C:\\XboxGames\\Stardew Valley\\Content. Choose the folder that directly contains Stardew Valley.dll.",
-      other:
-        "Choose the game folder that directly contains Stardew Valley.dll, regardless of where it was installed.",
-    },
     smapiDetected: installs.some((path) =>
       existsSync(join(path, "StardewModdingAPI.dll")),
     ),
@@ -495,7 +524,8 @@ async function switchFarmConfig(savePath, progress = () => {}) {
   if (farmSwitching) return { ok: false, busy: true };
   const previousConfig = readConfig();
   const candidate = { ...previousConfig, savePath: String(savePath || "") };
-  if (!validConfig(candidate)) throw new Error("That Stardew Valley save is not available.");
+  if (!validConfig(candidate))
+    throw new Error(desktopTranslator(previousConfig)("desktop.error.saveUnavailable"));
   if (resolve(candidate.savePath) === resolve(previousConfig.savePath)) return { ok: true };
   farmSwitching = true;
   try {
@@ -513,6 +543,7 @@ async function switchFarmConfig(savePath, progress = () => {}) {
 }
 
 function childEnvironment(config) {
+  const language = localizationState(config);
   const legacyCandidates = [
     ...(process.env.STARDEW_TOOL_LEGACY_DATA_DIRS || "").split(delimiter),
     ...(Array.isArray(config.legacyDataDirs) ? config.legacyDataDirs : []),
@@ -537,6 +568,9 @@ function childEnvironment(config) {
     STARDEW_PATH: config.stardewPath,
     STARDEW_SAVE: config.savePath,
     STARDEW_TOOL_PROFILE_ID: profileIdForSave(config.savePath),
+    STARDEW_TOOL_LANGUAGE: language.language,
+    STARDEW_TOOL_LOCALE: language.locale,
+    STARDEW_TOOL_XNB_SUFFIX: language.xnbSuffix,
     STARDEW_PYTHON: pythonCommand(config),
     STARDEW_TOOL_TOKEN: backendToken,
     PORT: String(servicePort(config)),
@@ -561,19 +595,23 @@ function runNodeScript(relativeScript, config, onLine = () => {}) {
       code === 0
         ? resolvePromise()
         : rejectPromise(
-            new Error(`${basename(relativeScript)} exited with code ${code}`),
+            new Error(desktopTranslator(config)("desktop.error.scriptExited", {
+              script: basename(relativeScript),
+              code,
+            })),
           ),
     );
   });
 }
 
 async function extractGameAssets(config, progress) {
+  const t = desktopTranslator(config);
   const script = join("scripts", "extract_game_data.mjs");
   try {
     await runNodeScript(script, config, progress);
   } catch (firstError) {
     log(`Asset extraction retry after: ${firstError?.stack || firstError}`);
-    progress("The game asset reader stopped unexpectedly. Retrying safely…");
+    progress(t("loading.assetsRetry"));
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 750));
     await runNodeScript(script, config, progress);
   }
@@ -635,7 +673,7 @@ function ensureFarmAvatars(config, progress = () => {}) {
     return !existsSync(avatar) || statSync(avatar).mtimeMs < save.modifiedAt;
   });
   if (!staleSaves.length) return;
-  progress("Preparing your farmers…");
+  progress(desktopTranslator(config)("loading.farmers"));
   const result = spawnSync(
     pythonCommand(config),
     [
@@ -673,7 +711,7 @@ function prepareStablePackagedRuntime() {
   const pythonSource = join(process.resourcesPath, "python");
   if (!existsSync(unpackedSource) || !existsSync(pythonSource))
     throw new Error(
-      "The portable runtime could not be extracted. Download a fresh copy of the application.",
+      desktopTranslator()("desktop.error.portableRuntimeExtract"),
     );
   mkdirSync(stableRoot, { recursive: true });
   cpSync(unpackedSource, stableRoot, { recursive: true, force: true });
@@ -683,7 +721,7 @@ function prepareStablePackagedRuntime() {
   });
   if (!required.every((path) => existsSync(path)))
     throw new Error(
-      "The portable runtime could not be prepared in the application data folder.",
+      desktopTranslator()("desktop.error.portableRuntimePrepare"),
     );
   return stableRoot;
 }
@@ -697,10 +735,10 @@ function ensurePython(config) {
   if (result.status === 0) return;
   if (app.isPackaged)
     throw new Error(
-      "The portable image component is missing or damaged. Download a fresh copy of the application.",
+      desktopTranslator(config)("desktop.error.imageComponent"),
     );
   throw new Error(
-    "Python 3 with Pillow is required when running from source. Install the development dependencies, then try again.",
+    desktopTranslator(config)("desktop.error.pythonPillow"),
   );
 }
 
@@ -723,9 +761,9 @@ function bridgeSource() {
 
 function installBridge(config) {
   if (!existsSync(join(config.stardewPath, "StardewModdingAPI.dll")))
-    return "SMAPI was not found; live mode remains optional.";
+    return { status: "smapi-missing" };
   const source = bridgeSource();
-  if (!source) return "The optional live bridge is not included in this build.";
+  if (!source) return { status: "bridge-missing" };
   const destination = join(
     config.stardewPath,
     "Mods",
@@ -755,7 +793,7 @@ function installBridge(config) {
     JSON.stringify({ ...manifest, EntryDll: entryDll }, null, 2),
     "utf8",
   );
-  return "Live bridge installed. It will activate the next time SMAPI starts.";
+  return { status: "installed" };
 }
 
 async function plannerReady(port) {
@@ -804,14 +842,17 @@ async function startBackend(config, progress) {
     log(`Backend stopped with code ${code}`);
     backend = null;
   });
-  progress("Starting the private local service…");
+  const t = desktopTranslator(config);
+  progress(t("loading.service"));
   const startupStartedAt = Date.now();
   let optimizationProgressShown = false;
   while (Date.now() - startupStartedAt < 120_000) {
     if (await plannerReady(servicePort(config))) return;
     if (launchedBackend.exitCode !== null || backend !== launchedBackend) {
       throw new Error(
-        `The local service stopped during startup (code ${launchedBackend.exitCode ?? "unknown"}). Check the application log for details.`,
+        t("desktop.error.serviceStopped", {
+          code: launchedBackend.exitCode ?? t("common.unknown"),
+        }),
       );
     }
     if (
@@ -819,12 +860,12 @@ async function startBackend(config, progress) {
       Date.now() - startupStartedAt >= 20_000
     ) {
       optimizationProgressShown = true;
-      progress("Optimizing the development app for this computer…");
+      progress(t("loading.optimizing"));
     }
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
   }
   throw new Error(
-    "The local service did not start. Check the application log for details.",
+    t("desktop.error.serviceStart"),
   );
 }
 
@@ -874,13 +915,13 @@ async function initialize(config, progress = () => {}) {
       ),
     );
     if (extractedAssetsAreStale(config, requiredAssets)) {
-      progress(
-        "Extracting visual assets from your Stardew Valley installation…",
-      );
-      await extractGameAssets(config, (line) => line && progress(line));
+      const t = desktopTranslator(config);
+      progress(t("loading.extractingAssets"));
+      await extractGameAssets(config, () => {});
     }
     ensureFarmAvatars(config, progress);
-    progress(installBridge(config));
+    progress(desktopTranslator(config)("loading.preparingLive"));
+    installBridge(config);
     await startBackend(config, progress);
   })().finally(() => {
     initialization = null;
@@ -1034,13 +1075,14 @@ function createSetupWindow() {
     return;
   }
   const savedWindowState = loadSetupWindowState();
+  const t = desktopTranslator();
   const { maximized: wasMaximized, ...savedBounds } = savedWindowState;
   setupWindow = new BrowserWindow(
     secureWindowOptions({
       ...savedBounds,
       minWidth: 720,
       minHeight: 650,
-      title: `${PRODUCT} ${readConfig() ? "Settings" : "Setup"}`,
+      title: `${PRODUCT} ${readConfig() ? t("window.settings") : t("window.setup")}`,
       webPreferences: { preload: join(projectRoot, "desktop", "preload.cjs") },
     }),
   );
@@ -1062,24 +1104,26 @@ function createSetupWindow() {
 }
 
 function showAboutDialog() {
+  const t = desktopTranslator();
   dialog.showMessageBox({
     type: "info",
-    title: `About ${PRODUCT}`,
+    title: t("menu.about", { product: PRODUCT }),
     message: PRODUCT,
-    detail: `Version ${app.getVersion()}\n\nA private, local companion for Stardew Valley.`,
-    buttons: ["OK"],
+    detail: `${t("common.version", { version: app.getVersion() })}\n\n${t("app.privateDescription")}`,
+    buttons: [t("common.ok")],
   });
 }
 
 function createApplicationMenu() {
+  const t = desktopTranslator();
   return Menu.buildFromTemplate([
     {
-      label: "Application",
+      label: t("menu.application"),
       submenu: [
-        { label: "Settings…", click: () => createSetupWindow() },
+        { label: t("menu.settings"), click: () => createSetupWindow() },
         { type: "separator" },
         {
-          label: "Quit",
+          label: t("menu.quit"),
           accelerator: "Ctrl+Q",
           click: () => {
             quitting = true;
@@ -1089,7 +1133,7 @@ function createApplicationMenu() {
       ],
     },
     {
-      label: "View",
+      label: t("menu.view"),
       submenu: [
         { role: "reload", accelerator: "F5" },
         { role: "togglefullscreen" },
@@ -1097,28 +1141,28 @@ function createApplicationMenu() {
       ],
     },
     {
-      label: "Support me",
+      label: t("menu.support"),
       click: () => shell.openExternal("https://ko-fi.com/N4N21LP9O5"),
     },
     {
-      label: "Help",
+      label: t("menu.help"),
       submenu: [
         {
-          label: "Help & diagnostics",
+          label: t("menu.helpDiagnostics"),
           click: () => mainWindow?.webContents.send("help:open"),
         },
         { type: "separator" },
-        { label: `About ${PRODUCT}`, click: () => showAboutDialog() },
+        { label: t("menu.about", { product: PRODUCT }), click: () => showAboutDialog() },
         { type: "separator" },
         {
-          label: "Project on GitHub",
+          label: t("menu.github"),
           click: () =>
             shell.openExternal(
               "https://github.com/Maglucen-Studio/StardewValleyTool",
             ),
         },
         {
-          label: "Official Stardew Valley Wiki",
+          label: t("menu.wiki"),
           click: () =>
             shell.openExternal(
               "https://stardewvalleywiki.com/Stardew_Valley_Wiki",
@@ -1130,6 +1174,7 @@ function createApplicationMenu() {
 }
 
 function createTray() {
+  const t = desktopTranslator();
   const png = join(workRoot, "desktop", "resources", "icon.png");
   const ico = join(workRoot, "desktop", "resources", "icon.ico");
   const source = nativeImage.createFromPath(png);
@@ -1142,7 +1187,7 @@ function createTray() {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
-        label: "Open dashboard",
+        label: t("tray.open"),
         click: () => {
           if (!mainWindow || mainWindow.isDestroyed()) createLoadingWindow();
           createDashboard().catch(showFatal);
@@ -1150,7 +1195,7 @@ function createTray() {
       },
       { type: "separator" },
       {
-        label: "Quit",
+        label: t("menu.quit"),
         click: () => {
           quitting = true;
           app.quit();
@@ -1208,17 +1253,26 @@ function showFatal(error) {
 }
 
 function installIpc() {
-  const requireLocalSender = (event) => {
-    if (!event.senderFrame?.url.startsWith("file://"))
-      throw new Error("Request rejected.");
-  };
-  const requireDashboardSender = (event) => {
-    if (!mainWindow || event.sender !== mainWindow.webContents)
-      throw new Error("Request rejected.");
+    const requireLocalSender = (event) => {
+      if (!event.senderFrame?.url.startsWith("file://"))
+      throw new Error(desktopTranslator()("desktop.error.requestRejected"));
+    };
+    const requireDashboardSender = (event) => {
+      if (!mainWindow || event.sender !== mainWindow.webContents)
+      throw new Error(desktopTranslator()("desktop.error.requestRejected"));
   };
   ipcMain.handle("updates:get-state", (event) => {
     requireDashboardSender(event);
     return updateState;
+  });
+  ipcMain.handle("localization:get-state", (event) => {
+    requireDashboardSender(event);
+    const state = localizationState();
+    return {
+      ...state,
+      messages: localizationCatalog(state.language),
+      fallbackMessages: localizationCatalog("en"),
+    };
   });
   ipcMain.handle("display:set-scale", (event, incomingScale) => {
     requireDashboardSender(event);
@@ -1236,7 +1290,7 @@ function installIpc() {
     publishUpdateState({
       status: "downloading",
       percent: 0,
-      message: "Starting download…",
+      message: undefined,
     });
     await autoUpdater.downloadUpdate();
     return updateState;
@@ -1326,9 +1380,9 @@ function installIpc() {
     const config = readConfig();
     const profileId = profileIdForSave(config?.savePath);
     const destination = await dialog.showSaveDialog(mainWindow, {
-      title: "Export Companion farm backup",
+      title: desktopTranslator(config)("desktop.export.title"),
       defaultPath: `${profileId}-companion-backup.json`,
-      filters: [{ name: "Companion backup", extensions: ["json"] }],
+      filters: [{ name: desktopTranslator(config)("desktop.export.filter"), extensions: ["json"] }],
     });
     if (destination.canceled || !destination.filePath) return { ok: false, canceled: true };
     const profileRoot = join(runtimeRoot, ".local", "farms", profileId);
@@ -1347,10 +1401,11 @@ function installIpc() {
   });
   ipcMain.handle("setup:choose-game", async (event) => {
     requireLocalSender(event);
+    const t = desktopTranslator();
     return (
       (
         await dialog.showOpenDialog({
-          title: "Choose your Stardew Valley folder",
+          title: t("setup.chooseGameDialog"),
           properties: ["openDirectory"],
         })
       ).filePaths[0] || ""
@@ -1358,10 +1413,11 @@ function installIpc() {
   });
   ipcMain.handle("setup:choose-save", async (event) => {
     requireLocalSender(event);
+    const t = desktopTranslator();
     return (
       (
         await dialog.showOpenDialog({
-          title: "Choose the main Stardew Valley save file",
+          title: t("setup.chooseSaveDialog"),
           properties: ["openFile"],
         })
       ).filePaths[0] || ""
@@ -1380,16 +1436,22 @@ function installIpc() {
       autoLaunch: app.isPackaged && incoming?.autoLaunch !== false,
       closeToTray: incoming?.closeToTray !== false,
       autoFollowActiveSave: incoming?.autoFollowActiveSave !== false,
+      languageMode: ["game", "en", "es"].includes(incoming?.languageMode)
+        ? incoming.languageMode
+        : "game",
       ...(Array.isArray(previousConfig?.legacyDataDirs)
         ? { legacyDataDirs: previousConfig.legacyDataDirs }
         : {}),
     };
-    if (!validConfig(config))
-      throw new Error(
-        "Choose a valid Stardew Valley installation and save file.",
-      );
+    if (!validConfig(config)) throw new Error(desktopTranslator(config)("setup.invalid"));
     mkdirSync(dirname(configPath), { recursive: true });
     writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    Menu.setApplicationMenu(createApplicationMenu());
+    if (tray) {
+      tray.destroy();
+      tray = null;
+      createTray();
+    }
     if (app.isPackaged)
       app.setLoginItemSettings({
         openAtLogin: config.autoLaunch,
@@ -1405,7 +1467,14 @@ function installIpc() {
     );
     setupWindow?.destroy();
     setupWindow = null;
-    await createDashboard();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      await mainWindow.loadURL(
+        `http://${localServiceHost}:${servicePort(config)}/`,
+      );
+      revealWindow(mainWindow);
+    } else {
+      await createDashboard();
+    }
     return { ok: true };
   });
 }

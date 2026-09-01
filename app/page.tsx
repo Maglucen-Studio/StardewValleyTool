@@ -11,6 +11,7 @@ import {
   type CSSProperties,
 } from "react";
 import packageMetadata from "../package.json";
+import { useI18n, type MessageDescriptor } from "./i18n";
 
 const APPLICATION_VERSION = packageMetadata.version;
 
@@ -32,6 +33,7 @@ type Terrain = Tile & {
 };
 type FarmObject = Tile & {
   name: string;
+  displayName?: string;
   kind: string;
   id: string;
   big: boolean;
@@ -94,6 +96,8 @@ type Snapshot = {
   dailyBrief: DailyBrief;
   fishingBrief: FishingBrief;
   planningBrief: PlanningBrief;
+  localizedObjectNamesByEnglish?: Record<string, string>;
+  localizedNamesByQualifiedId?: Record<string, string>;
   itemArtworkCatalog?: Record<string, ItemArtwork>;
   map: { width: number; height: number; tileSize: number; blocked: number[][] };
   objects: FarmObject[];
@@ -107,6 +111,7 @@ type Snapshot = {
   >;
   suggestions: Suggestion[];
 };
+type LocalizedValue = string | MessageDescriptor;
 type Progress = {
   farming: number;
   mining: number;
@@ -163,7 +168,7 @@ type MuseumSource = {
   id: string;
   label: string;
   itemIds: string[];
-  items?: { id: string; name: string }[];
+  items?: { id: string; name: string; displayName?: string }[];
   available: boolean;
   hint: string;
   unavailableHint?: string | null;
@@ -178,6 +183,7 @@ type MuseumBrief = {
 type GiftItem = {
   id?: string;
   name: string;
+  displayName?: string;
   count: number;
   quality: number;
   sources: string[];
@@ -205,6 +211,7 @@ type BirthdayBrief = {
 type CropForecast = {
   id: string;
   name: string;
+  displayName?: string;
   count: number;
   daysRemaining: number;
   watered: number;
@@ -218,9 +225,9 @@ type DailyQuest = {
   accepted: boolean;
   available?: boolean;
   daily?: boolean;
-  title: string;
-  description: string;
-  objective: string;
+  title: LocalizedValue;
+  description: LocalizedValue;
+  objective: LocalizedValue;
   type: string;
   requester: string | null;
   reward: number;
@@ -230,33 +237,35 @@ type DailyQuest = {
   ready: boolean;
   owned: number;
   hasRequestedItems: boolean;
-  stock: { name: string; count: number; sources: string[] }[];
-  stockNote: string | null;
-  tips?: string[];
+  stock: { name: string; displayName?: string; count: number; sources: string[] }[];
+  stockNote: LocalizedValue | null;
+  tips?: LocalizedValue[];
   requestedId?: string | null;
   requestedName?: string | null;
 };
 type DailyBrief = {
-  weatherTomorrow: { code: string; label: string };
+  weatherTomorrow: { code: string };
   luck: {
     value: number;
-    label: string;
-    advice: string;
-    recommendations: string[];
-    explanation: string;
+    tier: string;
+    label: LocalizedValue;
+    advice: LocalizedValue;
+    recommendations: LocalizedValue[];
+    explanation: LocalizedValue;
   };
-  tv: { channel: string; title: string; detail: string }[];
-  world: { location: string; items: { name: string; count: number }[] }[];
-  beach: { name: string; count: number; tiles: number[][] }[];
+  tv: { id?: string; channel: LocalizedValue; title: LocalizedValue; detail: LocalizedValue }[];
+  world: { location: string; items: { name: string; displayName?: string; count: number }[] }[];
+  beach: { name: string; displayName?: string; count: number; tiles: number[][] }[];
   birthdays: BirthdayBrief[];
   fruitCave: {
     unlocked: boolean;
     type: string;
     count: number;
-    items: { name: string; count: number }[];
+    items: { name: string; displayName?: string; count: number }[];
   };
   toolUpgrade: {
     name: string;
+    displayName?: string;
     type: string;
     level: number;
     daysRemaining: number;
@@ -270,11 +279,30 @@ type DailyBrief = {
   specialOrdersUnlocked?: boolean;
   boardQuest?: DailyQuest | null;
   inventoryItemsChecked: number;
-  summary: string;
+  summary: LocalizedValue;
 };
+const isCoreTvProgram = (program: DailyBrief["tv"][number]) => {
+  if (program.id === "weather" || program.id === "fortune") return true;
+  if (typeof program.channel === "object")
+    return program.channel.key === "today.tv.weather.channel" ||
+      program.channel.key === "today.tv.fortune.channel";
+  return ["Weather Report", "Fortune Teller", "El tiempo", "La adivina"].includes(program.channel);
+};
+const caveTypeLabel = (type: string, translate: Translate) => {
+  const normalized = type.replace(/\s+/g, "").toLocaleLowerCase("en-US");
+  const key = normalized === "fruitbats"
+    ? "today.cave.fruitBats"
+    : normalized === "mushrooms"
+      ? "today.cave.mushrooms"
+      : "today.cave.notSelected";
+  return translate(key);
+};
+const birthdayWhenLabel = (when: string, translate: Translate) =>
+  translate(`today.when.${when.toLocaleLowerCase("en-US")}`);
 type FishingFish = {
   id: string;
   name: string;
+  displayName?: string;
   difficulty: number;
   behavior: string;
   windows: number[][];
@@ -286,6 +314,7 @@ type FishingFish = {
   minFishingLevel: number;
   caught: boolean;
 };
+type DisplayFishingFish = FishingFish & { displayName: string };
 type FishingBrief = {
   season: string;
   day: number;
@@ -297,6 +326,7 @@ type FishingBrief = {
 type BundleRequirement = {
   id: string;
   name: string;
+  displayName?: string;
   count: number;
   quality: number;
   donated: boolean;
@@ -334,11 +364,12 @@ type BuildingPlan = {
   footprint?: string;
   prerequisite?: string;
   unlock?: string;
-  materials: { name: string; owned: number; needed: number }[];
+  materials: { name: string; displayName?: string; owned: number; needed: number }[];
 };
 type CropPlan = {
   id?: string;
   name: string;
+  displayName?: string;
   seed: number;
   growth: number;
   regrow: number;
@@ -361,10 +392,11 @@ type FriendshipPlan = {
   gifts: { love: GiftItem[]; like: GiftItem[]; neutral: GiftItem[] };
 };
 type PetPlan = { name: string; type: string; points: number };
-type MachineOutput = { name: string; count: number };
+type MachineOutput = { name: string; displayName?: string; count: number };
 type MachinePlan = {
   id?: string;
   name: string;
+  displayName?: string;
   count: number;
   ready: number;
   working: number;
@@ -410,7 +442,7 @@ type PersonalGoal = {
 };
 type StrategicGoalTarget = {
   id: string;
-  category: "Construction" | "Community Center" | "Tool upgrade" | "Crafting";
+  category: string;
   title: string;
   progress: string;
   bottleneck: string;
@@ -443,7 +475,7 @@ type HistoryEntry = {
   progress: Progress;
   friendships?: { id?: string; name: string; points: number }[];
   petFriendship?: number;
-  annotations?: string[];
+  annotations?: LocalizedValue[];
 };
 type FarmHistory = { farmName: string; entries: HistoryEntry[] };
 type SessionSummary = {
@@ -478,6 +510,7 @@ type LiveAlert = {
 type LiveInventoryItem = {
   id: string;
   name: string;
+  displayName?: string;
   count: number;
   quality: number;
   spriteKind?: ItemSpriteKind;
@@ -488,7 +521,7 @@ type LiveInventoryItem = {
 type ItemArtwork = Pick<
   LiveInventoryItem,
   "id" | "name" | "spriteKind" | "spriteIndex" | "spriteWidth" | "spriteHeight"
->;
+> & { displayName?: string };
 type StorageSourceDetail = {
   source: string;
   kind: "backpack" | "chest";
@@ -505,7 +538,7 @@ type StorageInventoryItem = LiveInventoryItem & {
   sourceDetails?: StorageSourceDetail[];
 };
 type LiveStorageItem = LiveInventoryItem & {
-  source: string;
+  source?: string;
   containerKind?: "chest";
   containerName?: string;
   containerItemId?: string;
@@ -514,6 +547,8 @@ type LiveStorageItem = LiveInventoryItem & {
   containerX?: number;
   containerY?: number;
 };
+const liveStorageSource = (item: LiveStorageItem) =>
+  item.source || `chest:${item.containerLocation || "unknown"}:${item.containerX ?? "?"}:${item.containerY ?? "?"}`;
 type LiveMachine = {
   id?: string;
   name: string;
@@ -525,6 +560,7 @@ type LiveMachine = {
   minutesUntilReady?: number;
 };
 type LiveFriendship = {
+  id?: string;
   name: string;
   points: number;
   hearts: number;
@@ -533,7 +569,7 @@ type LiveFriendship = {
   giftsThisWeek: number;
 };
 type LiveRouteState = {
-  worldTasks: { location: string; items: { name: string; count: number }[] }[];
+  worldTasks: { location: string; items: { name: string; displayName?: string; count: number }[] }[];
   readyCrops: number;
   readyMachines: number;
   toolPickupReady: boolean;
@@ -556,6 +592,7 @@ type LiveFarmMap = {
   buildings: Building[];
 };
 type LiveQuest = {
+  id?: number;
   accepted?: boolean;
   available?: boolean;
   daily?: boolean;
@@ -606,6 +643,166 @@ type LiveState = {
   specialOrders?: SpecialOrderBrief[];
 };
 
+type DisplayNamedGameValue = { id?: string; name: string; displayName?: string };
+type Translate = (key: string, variables?: Record<string, string | number>) => string;
+
+const QUALIFIED_GAME_NAME_KEYS: Record<string, string> = {
+  "(O)174": "gameName.largeEggWhite",
+  "(O)182": "gameName.largeEggBrown",
+};
+
+const normalizedGameName = (value: string) =>
+  value
+    .replace(/\bL\.\s*/g, "Large ")
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("en-US");
+
+type GameNameIndex = {
+  normalized: Map<string, string>;
+  templates: { prefix: string; suffix: string; localized: string }[];
+};
+const gameNameIndexes = new WeakMap<Record<string, string>, GameNameIndex>();
+
+function gameNameIndex(byEnglish: Record<string, string>): GameNameIndex {
+  const cached = gameNameIndexes.get(byEnglish);
+  if (cached) return cached;
+  const normalized = new Map<string, string>();
+  const templates: GameNameIndex["templates"] = [];
+  for (const [englishName, localizedName] of Object.entries(byEnglish)) {
+    if (localizedName === englishName) continue;
+    const key = normalizedGameName(englishName);
+    if (!normalized.has(key)) normalized.set(key, localizedName);
+    if (englishName.includes("{0}") && localizedName.includes("{0}")) {
+      const [prefix, suffix] = englishName.split("{0}", 2);
+      templates.push({ prefix, suffix, localized: localizedName });
+    }
+  }
+  const index = { normalized, templates };
+  gameNameIndexes.set(byEnglish, index);
+  return index;
+}
+
+function resolveGameDisplayName(
+  byId: Record<string, string>,
+  byEnglish: Record<string, string>,
+  name: string,
+  id?: string,
+) {
+  const qualifiedId = id && id.startsWith("(") ? id : id ? `(O)${id}` : "";
+  const index = gameNameIndex(byEnglish);
+  const localizeEnglishName = (candidate: string) => {
+    const exact = byEnglish[candidate];
+    if (exact && exact !== candidate) return exact;
+    const normalized = index.normalized.get(normalizedGameName(candidate));
+    if (normalized) return normalized;
+
+    for (const { prefix, suffix, localized } of index.templates) {
+      if (!candidate.startsWith(prefix) || !candidate.endsWith(suffix)) continue;
+      const value = candidate.slice(prefix.length, candidate.length - suffix.length || undefined);
+      if (!value) continue;
+      return localized.replace("{0}", byEnglish[value] || value);
+    }
+    return candidate;
+  };
+
+  const identityName = qualifiedId ? byId[qualifiedId] : undefined;
+  for (const candidate of [identityName, name]) {
+    if (!candidate) continue;
+    const localized = localizeEnglishName(candidate);
+    if (localized !== candidate) return localized;
+    if (candidate === name && !identityName) return localized;
+  }
+  if (identityName && /^Item\s+\S+$/i.test(name)) return identityName;
+  return name;
+}
+
+function localizeSnapshotGameNames(
+  snapshot: Snapshot,
+  translate: Translate = (key, variables) => String(variables?.item ?? key),
+): Snapshot {
+  const byId = snapshot.localizedNamesByQualifiedId || {};
+  const byEnglish = snapshot.localizedObjectNamesByEnglish || {};
+  const registerIdentity = (item: { id?: string; name: string }) => {
+    if (!item.id || /^Item\s+\S+$/i.test(item.name)) return;
+    const qualifiedId = item.id.startsWith("(") ? item.id : `(O)${item.id}`;
+    const current = byId[qualifiedId];
+    if (!current || /^Item\s+\S+$/i.test(current)) byId[qualifiedId] = item.name;
+  };
+  for (const item of [
+    ...snapshot.planningBrief.inventory,
+    ...snapshot.fishingBrief.fish,
+    ...(snapshot.collectionBrief?.shipping || []),
+    ...(snapshot.collectionBrief?.cooking || []),
+    ...(snapshot.collectionBrief?.crafting || []),
+    ...snapshot.museumBrief.sources.flatMap(source => source.items || []),
+  ]) registerIdentity(item);
+  const localizedName = (name: string, id?: string) =>
+    resolveGameDisplayName(byId, byEnglish, name, id);
+  const attach = <T extends DisplayNamedGameValue>(item: T) => {
+    const displayName = localizedName(item.name, item.id);
+    const qualifiedId = item.id?.startsWith("(") ? item.id : item.id ? `(O)${item.id}` : "";
+    const qualifiedNameKey = QUALIFIED_GAME_NAME_KEYS[qualifiedId];
+    const baseDisplayName = qualifiedNameKey
+      ? localizedName(item.name.replace(/\s*\((?:White|Brown)\)\s*$/i, ""))
+      : displayName;
+    item.displayName = qualifiedNameKey
+      ? translate(qualifiedNameKey, { item: baseDisplayName })
+      : displayName;
+  };
+  const attachGifts = (gifts: BirthdayBrief["gifts"] | FriendshipPlan["gifts"]) =>
+    [...gifts.love, ...gifts.like, ...gifts.neutral].forEach(attach);
+
+  snapshot.planningBrief.inventory.forEach(attach);
+  for (const object of [
+    ...snapshot.objects,
+    ...snapshot.interiors.flatMap(interior => interior.objects),
+  ]) {
+    object.displayName = localizedName(object.name, object.id);
+    if (object.output) object.output = localizedName(object.output);
+    if (object.input) object.input = localizedName(object.input);
+  }
+  snapshot.dailyBrief.crops.forEach(attach);
+  snapshot.planningBrief.crops.forEach(attach);
+  snapshot.planningBrief.buildings.flatMap(building => building.materials).forEach(attach);
+  snapshot.fishingBrief.fish.forEach(attach);
+  snapshot.dailyBrief.world.flatMap(entry => entry.items).forEach(attach);
+  snapshot.dailyBrief.beach.forEach(attach);
+  snapshot.dailyBrief.fruitCave.items.forEach(attach);
+  snapshot.dailyBrief.birthdays.forEach(birthday => attachGifts(birthday.gifts));
+  snapshot.planningBrief.friendships.forEach(friend => attachGifts(friend.gifts));
+  snapshot.planningBrief.communityCenter.rooms
+    .flatMap(room => room.bundles)
+    .flatMap(bundle => bundle.requirements)
+    .forEach(attach);
+  for (const machine of snapshot.planningBrief.machines) {
+    attach(machine);
+    for (const output of [
+      ...(machine.readyOutputs || []),
+      ...(machine.workingOutputs || []),
+      ...(machine.inputs || []),
+    ]) attach(output);
+  }
+  if (snapshot.dailyBrief.toolUpgrade) attach(snapshot.dailyBrief.toolUpgrade);
+  for (const quest of [
+    snapshot.dailyBrief.dailyQuest,
+    ...(snapshot.dailyBrief.acceptedQuests || []),
+    ...(snapshot.dailyBrief.boardQuest ? [snapshot.dailyBrief.boardQuest] : []),
+  ]) {
+    quest.stock.forEach(item => Object.assign(item, { displayName: localizedName(item.name) }));
+    if (quest.requestedName)
+      quest.requestedName = localizedName(quest.requestedName, quest.requestedId || undefined);
+  }
+  for (const group of [
+    snapshot.collectionBrief?.shipping,
+    snapshot.collectionBrief?.cooking,
+    snapshot.collectionBrief?.crafting,
+  ]) group?.forEach(attach);
+  snapshot.museumBrief.sources.flatMap(source => source.items || []).forEach(attach);
+  return snapshot;
+}
+
 const VANILLA_FRIENDSHIP_NPCS = new Set([
   "Abigail",
   "Alex",
@@ -649,11 +846,19 @@ const seasonName = (season: string) =>
   ({ spring: "Spring", summer: "Summer", fall: "Fall", winter: "Winter" })[
     season
   ] || season;
-const formatGameDate = (date: {
-  year: number;
-  seasonLabel: string;
-  day: number;
-}) => `Year ${date.year}, ${date.seasonLabel} ${date.day}`;
+const formatGameDate = (
+  date: { year: number; season: string; day: number },
+  t: (key: string, variables?: Record<string, string | number>) => string,
+) => t("date.game", { year: date.year, season: t(`season.${date.season}`), day: date.day });
+const formatHarvestDate = (value: string, t: Translate) => {
+  if (value === "Today") return t("crops.today");
+  const match = /^(?:Year (\d+), )?(Spring|Summer|Fall|Winter) (\d+)$/.exec(value);
+  if (!match) return value;
+  const season = t(`season.${match[2].toLowerCase()}`);
+  return match[1]
+    ? t("date.game", { year: match[1], season, day: match[3] })
+    : t("date.seasonDay", { season, day: match[3] });
+};
 const qualifyItemId = (
   id?: string | null,
   spriteKind: ItemSpriteKind = "object",
@@ -690,17 +895,18 @@ function stardewWikiUrl(name: string) {
   return `https://stardewvalleywiki.com/${encodeURIComponent(name.trim().replaceAll(" ", "_"))}`;
 }
 
-function WikiLink({ name, label = "Wiki" }: { name: string; label?: string }) {
+function WikiLink({ name, label }: { name: string; label?: string }) {
+  const { t } = useI18n();
   return (
     <a
       className="wiki-link"
       href={stardewWikiUrl(name)}
       target="_blank"
       rel="noreferrer"
-      title={`Open ${name} on the Stardew Valley Wiki`}
-      aria-label={`Open ${name} on the Stardew Valley Wiki`}
+      title={t("wiki.open", { name })}
+      aria-label={t("wiki.open", { name })}
     >
-      ↗ {label}
+      ↗ {label || t("wiki.label")}
     </a>
   );
 }
@@ -741,7 +947,7 @@ function sessionSummary(snapshot: Snapshot, live?: LiveState): SessionSummary {
       .map((item) => item.id),
     activeQuests: (quests || [])
       .filter((quest) => quest.accepted)
-      .map((quest) => quest.title),
+      .map((quest) => typeof quest.title === "string" ? quest.title : quest.title.key),
   };
 }
 const LIVE_ROUTE_LOCATION_NAMES: Record<string, string> = {
@@ -755,7 +961,32 @@ const LIVE_ROUTE_LOCATION_NAMES: Record<string, string> = {
   Backwoods: "Backwoods",
 };
 
-function liveQuestStatus(quest: LiveQuest, live: LiveState): DailyQuest {
+function matchingSavedQuest(quest: LiveQuest, savedQuests: DailyQuest[]) {
+  if (typeof quest.id === "number") {
+    const exact = savedQuests.find((candidate) => candidate.id === quest.id);
+    if (exact) return exact;
+  }
+  let candidates = savedQuests.filter(
+    (candidate) => Boolean(candidate.daily) === Boolean(quest.daily),
+  );
+  if (quest.type) candidates = candidates.filter((candidate) => candidate.type === quest.type);
+  if (quest.requester)
+    candidates = candidates.filter((candidate) => candidate.requester === quest.requester);
+  if (quest.requestedId) {
+    const requestedId = normalizeObjectId(quest.requestedId);
+    candidates = candidates.filter(
+      (candidate) => normalizeObjectId(candidate.requestedId) === requestedId,
+    );
+  }
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
+
+function liveQuestStatus(
+  quest: LiveQuest,
+  live: LiveState,
+  t: Translate,
+  official?: DailyQuest,
+): DailyQuest {
   const requestedId = normalizeObjectId(quest.requestedId);
   const matching = (live.inventory || []).filter(
     (item) => inventoryItemId(item) === requestedId,
@@ -765,13 +996,16 @@ function liveQuestStatus(quest: LiveQuest, live: LiveState): DailyQuest {
   const checksStock = quest.type === "ItemDelivery";
   const progress = checksStock ? Math.min(target, owned) : quest.progress || 0;
   return {
+    id: quest.id ?? official?.id,
     accepted: quest.accepted !== false,
     available: quest.available,
     daily: quest.daily,
-    title: quest.title || "Accepted quest",
-    description: quest.description || "",
-    objective: quest.objective || "Complete the request",
-    type: quest.type || "Quest",
+    title: quest.daily && quest.requester
+      ? t(`quest.dailyTitle.${quest.type || "Quest"}`, { requester: quest.requester })
+      : official?.title || quest.title || t("quest.accepted"),
+    description: official?.description || quest.description || "",
+    objective: official?.objective || quest.objective || t("quest.completeRequest"),
+    type: quest.type || t("quest.quest"),
     requester: quest.requester || null,
     reward: quest.reward || 0,
     daysLeft: quest.daysLeft || 0,
@@ -787,12 +1021,12 @@ function liveQuestStatus(quest: LiveQuest, live: LiveState): DailyQuest {
     })),
     stockNote:
       quest.type === "Fishing"
-        ? "Only fish caught after accepting this request count."
+        ? t("quest.fishingStockNote")
         : null,
     tips:
       quest.type === "Fishing"
         ? [
-            "Use the Fishing tab to see the requested fish's locations, weather, and time window.",
+            t("quest.fishingTip"),
           ]
         : [],
     requestedId: quest.requestedId,
@@ -821,8 +1055,29 @@ type UpdateState = {
   version?: string;
   percent?: number;
   message?: string;
+  reason?: "development" | "portable";
 };
+
+function localizedUpdateMessage(state: UpdateState, t: Translate) {
+  switch (state.status) {
+    case "unavailable":
+      return t(state.reason === "portable" ? "updates.requiresSetup" : "updates.developmentUnavailable");
+    case "checking": return t("updates.checkingDetail");
+    case "available": return t("updates.availableDetail", { version: state.version || "" });
+    case "current": return t("updates.currentDetail");
+    case "downloading": return t("updates.downloadingDetail", { percent: state.percent || 0 });
+    case "downloaded": return t("updates.downloadedDetail", { version: state.version || "" });
+    case "error": return t("updates.errorDetail");
+    default: return "";
+  }
+}
 type DesktopUpdates = {
+  getLocalization?: () => Promise<{
+    language: "en" | "es";
+    locale: string;
+    messages: Record<string, string>;
+    fallbackMessages: Record<string, string>;
+  }>;
   getUpdateState: () => Promise<UpdateState>;
   checkForUpdates: () => Promise<UpdateState>;
   downloadUpdate: () => Promise<UpdateState>;
@@ -832,7 +1087,7 @@ type DesktopUpdates = {
     activePath: string;
     farms: FarmOption[];
   }>;
-  switchFarm: (savePath: string) => Promise<{ ok: boolean }>;
+  switchFarm: (savePath: string) => Promise<{ ok: boolean; busy?: boolean }>;
   openSettings: () => Promise<{ ok: boolean }>;
   getDiagnostics: () => Promise<DesktopDiagnostics>;
   copyText: (value: string) => Promise<{ ok: boolean }>;
@@ -878,6 +1133,9 @@ type FarmOption = {
   farmer: string;
   avatar?: string;
   gameDate?: string;
+  gameSeason?: string;
+  gameDay?: number;
+  gameYear?: number;
   path: string;
   modifiedAt: number;
   liveUpdatedAt?: number;
@@ -933,7 +1191,13 @@ function readyBundleDeliveries(community: { rooms: CommunityRoom[] }) {
     room.bundles.flatMap((bundle) =>
       bundle.requirements
         .filter((item) => item.ready && !item.donated)
-        .map((item) => ({ ...item, room: room.name, bundle: bundle.name })),
+        .map((item) => ({
+          ...item,
+          room: room.name,
+          roomId: room.id,
+          bundle: bundle.name,
+          bundleId: bundle.id,
+        })),
     ),
   );
 }
@@ -967,7 +1231,9 @@ function liveReadyBundleDeliveries(
                 owned: liveOwned,
                 ready: true,
                 room: room.name,
+                roomId: room.id,
                 bundle: bundle.name,
+                bundleId: bundle.id,
               },
             ]
           : [];
@@ -1311,6 +1577,7 @@ function drawBuildingSprite(
 }
 
 export default function Home() {
+  const { t, text, locale } = useI18n();
   const appShellRef = useRef<HTMLElement>(null);
   const topbarRef = useRef<HTMLElement>(null);
   const [progressTabsTop, setProgressTabsTop] = useState(82);
@@ -1436,6 +1703,8 @@ export default function Home() {
   const [updateState, setUpdateState] = useState<UpdateState>({
     status: "idle",
   });
+  const updateFeedbackMessage =
+    localizedUpdateMessage(updateState, t) || updateState.message || "";
   const [layersCollapsed, setLayersCollapsed] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -1542,13 +1811,14 @@ export default function Home() {
       return;
     }
     setSwitchingFarm(farm.path);
+    setShowFarmSwitcher(false);
     try {
-      await desktop.switchFarm(farm.path);
+      const result = await desktop.switchFarm(farm.path);
+      if (!result.ok) throw new Error(t("shell.farmSwitchBusy"));
       setActiveSavePath(farm.path);
-      setShowFarmSwitcher(false);
     } catch (error) {
       setDataLoadError(
-        error instanceof Error ? error.message : "The farm could not be changed.",
+        error instanceof Error ? error.message : t("shell.farmSwitchFailed"),
       );
     } finally {
       setSwitchingFarm("");
@@ -1728,7 +1998,7 @@ export default function Home() {
     if (!desktop) {
       setUpdateState({
         status: "unavailable",
-        message: "Updates are only available in the installed desktop app.",
+        message: t("update.desktopOnly"),
       });
       return;
     }
@@ -1738,20 +2008,20 @@ export default function Home() {
           ...state,
           status: "downloading",
           percent: 0,
-          message: "Starting download…",
+          message: t("update.startingDownload"),
         }));
         setUpdateState(await desktop.downloadUpdate());
       } else if (updateState.status === "downloaded") {
         setUpdateState((state) => ({
           ...state,
-          message: "Closing the app to install the update…",
+          message: t("update.closingToInstall"),
         }));
         await desktop.installUpdate();
       } else {
         setUpdateState((state) => ({
           ...state,
           status: "checking",
-          message: "Checking GitHub for a newer version…",
+          message: t("update.checking"),
         }));
         setUpdateState(await desktop.checkForUpdates());
       }
@@ -1759,8 +2029,7 @@ export default function Home() {
       setUpdateState((state) => ({
         ...state,
         status: "error",
-        message:
-          "The update check failed. Check your internet connection or try again later.",
+        message: t("update.failed"),
       }));
     }
   };
@@ -1963,8 +2232,10 @@ export default function Home() {
   ]);
 
   useEffect(() => {
+    let loadingLatest = false;
     const loadLatest = () => {
-      if (document.hidden) return Promise.resolve();
+      if (document.hidden || loadingLatest) return Promise.resolve();
+      loadingLatest = true;
       return Promise.all([
         fetch(`/data/farm-state.json?save=${Date.now()}`, {
           cache: "no-store",
@@ -1980,6 +2251,7 @@ export default function Home() {
         }),
       ])
         .then(([snapshot, farmHistory]: [Snapshot, FarmHistory]) => {
+          snapshot = localizeSnapshotGameNames(snapshot, t);
           const profileId = snapshot.profileId || "default";
           const sessionStorageKey = `stardew-tool-last-session-${profileId}`;
           if (sessionProfileRef.current !== profileId) {
@@ -2012,9 +2284,12 @@ export default function Home() {
           setDataLoadError(
             error instanceof Error
               ? error.message
-              : "The farm data could not be loaded.",
+              : t("error.farmDataLoad"),
           ),
-        );
+        )
+        .finally(() => {
+          loadingLatest = false;
+        });
     };
     loadLatest();
     const refreshTimer = window.setInterval(loadLatest, 5000);
@@ -2033,7 +2308,7 @@ export default function Home() {
       asset.src = path;
     });
     return () => window.clearInterval(refreshTimer);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const path = data?.locationMaps?.Farm?.background;
@@ -2046,9 +2321,9 @@ export default function Home() {
     };
     image.onerror = () =>
       setAssetError(
-        "The farm background could not be loaded. Restart the local service so game assets can be extracted again.",
+        t("error.farmBackground"),
       );
-  }, [data?.locationMaps?.Farm?.background]);
+  }, [data?.locationMaps?.Farm?.background, t]);
 
   useEffect(() => {
     if (!data || !sessionProfileRef.current) return;
@@ -2071,12 +2346,12 @@ export default function Home() {
       .then((snapshot) =>
         setPreviousDay(
           snapshot
-            ? { ...snapshot, seasonLabel: seasonName(snapshot.season) }
+            ? localizeSnapshotGameNames({ ...snapshot, seasonLabel: seasonName(snapshot.season) }, t)
             : null,
         ),
       )
       .catch(() => setPreviousDay(null));
-  }, [data, history]);
+  }, [data, history, t]);
 
   useEffect(() => {
     if (!data || mapLocation === "farm") return;
@@ -2205,7 +2480,7 @@ export default function Home() {
   }, [activeView, centerOnFarmhouse, mapData, mapLocation]);
 
   const validatePlacement = (point: Tile, width: number, height: number) => {
-    if (!mapData) return "Map unavailable";
+    if (!mapData) return t("map.error.unavailable");
     const cells = Array.from({ length: width * height }, (_, index) => ({
       x: point.x + (index % width),
       y: point.y + Math.floor(index / width),
@@ -2219,13 +2494,13 @@ export default function Home() {
           cell.y >= mapData.map.height,
       )
     )
-      return "The building extends beyond the farm boundary.";
+      return t("map.error.outsideFarm");
     if (
       cells.some((cell) =>
         mapData.map.blocked.some(([x, y]) => x === cell.x && y === cell.y),
       )
     )
-      return "The footprint contains water, a map edge, or non-buildable terrain.";
+      return t("map.error.nonBuildable");
     if (
       cells.some((cell) =>
         mapData.buildings.some(
@@ -2237,7 +2512,7 @@ export default function Home() {
         ),
       )
     )
-      return "The proposal overlaps an existing building.";
+      return t("map.error.existingBuilding");
     if (
       cells.some((cell) =>
         mapData.objects.some(
@@ -2255,7 +2530,7 @@ export default function Home() {
         ),
       )
     )
-      return "The footprint contains a placed object or machine.";
+      return t("map.error.placedObject");
     if (
       cells.some((cell) =>
         proposalStates.some(
@@ -2268,7 +2543,7 @@ export default function Home() {
         ),
       )
     )
-      return "The proposal overlaps another pending proposal.";
+      return t("map.error.pendingProposal");
     return "";
   };
 
@@ -2742,20 +3017,15 @@ export default function Home() {
     const key = tileKey(selected.x, selected.y);
     const result: string[] = [];
     const feature = mapData.terrain.find((t) => tileKey(t.x, t.y) === key);
-    if (feature)
-      result.push(
-        feature.kind === "Tree"
-          ? `${feature.treeType} · stage ${feature.stage}${feature.tapped ? " · tap" : ""}`
-          : feature.kind,
-      );
+    if (feature) result.push(localizedTerrainFeature(feature, t));
     const object = mapData.objects.find((o) => tileKey(o.x, o.y) === key);
     if (object)
       result.push(
         object.ready
-          ? `${object.name} · READY: ${object.output || "collect"}`
+          ? t("map.objectReady", { machine: object.displayName || object.name, output: object.output || t("map.collect") })
           : object.processing
-            ? `${object.name} · ${object.output || "product"} in ~${object.readyInDays} day${object.readyInDays === 1 ? "" : "s"}`
-            : object.name,
+            ? t("map.objectProcessing", { machine: object.displayName || object.name, output: object.output || t("map.product"), days: object.readyInDays || 0 })
+            : object.displayName || object.name,
       );
     const building = mapData.buildings.find(
       (b) =>
@@ -2764,21 +3034,21 @@ export default function Home() {
         selected.y >= b.y &&
         selected.y < b.y + b.height,
     );
-    if (building) result.push(building.name);
+    if (building) result.push(buildingDisplayName(building.name, t));
     if (
       mapData.map.blocked.some(([x, y]) => x === selected.x && y === selected.y)
     )
-      result.push("Non-buildable terrain");
-    return result.length ? result : ["Empty tile in the save"];
+      result.push(t("map.nonBuildableTerrain"));
+    return result.length ? result : [t("map.emptyTile")];
   })();
 
   if (assetError)
     return (
       <main className="loading load-error">
         <div>
-          <strong>Farm visuals could not be prepared</strong>
+          <strong>{t("web.home.farmVisualsCouldNotBePrepared")}</strong>
           <p>{assetError}</p>
-          <button onClick={() => window.location.reload()}>Try again</button>
+          <button onClick={() => window.location.reload()}>{t("common.tryAgain")}</button>
         </div>
       </main>
     );
@@ -2786,15 +3056,15 @@ export default function Home() {
     return (
       <main className="loading load-error">
         <div>
-          <strong>Farm data could not be loaded</strong>
+          <strong>{t("web.home.farmDataCouldNotBeLoaded")}</strong>
           <p>{dataLoadError}</p>
-          <button onClick={() => window.location.reload()}>Try again</button>
+          <button onClick={() => window.location.reload()}>{t("common.tryAgain")}</button>
         </div>
       </main>
     );
-  if (!data) return <main className="loading">Preparing your farm…</main>;
+  if (!data) return <main className="loading">{t("web.home.preparingYourFarm")}</main>;
 
-  const liveAlerts = deriveLiveAlerts(data, live, liveAlertSettings);
+  const liveAlerts = deriveLiveAlerts(data, live, liveAlertSettings, t, text);
   const canNavigateBack = navigationAvailability.back;
   const canNavigateForward = navigationAvailability.forward;
 
@@ -2806,12 +3076,14 @@ export default function Home() {
           sourceCounts: [{ source: "Backpack · LIVE", count: item.count, quality: item.quality }],
           sourceDetails: [{ source: "Backpack · LIVE", kind: "backpack" as const }],
         })),
-        ...(live.storage || []).map((item) => ({
+        ...(live.storage || []).map((item) => {
+          const source = liveStorageSource(item);
+          return ({
           ...item,
-          sources: [item.source],
-          sourceCounts: [{ source: item.source, count: item.count, quality: item.quality }],
+          sources: [source],
+          sourceCounts: [{ source, count: item.count, quality: item.quality }],
           sourceDetails: [{
-            source: item.source,
+            source,
             kind: "chest" as const,
             name: item.containerName,
             itemId: item.containerItemId,
@@ -2820,7 +3092,7 @@ export default function Home() {
             x: item.containerX,
             y: item.containerY,
           }],
-        })),
+        });}),
       ]
     : data.planningBrief.inventory;
   const locationMatches = locatedItemName
@@ -2851,50 +3123,50 @@ export default function Home() {
     achievementId?: string;
   };
   const appSearchEntries: AppSearchEntry[] = [
-    { id: "view-today", label: "Today", detail: "Daily priorities, quests, route, and birthdays", target: "agenda" },
-    { id: "view-map", label: "Map", detail: "Farm map, buildings, interiors, and proposals", target: "map" },
-    { id: "view-farm", label: "Farm", detail: "Crops, production, animals, and storage", target: "farm:crops" },
-    { id: "view-fishing", label: "Fishing", detail: "Hourly fish planner and collection", target: "fishing" },
-    { id: "view-plan", label: "Plan", detail: "Community Center, buildings, friendships, and goals", target: "plan:community" },
-    { id: "view-progress", label: "Progress", detail: "Growth, collections, and achievements", target: "growth" },
-    ...Array.from(new Set(locationInventory.map((item) => item.name))).map((name) => ({
+    { id: "view-today", label: t("nav.today"), detail: t("search.todayDetail"), target: "agenda" },
+    { id: "view-map", label: t("nav.map"), detail: t("search.mapDetail"), target: "map" },
+    { id: "view-farm", label: t("nav.farm"), detail: t("search.farmDetail"), target: "farm:crops" },
+    { id: "view-fishing", label: t("nav.fishing"), detail: t("search.fishingDetail"), target: "fishing" },
+    { id: "view-plan", label: t("nav.plan"), detail: t("search.planDetail"), target: "plan:community" },
+    { id: "view-progress", label: t("nav.progress"), detail: t("search.progressDetail"), target: "growth" },
+    ...Array.from(new Map(locationInventory.map((item) => [item.name, item.displayName || item.name])).entries()).map(([name, displayName]) => ({
       id: `item-${name}`,
-      label: name,
-      detail: "Owned item · show its backpack or chest location",
+      label: displayName,
+      detail: t("search.ownedItemDetail"),
       target: "item",
       itemName: name,
     })),
     ...data.achievements.items.map((item) => ({
       id: `achievement-${item.id}`,
       label: item.name,
-      detail: `Achievement · ${item.category}`,
+      detail: t("search.achievementDetail", { category: t(`achievement.category.${item.category.toLowerCase()}`) }),
       target: "achievement",
       achievementId: item.id,
     })),
     ...data.planningBrief.communityCenter.rooms.flatMap((room) =>
       room.bundles.map((bundle) => ({
         id: `bundle-${room.id}-${bundle.id}`,
-        label: bundle.name,
-        detail: `Community Center · ${room.name}`,
+        label: communityBundleName(bundle.id, bundle.name, t),
+        detail: t("search.communityDetail", { room: communityRoomName(room.id, t) }),
         target: "plan:community",
       })),
     ),
     ...data.planningBrief.buildings.map((building) => ({
       id: `building-${building.name}`,
-      label: building.name,
-      detail: `Building · ${building.category}`,
+      label: buildingPlanText(building, "name", t),
+      detail: t("search.buildingDetail", { category: buildingCategoryName(building.category, t) }),
       target: "plan:buildings",
     })),
     ...data.planningBrief.friendships.map((friend) => ({
       id: `friend-${friend.name}`,
       label: friend.name,
-      detail: "Villager · friendship and gifts",
+      detail: t("search.villagerDetail"),
       target: "plan:friends",
     })),
     ...data.planningBrief.crops.map((crop) => ({
       id: `crop-${crop.name}`,
-      label: crop.name,
-      detail: "Crop · planting forecast",
+      label: crop.displayName || crop.name,
+      detail: t("search.cropDetail"),
       target: "farm:crops",
     })),
   ];
@@ -2952,10 +3224,10 @@ export default function Home() {
             .filter((item) => item.x === selected.x && item.y === selected.y)
             .map((item) =>
               item.ready
-                ? `${item.name} · READY: ${item.output || "collect"}`
+                ? t("map.objectReady", { machine: item.displayName || item.name, output: item.output || t("map.collect") })
                 : item.processing
-                  ? `${item.name} · ${item.output || "product"} in ~${item.readyInDays} day${item.readyInDays === 1 ? "" : "s"}`
-                  : item.name,
+                  ? t("map.objectProcessing", { machine: item.displayName || item.name, output: item.output || t("map.product"), days: item.readyInDays || 0 })
+                  : item.displayName || item.name,
             ),
           ...selectedInterior.furniture
             .filter((item) => item.x === selected.x && item.y === selected.y)
@@ -2974,6 +3246,17 @@ export default function Home() {
         } as CSSProperties
       }
     >
+      {switchingFarm && (
+        <div className="farm-switch-feedback" role="status" aria-live="assertive">
+          <span className="farm-switch-spinner" aria-hidden="true" />
+          <div>
+            <strong>{t("shell.changingFarm")}</strong>
+            <span>{t("shell.changingFarmDetail", {
+              farm: farmOptions.find((farm) => farm.path === switchingFarm)?.name || "",
+            })}</span>
+          </div>
+        </div>
+      )}
       <header className="topbar" ref={topbarRef}>
         <div className="brand">
           {/* The selected save's farmer is composed locally from the user's own game assets. */}
@@ -2981,7 +3264,7 @@ export default function Home() {
           <img
             className="farmer-avatar"
             src={data.farmerAvatar || "/app-icon.png"}
-            alt={`${data.farmer} from ${data.farmName}`}
+            alt={t("shell.farmerFromFarm", { farmer: data.farmer, farm: data.farmName })}
             width={60}
             height={102}
             onError={(event) => {
@@ -2996,19 +3279,18 @@ export default function Home() {
               type="button"
               className="farm-switcher-trigger"
               onClick={() => setShowFarmSwitcher((value) => !value)}
+              disabled={Boolean(switchingFarm)}
+              aria-busy={Boolean(switchingFarm)}
               aria-expanded={showFarmSwitcher}
-              title="Change farm"
+              title={t("shell.changeFarm")}
             >
-              <strong>{switchingFarm ? "Changing farm…" : data.farmName}</strong>
+              <strong>{switchingFarm ? t("shell.changingFarm") : data.farmName}</strong>
               <span aria-hidden="true">▾</span>
             </button>
             <span className="farmer-name">
               {data.farmer}
-              <b className="app-version-badge" title="App version">
-                v{APPLICATION_VERSION}
-              </b>
               {diagnostics?.development && (
-                <b className="development-badge">Development</b>
+                <b className="development-badge">{t("shell.development")}</b>
               )}
             </span>
             {showFarmSwitcher && (
@@ -3043,10 +3325,12 @@ export default function Home() {
                         />
                         <span>
                           <b>{farm.name}</b>
-                          <small>{farm.farmer || "Unknown farmer"}{farm.gameDate ? ` · ${farm.gameDate}` : ""}</small>
+                          <small>{farm.farmer || t("shell.unknownFarmer")}{farm.gameSeason && farm.gameDay && farm.gameYear
+                            ? ` · ${formatGameDate({ year: farm.gameYear, season: farm.gameSeason, day: farm.gameDay }, t)}`
+                            : ""}</small>
                         </span>
                       </span>
-                      <i>{recentlyLive ? "LIVE" : active ? "✓" : ""}</i>
+                      <i>{recentlyLive ? t("status.live") : active ? "✓" : ""}</i>
                     </button>
                   );
                 })}
@@ -3057,18 +3341,18 @@ export default function Home() {
                     (window as Window & { stardewDesktop?: DesktopUpdates }).stardewDesktop?.openSettings()
                   }
                 >
-                  Manage farms and settings…
+                  {t("shell.manageFarms")}
                 </button>
               </div>
             )}
           </div>
-          <nav className="history-navigation" aria-label="Navigation history">
+          <nav className="history-navigation" aria-label={t("shell.history")}>
             <button
               type="button"
               disabled={!canNavigateBack}
               onClick={() => navigateHistory("back")}
-              title="Back · mouse Back button · Alt + Left Arrow"
-              aria-label="Back"
+              title={t("web.home.backMouseBackButtonAltLeftArrow")}
+              aria-label={t("shell.back")}
             >
               ←
             </button>
@@ -3076,26 +3360,26 @@ export default function Home() {
               type="button"
               disabled={!canNavigateForward}
               onClick={() => navigateHistory("forward")}
-              title="Forward · mouse Forward button · Alt + Right Arrow"
-              aria-label="Forward"
+              title={t("web.home.forwardMouseForwardButtonAltRightArrow")}
+              aria-label={t("shell.forward")}
             >
               →
             </button>
           </nav>
         </div>
         <div className="date-card">
-          <span>Year {data.year},</span>
-          <span>{data.seasonLabel}</span>
+          <span>{t("shell.year", { year: data.year })}</span>
+          <span>{t(`season.${data.season}`)}</span>
           <strong>{data.day}</strong>
         </div>
-        <nav className="view-tabs" aria-label="Sections">
+        <nav className="view-tabs" aria-label={t("shell.sections")}>
           <button
             aria-current={activeView === "agenda" ? "page" : undefined}
             className={activeView === "agenda" ? "active" : ""}
             onClick={() => navigateTo({ view: "agenda" })}
-            title="Today · shortcut 1"
+            title={t("shell.shortcut", { section: t("nav.today"), number: 1 })}
           >
-            Today <kbd>1</kbd>
+            {t("nav.today")} <kbd>1</kbd>
           </button>
           <button
             aria-current={activeView === "map" ? "page" : undefined}
@@ -3106,33 +3390,33 @@ export default function Home() {
                 window.requestAnimationFrame(draw),
               );
             }}
-            title="Map · shortcut 2"
+            title={t("shell.shortcut", { section: t("nav.map"), number: 2 })}
           >
-            Map <kbd>2</kbd>
+            {t("nav.map")} <kbd>2</kbd>
           </button>
           <button
             aria-current={activeView === "farm" ? "page" : undefined}
             className={activeView === "farm" ? "active" : ""}
             onClick={() => navigateTo({ view: "farm", section: window.localStorage.getItem("stardew-tool-farm-section") || "crops" })}
-            title="Farm · shortcut 3"
+            title={t("shell.shortcut", { section: t("nav.farm"), number: 3 })}
           >
-            Farm <kbd>3</kbd>
+            {t("nav.farm")} <kbd>3</kbd>
           </button>
           <button
             aria-current={activeView === "fishing" ? "page" : undefined}
             className={activeView === "fishing" ? "active" : ""}
             onClick={() => navigateTo({ view: "fishing" })}
-            title="Fishing · shortcut 4"
+            title={t("shell.shortcut", { section: t("nav.fishing"), number: 4 })}
           >
-            Fishing <kbd>4</kbd>
+            {t("nav.fishing")} <kbd>4</kbd>
           </button>
           <button
             aria-current={activeView === "planning" ? "page" : undefined}
             className={activeView === "planning" ? "active" : ""}
             onClick={() => navigateTo({ view: "planning", section: window.localStorage.getItem("stardew-tool-plan-section") || "community" })}
-            title="Plan · shortcut 5"
+            title={t("shell.shortcut", { section: t("nav.plan"), number: 5 })}
           >
-            Plan <kbd>5</kbd>
+            {t("nav.plan")} <kbd>5</kbd>
           </button>
           <button
             aria-current={
@@ -3149,9 +3433,9 @@ export default function Home() {
               const saved = window.localStorage.getItem("stardew-tool-progress-section");
               navigateTo({ view: saved === "achievements" ? "achievements" : "growth" });
             }}
-            title="Progress · shortcut 6"
+            title={t("shell.shortcut", { section: t("nav.progress"), number: 6 })}
           >
-            Progress <kbd>6</kbd>
+            {t("nav.progress")} <kbd>6</kbd>
           </button>
         </nav>
         <button
@@ -3161,20 +3445,22 @@ export default function Home() {
           onFocus={openLivePanel}
           onBlur={closeLivePanelSoon}
           aria-expanded={showLivePanel}
-          title="Hover to preview save and LIVE data"
+          title={t("web.home.hoverToPreviewSaveAndLIVEData")}
         >
           <span className="live-dot" />
           {live.active
-            ? `LIVE MAP · ${formatLiveTime(live.timeOfDay)} · ${live.location || "unknown location"}`
-            : `Local save · ${lastRefresh?.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) || "now"}`}
+            ? t("shell.liveMapAt", { time: formatLiveTime(live.timeOfDay), location: live.location || t("shell.unknownLocation") })
+            : t("shell.localSaveAt", {
+                time: lastRefresh?.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) || t("shell.now"),
+              })}
         </button>
         <button
           type="button"
           className={`live-alert-button ${liveAlerts.length ? "has-alerts" : ""}`}
           onClick={() => setShowLiveAlerts(true)}
-          title="Open configurable LIVE alerts"
+          title={t("web.home.openConfigurableLIVEAlerts")}
         >
-          Alerts <b>{liveAlerts.length}</b>
+          {t("shell.alerts")} <b>{liveAlerts.length}</b>
         </button>
         <div className="update-control">
           <button
@@ -3186,32 +3472,32 @@ export default function Home() {
               updateState.status === "downloading" ||
               updateState.status === "unavailable"
             }
-            title={updateState.message || "Check for application updates"}
+            title={updateFeedbackMessage || t("updates.title")}
           >
             {updateState.status === "available"
-              ? `Download ${updateState.version}`
+              ? t("updates.download", { version: updateState.version || "" })
               : updateState.status === "downloaded"
-                ? "Restart & update"
+                ? t("updates.restart")
                 : updateState.status === "downloading"
                   ? `${updateState.percent || 0}%`
                   : updateState.status === "checking"
-                    ? "Checking…"
+                    ? t("updates.checking")
                     : updateState.status === "current"
-                      ? "Up to date"
+                      ? t("updates.current")
                       : updateState.status === "error"
-                        ? "Try again"
-                        : "Check updates"}
+                        ? t("common.tryAgain")
+                        : t("updates.check")}
           </button>
-          {updateState.status !== "idle" && updateState.message && (
+          {updateState.status !== "idle" && updateFeedbackMessage && (
             <div
               className={`update-feedback ${updateState.status}`}
               role="status"
               aria-live="polite"
             >
-              <span>{updateState.message}</span>
+              <span>{updateFeedbackMessage}</span>
               <button
                 type="button"
-                aria-label="Dismiss update message"
+                aria-label={t("updates.dismiss")}
                 onClick={() =>
                   setUpdateState((state) => ({
                     status: "idle",
@@ -3226,11 +3512,11 @@ export default function Home() {
         </div>
         <label
           className="display-scale"
-          title="Interface size. Large screens choose a comfortable size automatically."
+          title={t("web.home.interfaceSizeLargeScreensChooseAComfortableSizeAutomatically")}
         >
-          <span>Display</span>
+          <span>{t("shell.display")}</span>
           <select
-            aria-label="Interface size"
+            aria-label={t("shell.interfaceSize")}
             value={uiScale}
             onChange={(event) => setUiScale(Number(event.target.value))}
           >
@@ -3250,22 +3536,22 @@ export default function Home() {
             className="app-search-dialog"
             role="dialog"
             aria-modal="true"
-            aria-label="Search the companion"
+            aria-label={t("web.home.searchTheCompanion")}
             onPointerDown={(event) => event.stopPropagation()}
           >
             <header>
               <div>
-                <p className="eyebrow">Jump to anything</p>
-                <h2>Search the companion</h2>
+                <p className="eyebrow">{t("web.home.jumpToAnything")}</p>
+                <h2>{t("web.home.searchTheCompanion")}</h2>
               </div>
-              <kbd>Esc</kbd>
+              <kbd>{t("web.home.esc")}</kbd>
             </header>
             <input
               ref={appSearchInputRef}
               value={appSearchQuery}
               onChange={(event) => setAppSearchQuery(event.target.value)}
-              placeholder="Try an item, villager, building, bundle, or achievement…"
-              aria-label="Search the companion"
+              placeholder={t("web.home.tryAnItemVillagerBuildingBundleOrAchievement")}
+              aria-label={t("web.home.searchTheCompanion")}
             />
             <div className="app-search-results">
               {appSearchResults.map((entry) => (
@@ -3275,10 +3561,10 @@ export default function Home() {
                 </button>
               ))}
               {!appSearchResults.length && (
-                <p>No matching item or section was found.</p>
+                <p>{t("web.home.noMatchingItemOrSectionWasFound")}</p>
               )}
             </div>
-            <footer><kbd>Ctrl</kbd> + <kbd>F</kbd> opens this search from anywhere.</footer>
+            <footer><kbd>{t("web.home.ctrl")}</kbd> + <kbd>F</kbd>{t("web.home.opensThisSearchFromAnywhere")}</footer>
           </section>
         </div>
       )}
@@ -3291,72 +3577,64 @@ export default function Home() {
             aria-labelledby="help-title"
             onPointerDown={(event) => event.stopPropagation()}
           >
-            <button className="help-close" onClick={() => setShowHelp(false)} aria-label="Close Help">×</button>
-            <p className="eyebrow">Help & About</p>
-            <h2 id="help-title">Maglucen Stardew Valley Companion</h2>
-            <strong>Version {diagnostics?.version || updateState.currentVersion || "development"}</strong>
-            <p>
-              Local, read-only planning and LIVE tracking for your own Stardew
-              Valley saves.
-            </p>
+            <button className="help-close" onClick={() => setShowHelp(false)} aria-label={t("web.home.closeHelp")}>×</button>
+            <p className="eyebrow">{t("web.home.helpAbout")}</p>
+            <h2 id="help-title">{t("web.home.maglucenStardewValleyCompanion")}</h2>
+            <strong>{t("web.home.version")}{diagnostics?.version || updateState.currentVersion || "development"}</strong>
+            <p>{t("web.home.localReadOnlyPlanningAndLIVETrackingForYour")}</p>
             {diagnostics?.development && (
-              <p className="development-help-note">
-                Development build · isolated from the installed application.
-              </p>
+              <p className="development-help-note">{t("setup.development")}</p>
             )}
             <div className="help-actions">
-              <a href={feedbackIssueUrl("bug", diagnostics, live, activeView, updateState.currentVersion)} target="_blank" rel="noreferrer">Report a problem</a>
-              <a href={feedbackIssueUrl("suggestion", diagnostics, live, activeView, updateState.currentVersion)} target="_blank" rel="noreferrer">Suggest an improvement</a>
+              <a href={feedbackIssueUrl("bug", diagnostics, live, activeView, updateState.currentVersion)} target="_blank" rel="noreferrer">{t("web.home.reportAProblem")}</a>
+              <a href={feedbackIssueUrl("suggestion", diagnostics, live, activeView, updateState.currentVersion)} target="_blank" rel="noreferrer">{t("web.home.suggestAnImprovement")}</a>
               {diagnostics && !diagnostics.smapiFound && (
                 <>
-                  <a href="https://www.nexusmods.com/stardewvalley/mods/2400" target="_blank" rel="noreferrer">Install SMAPI · Nexus Mods</a>
-                  <a href="https://www.curseforge.com/stardewvalley/mods/smapi" target="_blank" rel="noreferrer">Install SMAPI · CurseForge</a>
+                  <a href="https://www.nexusmods.com/stardewvalley/mods/2400" target="_blank" rel="noreferrer">{t("web.home.installSMAPINexusMods")}</a>
+                  <a href="https://www.curseforge.com/stardewvalley/mods/smapi" target="_blank" rel="noreferrer">{t("web.home.installSMAPICurseForge")}</a>
                 </>
               )}
-              <a href="https://stardewvalleywiki.com/Stardew_Valley_Wiki" target="_blank" rel="noreferrer">Official Stardew Valley Wiki</a>
+              <a href="https://stardewvalleywiki.com/Stardew_Valley_Wiki" target="_blank" rel="noreferrer">{t("menu.wiki")}</a>
               <button className="wide" type="button" onClick={() =>
                 (window as Window & { stardewDesktop?: DesktopUpdates }).stardewDesktop?.exportFarm()
-              }>Export this farm&apos;s Companion backup</button>
+              }>{t("web.home.exportThisFarmsCompanionBackup")}</button>
             </div>
             <section className="help-quick-controls">
-              <h3>Quick controls</h3>
-              <p><kbd>1</kbd> Today <kbd>2</kbd> Map <kbd>3</kbd> Farm <kbd>4</kbd> Fishing <kbd>5</kbd> Plan <kbd>6</kbd> Progress</p>
-              <p><kbd>Alt</kbd> + <kbd>←</kbd>/<kbd>→</kbd>, the header arrows, or your mouse Back/Forward buttons revisit sections and sub-sections.</p>
-              <p><kbd>Ctrl</kbd> + <kbd>F</kbd> searches items, villagers, buildings, bundles, and achievements throughout the app.</p>
-              <p>Click an item card to see where it is stored and a map preview of its container.</p>
+              <h3>{t("web.home.quickControls")}</h3>
+              <p><kbd>1</kbd>{t("today.when.today")}<kbd>2</kbd>{t("nav.map")}<kbd>3</kbd>{t("nav.farm")}<kbd>4</kbd>{t("nav.fishing")}<kbd>5</kbd>{t("nav.plan")}<kbd>6</kbd>{t("nav.progress")}</p>
+              <p><kbd>{t("web.home.alt")}</kbd> + <kbd>←</kbd>/<kbd>→</kbd>{t("web.home.theHeaderArrowsOrYourMouseBackForwardButtons")}</p>
+              <p><kbd>{t("web.home.ctrl")}</kbd> + <kbd>F</kbd>{t("web.home.searchesItemsVillagersBuildingsBundlesAndAchievementsThroughoutThe")}</p>
+              <p>{t("web.home.clickAnItemCardToSeeWhereItIs")}</p>
             </section>
-            <p className="privacy-note">
-              Before attaching logs or screenshots, check that they do not show
-              your Windows username or private save details.
-            </p>
+            <p className="privacy-note">{t("web.home.beforeAttachingLogsOrScreenshotsCheckThatTheyDo")}</p>
             <div className="diagnostics-box">
-              <h3>Diagnostics</h3>
+              <h3>{t("web.home.diagnostics")}</h3>
               {diagnostics ? (
                 <>
-                  <span>Game installation <b>{diagnostics.gameFound ? "Found" : "Missing"}</b></span>
-                  <span>Selected save <b>{diagnostics.saveFound ? "Found" : "Missing"}</b></span>
-                  <span>SMAPI <b>{diagnostics.smapiFound ? "Found" : "Not installed"}</b></span>
-                  <span>LIVE bridge <b>{diagnostics.bridgeInstalled ? `Installed${diagnostics.bridgeVersion ? ` · v${diagnostics.bridgeVersion}` : ""}` : diagnostics.bridgeManifestFound || diagnostics.bridgeDllFound ? "Incomplete installation" : "Not installed"}</b></span>
-                  <span>Stardew process <b>{diagnostics.gameRunning ? "Running" : "Not running"}</b></span>
-                  <span>Bridge output <b>{diagnostics.liveStateFound ? diagnostics.liveStateFresh ? "Recent" : `Stale${diagnostics.liveStateAgeSeconds != null ? ` · ${diagnostics.liveStateAgeSeconds}s` : ""}` : "Not created for this save"}</b></span>
-                  <span>LIVE freshness <b>{live.active ? `Connected · ${formatLiveTime(live.timeOfDay)}` : "Offline"}</b></span>
-                  <span>Environment <b>{diagnostics.development ? "Development" : "Installed"}</b></span>
+                  <span>{t("setup.gameInstallation")}<b>{diagnostics.gameFound ? t("diagnostics.found") : t("diagnostics.missing")}</b></span>
+                  <span>{t("setup.selectedSave")}<b>{diagnostics.saveFound ? t("diagnostics.found") : t("diagnostics.missing")}</b></span>
+                  <span>{t("web.home.smapi")}<b>{diagnostics.smapiFound ? t("diagnostics.found") : t("diagnostics.notInstalled")}</b></span>
+                  <span>{t("web.home.liveBridge")}<b>{diagnostics.bridgeInstalled ? t("diagnostics.installedVersion", { version: diagnostics.bridgeVersion ? `v${diagnostics.bridgeVersion}` : "" }) : diagnostics.bridgeManifestFound || diagnostics.bridgeDllFound ? t("diagnostics.incomplete") : t("diagnostics.notInstalled")}</b></span>
+                  <span>{t("web.home.stardewProcess")}<b>{diagnostics.gameRunning ? t("diagnostics.running") : t("diagnostics.notRunning")}</b></span>
+                  <span>{t("web.home.bridgeOutput")}<b>{diagnostics.liveStateFound ? diagnostics.liveStateFresh ? t("diagnostics.recent") : t("diagnostics.stale", { age: diagnostics.liveStateAgeSeconds != null ? `${diagnostics.liveStateAgeSeconds}s` : "" }) : t("diagnostics.notCreated")}</b></span>
+                  <span>{t("web.home.liveFreshness")}<b>{live.active ? t("diagnostics.connectedAt", { time: formatLiveTime(live.timeOfDay) }) : t("diagnostics.offline")}</b></span>
+                  <span>{t("web.home.environment")}<b>{diagnostics.development ? t("setup.development") : t("diagnostics.installed")}</b></span>
                   <button type="button" onClick={async () => {
                     const text = JSON.stringify({ ...diagnostics, live: live.active, liveLocation: live.locationId || null }, null, 2);
                     await (window as Window & { stardewDesktop?: DesktopUpdates }).stardewDesktop?.copyText(text);
                     setDiagnosticsCopied(true);
-                  }}>{diagnosticsCopied ? "Copied" : "Copy diagnostics"}</button>
+                  }}>{diagnosticsCopied ? t("diagnostics.copied") : t("diagnostics.copy")}</button>
                 </>
               ) : (
-                <p>Desktop diagnostics are unavailable in this browser session.</p>
+                <p>{t("web.home.desktopDiagnosticsAreUnavailableInThisBrowserSession")}</p>
               )}
             </div>
             <details className="help-changelog">
-              <summary>What is new in 1.8.2</summary>
+              <summary>{t("web.home.whatIsNewIn190")}</summary>
               <ul>
-                <li>Farm, interior, and chest previews now come from the matching maps in your local game installation.</li>
-                <li>Item namespaces are preserved so objects, tools, clothing, and big craftables cannot satisfy unrelated requirements with the same numeric ID.</li>
-                <li>LIVE detection now recovers automatically if Windows misses a bridge file event, with clearer bridge diagnostics in Help.</li>
+                <li>{t("web.home.companionLocalizationNowFollowsStardewValleysConfiguredLanguage")}</li>
+                <li>{t("web.home.gameOwnedNamesResolveFromYourLocalGameDataAcrossEveryView")}</li>
+                <li>{t("web.home.farmSwitchingAndDesktopFeedbackNowShowLocalizedProgress")}</li>
               </ul>
             </details>
           </section>
@@ -3410,43 +3688,43 @@ export default function Home() {
             className="layers-collapse"
             onClick={() => setLayersCollapsed((value) => !value)}
             aria-expanded={!layersCollapsed}
-            title={layersCollapsed ? "Open layers" : "Collapse layers"}
+            title={layersCollapsed ? t("map.openLayers") : t("map.collapseLayers")}
           >
             {layersCollapsed ? "›" : "‹"}
-            <span>Layers</span>
+            <span>{t("web.home.layers")}</span>
           </button>
           <div className="layers-content">
-            <p className="eyebrow">Layers</p>
-            <h2>What to display</h2>
+            <p className="eyebrow">{t("web.home.layers")}</p>
+            <h2>{t("web.home.whatToDisplay")}</h2>
             <Toggle
-              label="Daily state"
-              hint={`${visibleObjects.length} objects`}
+              label={t("map.dailyState")}
+              hint={t("map.objectCount", { count: visibleObjects.length })}
               checked={showState}
               onChange={setShowState}
               color="#6b8f43"
             />
             <Toggle
-              label="Production"
-              hint={`${readyMachines.length} ready · ${processingMachines.length} working`}
+              label={t("web.home.processing")}
+              hint={t("map.productionCount", { ready: readyMachines.length, working: processingMachines.length })}
               checked={showProduction}
               onChange={setShowProduction}
               color="#e5a83e"
             />
             {!selectedInterior && (
               <Toggle
-                label="Proposals"
-                hint={`${proposalStates.filter((item) => item.status === "pending").length} pending · ${proposalStates.filter((item) => item.status === "building").length} under construction`}
+                label={t("map.proposals")}
+                hint={t("map.proposalCount", { pending: proposalStates.filter((item) => item.status === "pending").length, building: proposalStates.filter((item) => item.status === "building").length })}
                 checked={showSuggestions}
                 onChange={setShowSuggestions}
                 color="#ffcf5c"
               />
             )}
             <Toggle
-              label="Grid"
+              label={t("map.grid")}
               hint={
                 selectedInterior
-                  ? `${selectedInterior.width} × ${selectedInterior.height} tiles`
-                  : "80 × 65 tiles"
+                  ? t("map.tileDimensions", { width: selectedInterior.width, height: selectedInterior.height })
+                  : t("map.tileDimensions", { width: 80, height: 65 })
               }
               checked={showGrid}
               onChange={setShowGrid}
@@ -3454,8 +3732,8 @@ export default function Home() {
             />
             {!selectedInterior && (
               <Toggle
-                label="Non-buildable"
-                hint="Edges and water"
+                label={t("map.nonBuildable")}
+                hint={t("map.edgesAndWater")}
                 checked={showBlocked}
                 onChange={setShowBlocked}
                 color="#6f496d"
@@ -3474,10 +3752,10 @@ export default function Home() {
                     setMovingProposalId(null);
                   }}
                 >
-                  {proposalEditMode ? "Finish editing" : "Edit proposals"}
+                  {proposalEditMode ? t("map.finishEditing") : t("map.editProposals")}
                 </button>
                 {proposalEditMode && <>
-                <p className="eyebrow">Building palette</p>
+                <p className="eyebrow">{t("web.home.buildingPalette")}</p>
                 <div className="tool-grid proposal-palette">
                   {tools.map((item) => (
                     <button
@@ -3490,27 +3768,20 @@ export default function Home() {
                       ) : (
                         <span className="tool-preview-placeholder" aria-hidden="true">{item.id === "inspect" ? "⌖" : "+"}</span>
                       )}
-                      <span>{item.label}<small>{item.width}×{item.height}</small></span>
+                      <span>{t(`map.tool.${item.id}`)}<small>{item.width}×{item.height}</small></span>
                     </button>
                   ))}
                 </div>
-                <p className="proposal-save-note">
-                  Choose a footprint and click the map. Select Move on an
-                  existing proposal, then click its new top-left tile.
-                </p>
+                <p className="proposal-save-note">{t("web.home.chooseAFootprintAndClickTheMapSelectMove")}</p>
                 {proposalUndo && (
                   <button className="clear" onClick={() => {
                     const previous = proposalUndo;
                     setProposalUndo(localSuggestions);
                     persist(previous, false);
-                  }}>
-                    Undo last proposal change
-                  </button>
+                  }}>{t("web.home.undoLastProposalChange")}</button>
                 )}
                 {localSuggestions.length > 0 && (
-                  <button className="clear" onClick={() => persist([])}>
-                    Clear my drawings
-                  </button>
+                  <button className="clear" onClick={() => persist([])}>{t("web.home.clearMyDrawings")}</button>
                 )}
                 </>}
               </>
@@ -3521,7 +3792,7 @@ export default function Home() {
         <div
           className="column-resizer left-column-resizer"
           role="separator"
-          aria-label="Resize Layers column"
+          aria-label={t("web.home.resizeLayersColumn")}
           aria-orientation="vertical"
           onPointerDown={(event) => beginPanelResize("left", event)}
         />
@@ -3529,7 +3800,7 @@ export default function Home() {
         <section className="map-column">
           <div className="map-toolbar">
             <div className="location-picker">
-              <label htmlFor="map-location">View</label>
+              <label htmlFor="map-location">{t("storage.view")}</label>
               <select
                 id="map-location"
                 value={mapLocation}
@@ -3539,24 +3810,22 @@ export default function Home() {
                   setPlacementError("");
                 }}
               >
-                <option value="farm">Farm exterior</option>
+                <option value="farm">{t("web.home.farmExterior")}</option>
                 {(data.interiors || []).map((interior) => (
                   <option key={interior.id} value={interior.id}>
-                    {interior.label}
+                    {localizedInteriorName(interior, t)}
                   </option>
                 ))}
               </select>
-              <span className="crumb">/ Day {data.day}</span>
+              <span className="crumb">{t("web.home.day")}{data.day}</span>
             </div>
             <div className="map-actions">
               {mapLocation === "farm" && (
                 <button
                   className="home-button"
                   onClick={() => centerOnFarmhouse("smooth")}
-                  title="Center the map on the farmhouse"
-                >
-                  ⌂ Home
-                </button>
+                  title={t("web.home.centerTheMapOnTheFarmhouse")}
+                >{t("web.home.home")}</button>
               )}
               <div className="zoom-control">
                 <button onClick={() => setZoom(Math.max(0.65, zoom - 0.15))}>
@@ -3599,22 +3868,16 @@ export default function Home() {
             <div className="map-legend">
               <span>
                 <i className="current" />
-                {live.active && live.farmMap ? "LIVE" : "LAST SAVE"}
+                {live.active && live.farmMap ? t("status.live") : t("map.lastSave")}
               </span>
               {mapLocation === "farm" && (
                 <span>
-                  <i className="proposal" />
-                  Proposal
-                </span>
+                  <i className="proposal" />{t("web.home.proposal")}</span>
               )}
               <span>
-                <i className="ready" />
-                Ready
-              </span>
+                <i className="ready" />{t("web.home.ready")}</span>
               <span>
-                <i className="working" />
-                Processing
-              </span>
+                <i className="working" />{t("web.home.processing")}</span>
             </div>
             {proposalMenu && (
               <div
@@ -3634,9 +3897,7 @@ export default function Home() {
                     persist(localSuggestions.filter((item) => item.id !== proposalMenu.id));
                     setProposalMenu(null);
                   }}
-                >
-                  Delete proposal
-                </button>
+                >{t("web.home.deleteProposal")}</button>
               </div>
             )}
           </div>
@@ -3644,8 +3905,8 @@ export default function Home() {
             <div>
               <span>
                 {mapLocation === "farm"
-                  ? "Tile"
-                  : selectedInterior?.label || "Interior"}
+                  ? t("storage.tile")
+                  : selectedInterior?.label || t("map.interior")}
               </span>
               <strong>{selected ? `${selected.x}, ${selected.y}` : "—"}</strong>
             </div>
@@ -3654,10 +3915,10 @@ export default function Home() {
                 ? placementError ||
                   (selected
                     ? details.join(" · ")
-                    : "Click any point to inspect it.")
+                    : t("map.clickPoint"))
                 : selected
-                  ? selectedInteriorDetails.join(" · ") || "Empty interior tile"
-                  : "Click any interior tile to inspect objects, furniture, and production."}
+                  ? selectedInteriorDetails.join(" · ") || t("map.emptyInteriorTile")
+                  : t("map.clickInteriorTile")}
             </p>
           </div>
         </section>
@@ -3665,63 +3926,63 @@ export default function Home() {
         <div
           className="column-resizer right-column-resizer"
           role="separator"
-          aria-label="Resize At a glance column"
+          aria-label={t("web.home.resizeAtAGlanceColumn")}
           aria-orientation="vertical"
           onPointerDown={(event) => beginPanelResize("right", event)}
         />
 
         <aside className="panel right-panel">
-          <p className="eyebrow">At a glance</p>
+          <p className="eyebrow">{t("web.home.atAGlance")}</p>
           <h2>
-            {selectedInterior ? selectedInterior.label : `Day ${data.day}`}
+            {selectedInterior ? selectedInterior.label : t("map.day", { day: data.day })}
           </h2>
           {selectedInterior ? (
             <>
               <div className="stat">
-                <span>Objects</span>
+                <span>{t("web.home.objects")}</span>
                 <strong>{selectedInterior.objects.length}</strong>
               </div>
               <div className="stat">
-                <span>Furniture</span>
+                <span>{t("web.home.furniture")}</span>
                 <strong>{selectedInterior.furniture.length}</strong>
               </div>
               <div className="stat">
-                <span>Ready</span>
+                <span>{t("web.home.ready")}</span>
                 <strong>{readyMachines.length}</strong>
               </div>
               <div className="stat">
-                <span>Processing</span>
+                <span>{t("web.home.processing")}</span>
                 <strong>{processingMachines.length}</strong>
               </div>
             </>
           ) : (
             <>
               <div className="stat">
-                <span>Trees</span>
+                <span>{t("web.home.trees")}</span>
                 <strong>{treeCount}</strong>
               </div>
               <div className="stat">
-                <span>Crops</span>
+                <span>{t("planning.crops")}</span>
                 <strong>{cropCount}</strong>
               </div>
               <div className="stat">
-                <span>Buildings</span>
+                <span>{t("planning.buildings")}</span>
                 <strong>{mapData!.buildings.length}</strong>
               </div>
               <div className="stat">
-                <span>Money</span>
-                <strong>{data.money.toLocaleString("en-US")}g</strong>
+                <span>{t("web.home.money")}</span>
+                <strong>{data.money.toLocaleString(locale)}g</strong>
               </div>
               {(data.grandpa.actualCandles || 0) > 0 && (
                 <div className="stat">
-                  <span>Grandpa&apos;s shrine</span>
-                  <strong>{data.grandpa.actualCandles} candles</strong>
+                  <span>{t("web.home.grandpasShrine")}</span>
+                  <strong>{data.grandpa.actualCandles}{t("web.home.candles")}</strong>
                 </div>
               )}
             </>
           )}
           <div className="production-summary">
-            <span className="eyebrow">Ready to collect</span>
+            <span className="eyebrow">{t("web.home.readyToCollect")}</span>
             {readyMachines.length ? (
               readyMachines.map((item, index) => (
                 <div
@@ -3730,24 +3991,21 @@ export default function Home() {
                 >
                   <strong>{item.output || item.name}</strong>
                   <small>
-                    {item.name} · tile ({item.x}, {item.y})
+                    {item.displayName || item.name}{t("web.home.tile")}{item.x}, {item.y})
                   </small>
                 </div>
               ))
             ) : (
-              <p>Nothing is ready in the current reading.</p>
+              <p>{t("web.home.nothingIsReadyInTheCurrentReading")}</p>
             )}
             {processingMachines.length > 0 && (
-              <span className="eyebrow production-working-title">
-                Processing
-              </span>
+              <span className="eyebrow production-working-title">{t("web.home.processing")}</span>
             )}
             {processingMachines.slice(0, 8).map((item, index) => (
               <div className="machine-row" key={`${item.x}-${item.y}-${index}`}>
                 <strong>{item.output || item.name}</strong>
                 <small>
-                  {item.name} · ~{item.readyInDays} day
-                  {item.readyInDays === 1 ? "" : "s"}
+                  {t("map.machineReadyIn", { machine: item.displayName || item.name, days: item.readyInDays || 0 })}
                 </small>
               </div>
             ))}
@@ -3767,24 +4025,24 @@ export default function Home() {
                   >
                     <span>
                       {proposal.status === "pending"
-                        ? "Pending proposal"
+                        ? t("map.proposal.pending")
                         : proposal.status === "building"
-                          ? "Under construction"
+                          ? t("map.proposal.building")
                           : proposal.status === "resolved"
-                            ? "Plan marked done"
-                            : "Completed proposal"}
+                            ? t("map.proposal.resolved")
+                            : t("map.proposal.completed")}
                     </span>
-                    <strong>{proposal.name.replace("Proposed ", "")}</strong>
+                    <strong>{t(`map.tool.${proposal.kind}`)}</strong>
                     <p>
                       {proposal.status === "building"
-                        ? `Robin is working at (${proposal.actual?.x}, ${proposal.actual?.y}) · ${proposal.actual?.daysOfConstructionLeft || 0} day(s) remaining.`
+                        ? t("map.proposal.robinWorking", { x: proposal.actual?.x || 0, y: proposal.actual?.y || 0, days: proposal.actual?.daysOfConstructionLeft || 0 })
                         : proposal.status === "resolved"
-                          ? "Marked done manually. No matching building has been detected in the save."
-                        : proposal.status === "completed"
-                          ? proposal.matchedBy === "manual"
-                            ? `Completed elsewhere: ${proposal.actual?.name} detected at (${proposal.actual?.x}, ${proposal.actual?.y}).`
-                            : "Detected at the proposed tiles: it is now part of the farm."
-                          : `Top-left corner: (${proposal.x}, ${proposal.y}). Footprint: ${proposal.width}×${proposal.height} tiles.`}
+                          ? t("map.proposal.manuallyResolved")
+                          : proposal.status === "completed"
+                            ? proposal.matchedBy === "manual"
+                            ? t("map.proposal.completedElsewhere", { building: buildingDisplayName(proposal.actual?.name || "", t), x: proposal.actual?.x || 0, y: proposal.actual?.y || 0 })
+                            : t("map.proposal.detectedAtTiles")
+                          : t("map.proposal.position", { x: proposal.x, y: proposal.y, width: proposal.width, height: proposal.height })}
                     </p>
                     {proposalEditMode && proposal.status === "pending" && (
                       <div className="proposal-actions">
@@ -3793,19 +4051,15 @@ export default function Home() {
                           onClick={() => {
                             setMovingProposalId(proposal.id);
                             setTool("inspect");
-                            setPlacementError("Click the proposal's new top-left tile.");
+                            setPlacementError(t("map.proposal.chooseNewPosition"));
                           }}
-                        >
-                          Move
-                        </button>
+                        >{t("web.home.move")}</button>
                         <button
                           type="button"
                           onClick={() =>
                             persist(localSuggestions.filter((item) => item.id !== proposal.id))
                           }
-                        >
-                          Delete
-                        </button>
+                        >{t("web.home.delete")}</button>
                         <button
                           type="button"
                           onClick={() =>
@@ -3814,9 +4068,7 @@ export default function Home() {
                               [proposal.id]: "resolved",
                             })
                           }
-                        >
-                          Mark plan done
-                        </button>
+                        >{t("web.home.markPlanDone")}</button>
                       </div>
                     )}
                     {proposal.status === "resolved" && proposalEditMode && (
@@ -3827,14 +4079,12 @@ export default function Home() {
                           delete next[proposal.id];
                           persistProposalResolutions(next);
                         }}
-                      >
-                        Reopen plan
-                      </button>
+                      >{t("web.home.reopenPlan")}</button>
                     )}
                     {proposal.status === "pending" &&
                       alternatives.length > 0 && (
                         <div className="proposal-match">
-                          <small>Already built elsewhere?</small>
+                          <small>{t("web.home.alreadyBuiltElsewhere")}</small>
                           {alternatives.map((building) => (
                             <button
                               key={buildingSignature(building)}
@@ -3844,8 +4094,7 @@ export default function Home() {
                                   [proposal.id]: buildingSignature(building),
                                 })
                               }
-                            >
-                              Use {building.name} at ({building.x}, {building.y}
+                            >{t("web.home.use")}{buildingDisplayName(building.name, t)}{t("web.home.at")}{building.x}, {building.y}
                               )
                             </button>
                           ))}
@@ -3859,20 +4108,17 @@ export default function Home() {
                           delete next[proposal.id];
                           persistProposalLinks(next);
                         }}
-                      >
-                        Reopen proposal
-                      </button>
+                      >{t("web.home.reopenProposal")}</button>
                     )}
                   </div>
                 );
               })}
             </div>
           )}
-          <p className="fine-print">
-            This view only reads a copy of the save.{" "}
+          <p className="fine-print">{t("web.home.thisViewOnlyReadsACopyOfTheSave")}{" "}
             {selectedInterior
-              ? "Interior objects and their production state come from the latest reading."
-              : "Drawings do not modify your game."}
+              ? t("map.interiorReadOnlyNote")
+              : t("map.drawingsReadOnlyNote")}
           </p>
         </aside>
       </section>
@@ -3885,25 +4131,21 @@ export default function Home() {
           <PlanningView key="plan" current={data} live={live} history={history} sprites={sprites} mode="plan" onNavigateSection={(section) => navigateTo({ view: "planning", section })} />
         ) : activeView === "growth" || activeView === "achievements" ? (
           <section className="progress-shell">
-            <nav className="progress-tabs" aria-label="Progress areas">
+            <nav className="progress-tabs" aria-label={t("web.home.progressAreas")}>
               <button
                 className={activeView === "growth" ? "active" : ""}
                 onClick={() => {
                   window.localStorage.setItem("stardew-tool-progress-section", "growth");
                   navigateTo({ view: "growth" });
                 }}
-              >
-                Growth
-              </button>
+              >{t("web.home.growth")}</button>
               <button
                 className={activeView === "achievements" ? "active" : ""}
                 onClick={() => {
                   window.localStorage.setItem("stardew-tool-progress-section", "achievements");
                   navigateTo({ view: "achievements" });
                 }}
-              >
-                Collections & Achievements
-              </button>
+              >{t("web.home.collectionsAchievements")}</button>
             </nav>
             {activeView === "growth" ? (
               <GrowthView
@@ -3952,6 +4194,8 @@ function deriveLiveAlerts(
   current: Snapshot,
   live: LiveState,
   settings: LiveAlertSettings,
+  t: Translate,
+  text: (value: LocalizedValue | null | undefined) => string,
 ): LiveAlert[] {
   if (!live.active) return [];
   const alerts: LiveAlert[] = [];
@@ -3959,7 +4203,7 @@ function deriveLiveAlerts(
   if (settings.machines && readyMachines.length) {
     alerts.push({
       kind: "machines",
-      title: `${readyMachines.length} machine${readyMachines.length === 1 ? " is" : "s are"} ready`,
+      title: t("alert.machinesReady", { count: readyMachines.length }),
       detail: summarizeReadyLiveMachines(readyMachines),
       tone: "ready",
     });
@@ -3968,8 +4212,8 @@ function deriveLiveAlerts(
   if (settings.crops && readyCrops) {
     alerts.push({
       kind: "crops",
-      title: `${readyCrops} crop${readyCrops === 1 ? " is" : "s are"} ready`,
-      detail: "Harvestable on the farm now.",
+      title: t("alert.cropsReady", { count: readyCrops }),
+      detail: t("alert.harvestableNow"),
       tone: "ready",
     });
   }
@@ -3977,8 +4221,8 @@ function deriveLiveAlerts(
   if (settings.birthdays && birthday) {
     alerts.push({
       kind: "birthdays",
-      title: `${birthday.person}'s birthday`,
-      detail: "A birthday gift is worth much more friendship today.",
+      title: t("alert.birthday", { person: birthday.person }),
+      detail: t("alert.birthdayDetail"),
       tone: "info",
     });
   }
@@ -3987,12 +4231,22 @@ function deriveLiveAlerts(
   );
   if (settings.deadlines) {
     alerts.push(
-      ...deadlineQuests.map((quest) => ({
-        kind: "deadlines" as const,
-        title: quest.title,
-        detail: `${quest.objective || "Complete the objective"} · final day`,
-        tone: "urgent" as const,
-      })),
+      ...deadlineQuests.map((quest) => {
+        const official = matchingSavedQuest(
+          quest,
+          current.dailyBrief.acceptedQuests || [],
+        );
+        return {
+          kind: "deadlines" as const,
+          title: official ? text(official.title) : quest.title,
+          detail: t("alert.finalDay", {
+            objective: official
+              ? text(official.objective)
+              : quest.objective || t("alert.completeObjective"),
+          }),
+          tone: "urgent" as const,
+        };
+      }),
     );
   }
   if (
@@ -4002,16 +4256,16 @@ function deriveLiveAlerts(
   ) {
     alerts.push({
       kind: "energy",
-      title: "Low energy",
-      detail: `${Math.round(live.energy || 0)}/${Math.round(live.maxEnergy || 0)} remaining.`,
+      title: t("alert.lowEnergy"),
+      detail: t("alert.energyRemaining", { current: Math.round(live.energy || 0), max: Math.round(live.maxEnergy || 0) }),
       tone: "urgent",
     });
   }
   if (settings.tool && live.routeState?.toolPickupReady) {
     alerts.push({
       kind: "tool",
-      title: "Upgraded tool ready",
-      detail: "Collect it from Clint before the shop closes.",
+      title: t("alert.toolReady"),
+      detail: t("alert.toolReadyDetail"),
       tone: "urgent",
     });
   }
@@ -4022,7 +4276,7 @@ function deriveLiveAlerts(
   if (settings.bundles && bundleDeliveries.length) {
     alerts.push({
       kind: "bundles",
-      title: `${bundleDeliveries.length} bundle ${bundleDeliveries.length === 1 ? "delivery" : "deliveries"} ready`,
+      title: t("alert.bundleDeliveries", { count: bundleDeliveries.length }),
       detail: bundleDeliveries
         .slice(0, 3)
         .map((item) => `${item.name} → ${item.room}`)
@@ -4046,14 +4300,15 @@ function LiveAlertCenter({
   onChange: (kind: LiveAlertKind, enabled: boolean) => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const labels: Record<LiveAlertKind, string> = {
-    machines: "Machines ready",
-    crops: "Crops ready",
-    birthdays: "Birthdays",
-    deadlines: "Quest deadlines",
-    energy: "Low energy",
-    tool: "Tool pickup",
-    bundles: "Bundle deliveries",
+    machines: t("alert.setting.machines"),
+    crops: t("alert.setting.crops"),
+    birthdays: t("alert.setting.birthdays"),
+    deadlines: t("alert.setting.deadlines"),
+    energy: t("alert.setting.energy"),
+    tool: t("alert.setting.tool"),
+    bundles: t("alert.setting.bundles"),
   };
   return (
     <div className="live-alert-backdrop" onPointerDown={onClose}>
@@ -4064,13 +4319,13 @@ function LiveAlertCenter({
         aria-labelledby="live-alert-title"
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <button type="button" className="help-close" onClick={onClose} aria-label="Close">×</button>
-        <p className="eyebrow">Configurable LIVE center</p>
-        <h2 id="live-alert-title">Alerts while you play</h2>
+        <button type="button" className="help-close" onClick={onClose} aria-label={t("today.brief.close")}>×</button>
+        <p className="eyebrow">{t("web.liveAlertCenter.configurableLIVECenter")}</p>
+        <h2 id="live-alert-title">{t("web.liveAlertCenter.alertsWhileYouPlay")}</h2>
         <p className="live-alert-status">
           {live.active
-            ? "These update immediately from the game."
-            : "LIVE is offline. Alerts will appear after loading a save through SMAPI."}
+            ? t("alert.updatesImmediately")
+            : t("alert.offline")}
         </p>
         <div className="live-alert-list" aria-live="polite">
           {alerts.map((alert, index) => (
@@ -4079,10 +4334,10 @@ function LiveAlertCenter({
               <div><strong>{alert.title}</strong><small>{alert.detail}</small></div>
             </article>
           ))}
-          {live.active && !alerts.length && <p>Nothing enabled needs your attention right now.</p>}
+          {live.active && !alerts.length && <p>{t("web.liveAlertCenter.nothingEnabledNeedsYourAttentionRightNow")}</p>}
         </div>
         <fieldset className="live-alert-settings">
-          <legend>Notify me about</legend>
+          <legend>{t("web.liveAlertCenter.notifyMeAbout")}</legend>
           {(Object.keys(labels) as LiveAlertKind[]).map((kind) => (
             <label key={kind}>
               <input
@@ -4094,7 +4349,7 @@ function LiveAlertCenter({
             </label>
           ))}
         </fieldset>
-        <small className="dialog-escape-hint">Click outside or press Esc to close.</small>
+        <small className="dialog-escape-hint">{t("web.liveAlertCenter.clickOutsideOrPressEscToClose")}</small>
       </section>
     </div>
   );
@@ -4113,7 +4368,14 @@ function LiveDataPanel({
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }) {
+  const { t, locale } = useI18n();
   const inventory = live.inventory || [];
+  const gameName = (name: string, id?: string) => resolveGameDisplayName(
+    current.localizedNamesByQualifiedId || {},
+    current.localizedObjectNamesByEnglish || {},
+    name,
+    id,
+  );
   const friendships = (live.friendships || []).filter(isVanillaFriend);
   const routeState = live.routeState;
   const collections = live.collections;
@@ -4142,7 +4404,7 @@ function LiveDataPanel({
   return (
     <aside
       className="live-data-panel"
-      aria-label="Real-time data received"
+      aria-label={t("web.liveDataPanel.realTimeDataReceived")}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onFocus={onMouseEnter}
@@ -4153,48 +4415,45 @@ function LiveDataPanel({
     >
       <div className="live-panel-title">
         <div>
-          <p className="eyebrow">Stardew connection</p>
-          <h2>{live.active ? "Real-time data" : "Stardew is not connected"}</h2>
+          <p className="eyebrow">{t("web.liveDataPanel.stardewConnection")}</p>
+          <h2>{live.active ? t("live.realTimeData") : t("live.notConnected")}</h2>
         </div>
-        <button onClick={onClose} aria-label="Close panel">
+        <button onClick={onClose} aria-label={t("web.liveDataPanel.closePanel")}>
           ×
         </button>
       </div>
       {!live.active ? (
-        <p className="live-offline">
-          While the game is closed, the latest save is displayed. Once Stardew
-          opens, this panel updates approximately once per second.
-        </p>
+        <p className="live-offline">{t("web.liveDataPanel.whileTheGameIsClosedTheLatestSaveIs")}</p>
       ) : (
         <>
           <div className="live-stat-grid">
             <div>
-              <span>Time</span>
+              <span>{t("web.liveDataPanel.time")}</span>
               <strong>{formatLiveTime(live.timeOfDay)}</strong>
             </div>
             <div>
-              <span>Money</span>
-              <strong>{(live.money || 0).toLocaleString("en-US")}g</strong>
+              <span>{t("web.home.money")}</span>
+              <strong>{(live.money || 0).toLocaleString(locale)}g</strong>
             </div>
             <div>
-              <span>Energy</span>
+              <span>{t("web.liveDataPanel.energy")}</span>
               <strong>
                 {Math.round(live.energy || 0)}/{Math.round(live.maxEnergy || 0)}
               </strong>
             </div>
             <div>
-              <span>Health</span>
+              <span>{t("web.liveDataPanel.health")}</span>
               <strong>
                 {live.health}/{live.maxHealth}
               </strong>
             </div>
           </div>
           <section className="live-location">
-            <span>Current location</span>
+            <span>{t("web.liveDataPanel.currentLocation")}</span>
             <strong>{live.location}</strong>
             <small>
-              {live.locationId} · tile ({live.tileX}, {live.tileY}) ·{" "}
-              {live.currentTool || "no tool equipped"}
+              {live.locationId}{t("web.home.tile")}{live.tileX}, {live.tileY}) ·{" "}
+              {live.currentTool ? gameName(live.currentTool) : t("live.noTool")}
             </small>
           </section>
           <LiveWorldMap
@@ -4204,84 +4463,80 @@ function LiveDataPanel({
           />
           <section className="live-panel-section">
             <div className="live-section-title">
-              <strong>Collections</strong>
-              <span>immediate updates</span>
+              <strong>{t("web.liveDataPanel.collections")}</strong>
+              <span>{t("web.liveDataPanel.immediateUpdates")}</span>
             </div>
             <div className="live-collection-grid">
               <div>
                 <strong>{collections?.caughtFish.length || 0}</strong>
-                <span>fish species</span>
+                <span>{t("web.liveDataPanel.fishSpecies")}</span>
               </div>
               <div>
                 <strong>
                   {completedBundles}/
                   {current.planningBrief.communityCenter.total}
                 </strong>
-                <span>bundles</span>
+                <span>{t("web.liveDataPanel.bundles")}</span>
               </div>
               <div>
                 <strong>{collections?.museumItems.length || 0}</strong>
-                <span>museum donations</span>
+                <span>{t("web.liveDataPanel.museumDonations")}</span>
               </div>
             </div>
           </section>
           <section className="live-panel-section">
             <div className="live-section-title">
-              <strong>Backpack</strong>
-              <span>{inventory.length} occupied slots</span>
+              <strong>{t("storage.backpack")}</strong>
+              <span>{inventory.length}{t("web.liveDataPanel.occupiedSlots")}</span>
             </div>
             {inventory.length ? (
               <div className="live-inventory">
                 {inventory.map((item, index) => (
                   <div key={`${item.id}-${item.quality}-${index}`}>
                     <strong>
-                      {item.count}× {item.name}
+                      {item.count}× {gameName(item.name, item.id)}
                     </strong>
                     <span>
-                      {item.quality ? `quality ${item.quality}` : "normal"}
+                      {t(`quality.${item.quality >= 4 ? "iridium" : item.quality === 2 ? "gold" : item.quality === 1 ? "silver" : "normal"}`)}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="live-empty">Backpack empty.</p>
+              <p className="live-empty">{t("web.liveDataPanel.backpackEmpty")}</p>
             )}
           </section>
           <section className="live-panel-section">
             <div className="live-section-title">
-              <strong>Automatic route</strong>
+              <strong>{t("web.liveDataPanel.automaticRoute")}</strong>
               <span>
-                {worldRemaining.reduce((sum, item) => sum + item.count, 0)}{" "}
-                pending items
-              </span>
+                {worldRemaining.reduce((sum, item) => sum + item.count, 0)}{" "}{t("web.liveDataPanel.pendingItems")}</span>
             </div>
             <div className="live-route-state">
               <span>
-                <b>Farm</b>
-                {routeState?.readyCrops || 0} crops ·{" "}
-                {routeState?.readyMachines || 0} machines
-              </span>
+                <b>{t("nav.farm")}</b>
+                {routeState?.readyCrops || 0}{t("web.liveDataPanel.crops")}{" "}
+                {routeState?.readyMachines || 0}{t("web.liveDataPanel.machines")}</span>
               {routeState?.toolPickupReady && (
                 <span>
-                  <b>Town</b>
-                  {"tool ready at Clint's"}
+                  <b>{t("web.liveDataPanel.town")}</b>
+                  {t("live.toolReadyAtClint")}
                 </span>
               )}
               {worldRemaining.map((item, index) => (
                 <span key={`${item.location}-${item.name}-${index}`}>
-                  <b>{item.location}</b>
-                  {item.count}× {item.name}
+                  <b>{routeLocationName(item.location, t)}</b>
+                  {item.count}× {gameName(item.name)}
                 </span>
               ))}
             </div>
           </section>
           <section className="live-panel-section">
             <div className="live-section-title">
-              <strong>Friendships today</strong>
+              <strong>{t("web.liveDataPanel.friendshipsToday")}</strong>
               <span>
                 {friendships.filter((friend) => friend.talkedToday).length}/
-                {friendships.length} greeted
-              </span>
+                {friendships.length}{t("web.liveDataPanel.greeted")}</span>
             </div>
             <div className="live-friends">
               {friendships
@@ -4292,9 +4547,8 @@ function LiveDataPanel({
                 .map((friend) => (
                   <span key={friend.name}>
                     <b>{friend.name}</b>
-                    {friend.talkedToday ? "talked" : "not talked"} ·{" "}
-                    {friend.giftsThisWeek}/2 gifts
-                  </span>
+                    {friend.talkedToday ? t("friendship.talked") : t("friendship.notTalked")} ·{" "}
+                    {friend.giftsThisWeek}{t("web.liveDataPanel.2Gifts")}</span>
                 ))}
             </div>
           </section>
@@ -4302,29 +4556,23 @@ function LiveDataPanel({
       )}
       <section className="live-panel-section data-health">
         <div className="live-section-title">
-          <strong>Data status</strong>
-          <span>{live.active ? "healthy connection" : "safe mode"}</span>
+          <strong>{t("web.liveDataPanel.dataStatus")}</strong>
+          <span>{live.active ? t("live.healthyConnection") : t("live.safeMode")}</span>
         </div>
         <div className="live-route-state">
           <span>
-            <b>{live.active ? "LIVE" : "LAST SAVE"}</b>
+            <b>{live.active ? t("status.live") : t("map.lastSave")}</b>
             {live.active
-              ? "money, backpack, collections, and route"
-              : `snapshot ${current.dateKey}`}
+              ? t("live.liveDataScope")
+              : t("live.snapshot", { date: current.dateKey })}
           </span>
           <span>
-            <b>{live.active && live.farmMap ? "LIVE" : "LAST SAVE"}</b>farm
-            exterior
-          </span>
+            <b>{live.active && live.farmMap ? t("status.live") : t("map.lastSave")}</b>{t("web.liveDataPanel.farmExterior")}</span>
           <span>
-            <b>ESTIMATE</b>future economy and conditional dates
-          </span>
+            <b>{t("web.liveDataPanel.estimate")}</b>{t("web.liveDataPanel.futureEconomyAndConditionalDates")}</span>
         </div>
       </section>
-      <small className="live-panel-foot">
-        The tool only writes its own companion files. It never modifies the
-        Stardew Valley save.
-      </small>
+      <small className="live-panel-foot">{t("web.liveDataPanel.theToolOnlyWritesItsOwnCompanionFilesIt")}</small>
     </aside>
   );
 }
@@ -4336,6 +4584,7 @@ function BuildingPreview({
   name: string;
   catalog?: boolean;
 }) {
+  const { t } = useI18n();
   const definition = buildingSpriteDefinitions[buildingType({ name })];
   const frameWidth = catalog ? 96 : 42;
   const frameHeight = catalog ? 76 : 38;
@@ -4350,7 +4599,7 @@ function BuildingPreview({
     <span
       className={catalog ? "building-catalog-artwork" : "tool-preview"}
       role="img"
-      aria-label={`${name} building sprite`}
+      aria-label={t("artwork.buildingSprite", { name })}
     >
       {/* Building textures are extracted locally from the installed game. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -4368,11 +4617,23 @@ function BuildingPreview({
 }
 
 function formatBundleRequirement(
-  item: Pick<BundleRequirement, "id" | "count" | "name">,
+  item: Pick<BundleRequirement, "id" | "count" | "name" | "displayName">,
+  t: Translate,
+  locale: string,
 ) {
   return item.id === "-1"
-    ? `${item.count.toLocaleString("en-US")}g payment`
-    : `${item.count}× ${item.name}`;
+    ? t("community.payment", { count: item.count.toLocaleString(locale) })
+    : `${item.count}× ${item.displayName || item.name}`;
+}
+
+function localizedQuestTitle(
+  quest: DailyQuest | LiveQuest,
+  t: Translate,
+  text: (value: LocalizedValue | null | undefined) => string,
+) {
+  if (quest.daily && quest.requester)
+    return t(`quest.dailyTitle.${quest.type || "Quest"}`, { requester: quest.requester });
+  return text(quest.title);
 }
 
 function InteriorView({
@@ -4414,8 +4675,9 @@ function InteriorView({
     const ctx = element?.getContext("2d");
     if (!element || !ctx) return;
     ctx.imageSmoothingEnabled = false;
-    if (background?.path === interior.background) {
-      ctx.drawImage(background.image, 0, 0, element.width, element.height);
+    const currentBackground = background;
+    if (currentBackground?.path === interior.background) {
+      ctx.drawImage(currentBackground!.image, 0, 0, element.width, element.height);
     } else {
       ctx.fillStyle = "#6f5437";
       ctx.fillRect(0, 0, element.width, element.height);
@@ -4660,6 +4922,7 @@ function SheetArtwork({
   sourceHeight?: number;
   fit?: boolean;
 }) {
+  const { t } = useI18n();
   const raw = String(id || "").replace(/^\([A-Z]+\)/, "");
   const parsed = raw === "" ? Number.NaN : Number(raw);
   const modernIndex =
@@ -4679,7 +4942,7 @@ function SheetArtwork({
     return (
       <span
         className={`sheet-artwork missing ${resolvedKind} ${className}`}
-        title={`${label} sprite unavailable`}
+        title={t("artwork.spriteUnavailable", { name: label })}
         aria-hidden="true"
       >
         {label.slice(0, 1)}
@@ -4751,6 +5014,7 @@ function SheetArtwork({
 }
 
 function StorageArtwork({ item }: { item: ItemArtwork }) {
+  const label = item.displayName || item.name;
   const qualifier = /^\(([A-Z]+)\)/.exec(item.id)?.[1];
   const qualifiedKind: ItemSpriteKind | undefined = {
     O: "object",
@@ -4769,13 +5033,13 @@ function StorageArtwork({ item }: { item: ItemArtwork }) {
     kind === "fallback" ||
     (!kind && !Number.isFinite(Number(spriteIndex)))
   ) {
-    return <SheetArtwork kind="object" label={item.name} />;
+    return <SheetArtwork kind="object" label={label} />;
   }
   return (
     <SheetArtwork
       id={spriteIndex}
       kind={(kind || "object") as Exclude<ItemSpriteKind, "fallback">}
-      label={item.name}
+      label={label}
       sourceWidth={item.spriteWidth}
       sourceHeight={item.spriteHeight}
       fit
@@ -4794,13 +5058,14 @@ function ItemMentionArtwork({
   item?: ItemArtwork;
   locatable?: boolean;
 }) {
+  const { t } = useI18n();
   const catalog = useContext(ItemArtworkCatalogContext);
   const resolvedItem = item || catalog[itemArtworkKey(name)];
   if (id === "-1" || name === "Gold") {
     return (
       <span
         className="item-mention-artwork money"
-        title="Gold"
+        title={t("web.itemMentionArtwork.gold")}
         aria-hidden="true"
       >
         g
@@ -4811,7 +5076,7 @@ function ItemMentionArtwork({
     <span
       className={`item-mention-artwork${locatable ? " locatable" : ""}`}
       data-storage-item={locatable ? name : undefined}
-      title={locatable ? `${name} · click to locate in storage` : name}
+      title={locatable ? t("storage.clickToLocateNamed", { name }) : name}
     >
       {resolvedItem ? (
         <StorageArtwork item={resolvedItem} />
@@ -4829,11 +5094,12 @@ function GoalRequirements({
   target: StrategicGoalTarget;
   compact?: boolean;
 }) {
+  const { t, locale } = useI18n();
   return (
     <section className={`goal-requirements${compact ? " compact" : ""}`}>
       <header>
-        <strong>Resources</strong>
-        <span>{target.requirementsLabel || "Everything required for this goal"}</span>
+        <strong>{t("web.goalRequirements.resources")}</strong>
+        <span>{target.requirementsLabel || t("goal.everythingRequired")}</span>
       </header>
       <ul>
         {target.requirements.map((requirement) => {
@@ -4844,7 +5110,7 @@ function GoalRequirements({
             <li
               className={`${satisfied ? "ready" : "missing"} locatable-item-card`}
               data-storage-item={requirement.name}
-              title={`Click to locate ${requirement.name}`}
+              title={t("storage.clickToLocateNamed", { name: requirement.name })}
               key={`${target.id}:${requirement.name}`}
             >
               <span className="goal-resource-status" aria-hidden="true">
@@ -4857,14 +5123,14 @@ function GoalRequirements({
               />
               <span className="goal-resource-name">{requirement.name}</span>
               <span className="goal-resource-count">
-                {requirement.available.toLocaleString("en-US")}{suffix}
+                {requirement.available.toLocaleString(locale)}{suffix}
                 {" / "}
-                {requirement.required.toLocaleString("en-US")}{suffix}
+                {requirement.required.toLocaleString(locale)}{suffix}
               </span>
               <small>
                 {satisfied
-                  ? "Ready"
-                  : `${missing.toLocaleString("en-US")}${suffix} missing`}
+                  ? t("common.ready")
+                  : t("goal.missingAmount", { amount: `${missing.toLocaleString(locale)}${suffix}` })}
               </small>
             </li>
           );
@@ -4875,6 +5141,7 @@ function GoalRequirements({
 }
 
 function StorageContainerArtwork({ detail }: { detail?: StorageSourceDetail }) {
+  const { t } = useI18n();
   if (!detail || detail.kind === "backpack") {
     return <span className="storage-container-artwork backpack" aria-hidden="true">B</span>;
   }
@@ -4883,7 +5150,7 @@ function StorageContainerArtwork({ detail }: { detail?: StorageSourceDetail }) {
   return (
     <span
       className="storage-container-artwork chest"
-      title={detail.color ? `Chest color ${detail.color}` : "Default wood chest"}
+      title={detail.color ? t("storage.chestColor", { color: detail.color }) : t("storage.defaultWoodChest")}
       aria-hidden="true"
     >
       <span
@@ -4925,19 +5192,19 @@ function completeStorageSourceDetail(detail: StorageSourceDetail | undefined) {
   };
 }
 
-function readableStorageLocation(detail: StorageSourceDetail | undefined, current: Snapshot) {
+function readableStorageLocation(detail: StorageSourceDetail | undefined, current: Snapshot, t: Translate) {
   detail = completeStorageSourceDetail(detail);
   const raw = detail?.location || "";
-  if (!raw) return "Unknown location";
-  if (raw === "Farm") return "Farm";
+  if (!raw) return t("storage.unknownLocation");
+  if (raw === "Farm") return t("nav.farm");
   const interior = current.interiors.find((entry) => entry.id === raw)
     || current.interiors.find((entry) => entry.name === raw && entry.background)
     || current.interiors.find((entry) => entry.name === raw);
   if (interior) {
     const exterior = /-(\d+)-(\d+)$/.exec(interior.id);
     return exterior
-      ? `${interior.label} · Farm (${exterior[1]}, ${exterior[2]})`
-      : interior.label;
+      ? `${localizedInteriorName(interior, t)} · ${t("nav.farm")} (${exterior[1]}, ${exterior[2]})`
+      : localizedInteriorName(interior, t);
   }
   return raw
     .replace(/[0-9a-f]{8}-[0-9a-f-]{27,}$/i, "")
@@ -4948,13 +5215,14 @@ function readableStorageSource(
   source: string,
   detail: StorageSourceDetail | undefined,
   current: Snapshot,
+  t: Translate,
 ) {
   detail = completeStorageSourceDetail(detail);
   if (detail?.kind !== "chest") return source;
   const tile = typeof detail.x === "number" && typeof detail.y === "number"
     ? ` · tile ${detail.x}, ${detail.y}`
     : "";
-  return `Chest · ${readableStorageLocation(detail, current)}${tile}`;
+  return `${t("storage.chest")} · ${readableStorageLocation(detail, current, t)}${tile}`;
 }
 
 function StorageLocationPreview({
@@ -4996,6 +5264,7 @@ function StorageLocationPreviewCanvas({
   live: LiveState;
   sprites: Record<string, HTMLImageElement>;
 }) {
+  const { t } = useI18n();
   const canvas = useRef<HTMLCanvasElement>(null);
   const rawLocation = detail.location || "";
   const legacyLocation = rawLocation.split("_")[0];
@@ -5114,7 +5383,11 @@ function StorageLocationPreviewCanvas({
         : current.buildings
       : [];
     const furniture = interior?.furniture || [];
-    const entities = [
+    const entities: Array<
+      | { type: "object"; bottom: number; item: FarmObject }
+      | { type: "building"; bottom: number; item: Building }
+      | { type: "furniture"; bottom: number; item: Interior["furniture"][number] }
+    > = [
       ...objects.map((item) => ({ type: "object" as const, bottom: item.y + 1, item })),
       ...buildings.map((item) => ({ type: "building" as const, bottom: item.y + item.height, item })),
       ...furniture.map((item) => ({ type: "furniture" as const, bottom: item.y + 1, item })),
@@ -5125,14 +5398,17 @@ function StorageLocationPreviewCanvas({
         drawBuildingSprite(ctx, sprites, entity.item);
         continue;
       }
-      const item = entity.item;
-      const px = item.x * TILE;
-      const py = item.y * TILE;
       if (entity.type === "furniture") {
+        const item = entity.item;
+        const px = item.x * TILE;
+        const py = item.y * TILE;
         if (item.sourceWidth && item.sourceHeight && sprites.furniture)
           sprite(ctx, sprites.furniture, [item.sourceX || 0, item.sourceY || 0, item.sourceWidth, item.sourceHeight], [px, py - Math.max(0, item.sourceHeight - TILE)]);
         continue;
       }
+      const item = entity.item;
+      const px = item.x * TILE;
+      const py = item.y * TILE;
       const index = Number(item.id);
       if (!Number.isFinite(index)) continue;
       const color = item.color || chestColors.get(`${normalizedLocation}:${item.x}:${item.y}`);
@@ -5167,7 +5443,7 @@ function StorageLocationPreviewCanvas({
   return (
     <span
       className="storage-location-preview"
-      title={`${detail.location} · tile ${detail.x}, ${detail.y}`}
+      title={t("storage.locationTile", { location: detail.location || "", x: detail.x, y: detail.y })}
       style={{
         width: frameWidth * 12,
         height: frameHeight * 12,
@@ -5197,6 +5473,7 @@ function ItemLocationDialog({
   sprites: Record<string, HTMLImageElement>;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const rawEntries = (item?.sourceCounts?.length
     ? item.sourceCounts
     : (item?.sources || []).map((source) => ({
@@ -5244,16 +5521,16 @@ function ItemLocationDialog({
         className="item-locator-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={`Where ${name} is stored`}
+        aria-label={t("storage.whereStored", { name })}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <button type="button" className="help-close" onClick={onClose} aria-label="Close">×</button>
-        <p className="eyebrow">Storage location</p>
+        <button type="button" className="help-close" onClick={onClose} aria-label={t("today.brief.close")}>×</button>
+        <p className="eyebrow">{t("web.itemLocationDialog.storageLocation")}</p>
         <header>
           {item ? <StorageArtwork item={item} /> : <ItemMentionArtwork name={name} />}
           <div>
             <h2>{name}</h2>
-            <span>{item ? `${item.count} available` : "Not found in the latest inventory reading"}</span>
+            <span>{item ? t("storage.availableCount", { count: item.count }) : t("storage.notFoundLatest")}</span>
             <WikiLink name={name} />
           </div>
         </header>
@@ -5265,7 +5542,7 @@ function ItemLocationDialog({
                   <StorageContainerArtwork detail={entry.detail} />
                   <span>
                     <strong>{entry.source}</strong>
-                    <small>{entry.count} here</small>
+                    <small>{entry.count}{t("web.itemLocationDialog.here")}</small>
                     <span className="item-locator-quality-list">
                       {entry.stacks
                         .sort((a, b) => a.quality - b.quality)
@@ -5278,11 +5555,11 @@ function ItemLocationDialog({
                                 ? "silver"
                                 : "normal";
                           return (
-                            <span key={stack.quality} title={`${quality} quality`}>
+                            <span key={stack.quality} title={t("storage.qualityNamed", { quality: t(`quality.${quality}`) })}>
                               <i className={quality} aria-hidden="true">
                                 {quality === "normal" ? "—" : "★"}
                               </i>
-                              {stack.count} {quality}
+                              {stack.count} {t(`quality.${quality}`)}
                             </span>
                           );
                         })}
@@ -5299,9 +5576,9 @@ function ItemLocationDialog({
             ))}
           </div>
         ) : (
-          <p className="empty-daily">It may have been moved since the latest save or LIVE update.</p>
+          <p className="empty-daily">{t("web.itemLocationDialog.itMayHaveBeenMovedSinceTheLatestSave")}</p>
         )}
-        <small className="item-locator-hint">Click item cards anywhere in the app to open this locator.</small>
+        <small className="item-locator-hint">{t("web.itemLocationDialog.clickItemCardsAnywhereInTheAppToOpen")}</small>
       </section>
     </div>
   );
@@ -5314,7 +5591,23 @@ function FishingView({
   current: Snapshot;
   live: LiveState;
 }) {
+  const { t, text } = useI18n();
   const brief = current.fishingBrief;
+  const locationName = (name: string) => {
+    const key = ({
+      "Town River": "townRiver", "Forest River": "forestRiver", "Mountain Lake": "mountainLake",
+      "Forest Pond": "forestPond", Ocean: "ocean", "Secret Woods": "secretWoods", Sewers: "sewers",
+      Desert: "desert", "Ginger Island": "gingerIsland", "Ginger Island Ocean": "gingerOcean",
+      "Ginger Island River/Pond": "gingerRiverPond", "Witch's Swamp": "witchSwamp",
+      "Mutant Bug Lair": "mutantLair", "Night Market submarine": "nightMarketSubmarine",
+      "The Mines · floor 20/60": "mines2060", "The Mines · floor 20": "mines20",
+      "The Mines · floor 60": "mines60", "The Mines · floor 100": "mines100",
+      "Ocean · east pier": "oceanEastPier", "Town · north of JojaMart": "townNorthJoja",
+      "Mountain Lake · log island": "mountainLogIsland", "Forest · Arrowhead Island": "forestArrowhead",
+      "Ginger Island · Pirate Cove": "pirateCove",
+    } as Record<string, string>)[name];
+    return key ? t(`fishing.location.${key}`) : name;
+  };
   const [hour, setHour] = useState(600);
   const [useLiveTime, setUseLiveTime] = useState(true);
   const [fishListMode, setFishListMode] = useState<"collection" | "all">(() =>
@@ -5341,6 +5634,10 @@ function FishingView({
       : null;
   const trackedFish = brief.fish.map((fish) => ({
     ...fish,
+    displayName:
+      current.localizedNamesByQualifiedId?.[`(O)${normalizeObjectId(fish.id)}`] ||
+      current.localizedObjectNamesByEnglish?.[fish.name] ||
+      fish.name,
     caught: liveCaught
       ? liveCaught.has(fish.id.replace("(O)", ""))
       : fish.caught,
@@ -5440,7 +5737,7 @@ function FishingView({
     );
   const locationScores = new Map<
     string,
-    { location: string; fish: FishingFish[]; score: number }
+    { location: string; fish: DisplayFishingFish[]; score: number }
   >();
   for (const fish of available)
     for (const location of fish.accessibleLocations) {
@@ -5501,33 +5798,31 @@ function FishingView({
       <div className="fishing-heading">
         <div>
           <p className="eyebrow">
-            Daily fishing plan{" "}
-            {live.active && <span className="live-badge">LIVE</span>}
+            {t("fishing.eyebrow")}{" "}
+            {live.active && <span className="live-badge">{t("status.live")}</span>}
           </p>
-          <h1>Where is it worth casting?</h1>
+          <h1>{t("fishing.title")}</h1>
           <p>
-            {formatGameDate(current)} ·{" "}
-            {liveWeather === "rainy" ? "Raining" : "Dry weather"} · Fishing
-            Level {fishingLevel}
-            {live.active ? ` · ${live.location || "unknown location"}` : ""}
+            {t("date.game", { year: current.year, season: t(`season.${current.season}`), day: current.day })} ·{" "}
+            {t(`fishing.weather.${liveWeather}`)} · {t("fishing.level", { level: fishingLevel })}
+            {live.active ? ` · ${live.location || t("shell.unknownLocation")}` : ""}
           </p>
         </div>
         <div className="fish-progress">
           <strong>
             {caughtTracked}/{trackedFish.length}
           </strong>
-          <span>recorded species</span>
+          <span>{t("fishing.recorded")}</span>
         </div>
       </div>
       <section className="fishing-clock">
         <div>
           <p className="eyebrow">
-            {followingLiveTime ? "LIVE in-game time" : "Planning time"}
+            {followingLiveTime ? t("fishing.liveTime") : t("fishing.planningTime")}
           </p>
           <h2>{fishTime(displayedHour)}</h2>
           <small>
-            Choose any hour to plan ahead. ✓ means you already have every
-            accessible fish for that hour.
+            {t("fishing.clockHelp")}
           </small>
           {live.active && !followingLiveTime && (
             <button
@@ -5535,7 +5830,7 @@ function FishingView({
               className="use-live-time"
               onClick={() => setUseLiveTime(true)}
             >
-              Return to LIVE time · {fishTime(live.timeOfDay || 600)}
+              {t("fishing.returnLive", { time: fishTime(live.timeOfDay || 600) })}
             </button>
           )}
         </div>
@@ -5549,7 +5844,7 @@ function FishingView({
                   setHour(value);
                   setUseLiveTime(false);
                 }}
-                aria-label={`${fishTime(value)} · ${status.complete ? "collection complete" : status.missing ? `${status.missing} fish missing` : "no fish available"}`}
+                aria-label={t(status.complete ? "fishing.hourComplete" : status.missing ? "fishing.hourMissing" : "fishing.hourEmpty", { time: fishTime(value), count: status.missing })}
                 key={value}
               >
                 <span>{fishTime(value).replace(" (+1)", "")}</span>
@@ -5570,46 +5865,44 @@ function FishingView({
                 <SheetArtwork
                   id={normalizeObjectId(quest.requestedId)}
                   kind="object"
-                  label={quest.requestedName || "Requested fish"}
+                  label={quest.requestedName || t("fishing.requestedFish")}
                 />
               </div>
               <div className="mission-fish-copy">
                 <p className="eyebrow">
-                  Mission priority · {live.active ? "LIVE" : "latest save"}
+                  {t("fishing.missionPriority")} · {live.active ? t("status.live") : t("status.localSave")}
                 </p>
                 <h2>
-                  {quest.requestedName || quest.title}
-                  {quest.requester && <small> for {quest.requester}</small>}
+                   {quest.requestedName || localizedQuestTitle(quest, t, text)}
+                  {quest.requester && <small> {t("fishing.forRequester", { requester: quest.requester })}</small>}
                 </h2>
                 <strong>
-                  {quest.objective ||
-                    `Catch ${quest.target || 1} ${quest.requestedName || "fish"}`}
+                   {text(quest.objective) ||
+                    t("fishing.catchTarget", { count: quest.target || 1, fish: quest.requestedName || t("fishing.fish") })}
                 </strong>
                 {fish ? (
                   <div className="mission-fish-conditions">
                     <span>
-                      {fish.accessibleLocations.join(" · ") ||
-                        fish.locations.join(" · ")}
+                      {(fish.accessibleLocations.length ? fish.accessibleLocations : fish.locations).map(locationName).join(" · ")}
                     </span>
                     <span>{fishWindow(fish)}</span>
                     <span>
                       {fish.weather === "both"
-                        ? "Any weather"
+                        ? t("fishing.anyWeather")
                         : fish.weather === "rainy"
-                          ? "Rain required"
-                          : "Dry weather"}
+                          ? t("fishing.rainRequired")
+                          : t("fishing.weather.sunny")}
                     </span>
-                    <span>Difficulty {fish.difficulty}</span>
+                    <span>{t("fishing.difficulty", { difficulty: fish.difficulty })}</span>
                     {atLiveLocation(fish) && (
                       <span className="current-area-chip">
-                        Available where you are
+                        {t("fishing.availableHere")}
                       </span>
                     )}
                   </div>
                 ) : (
                   <p>
-                    {quest.requestedName || "The requested fish"} is not present
-                    in the current fishing catalog.
+                    {t("fishing.notInCatalog", { fish: quest.requestedName || t("fishing.requestedFish") })}
                   </p>
                 )}
               </div>
@@ -5620,10 +5913,10 @@ function FishingView({
                 <small>
                   {quest.type === "ItemDelivery" &&
                   questProgress(quest) >= (quest.target || 1)
-                    ? `Ready to deliver to ${quest.requester || "the requester"}`
+                    ? t("fishing.readyToDeliver", { requester: quest.requester || t("fishing.requester") })
                     : catchableNow
-                      ? "Catchable at this planned time"
-                      : "Change time or conditions"}
+                      ? t("fishing.catchableNow")
+                      : t("fishing.changeConditions")}
                 </small>
               </div>
             </section>
@@ -5634,11 +5927,11 @@ function FishingView({
         <article className="fish-panel collection-panel">
           <div className="card-title fishing-list-title">
             <div>
-              <p className="eyebrow">Fish available now</p>
+              <p className="eyebrow">{t("fishing.availableNow")}</p>
               <h2>
                 {fishListMode === "collection"
-                  ? "Missing from your collection"
-                  : "Every catchable fish"}
+                  ? t("fishing.missingCollection")
+                  : t("fishing.everyCatchable")}
               </h2>
               <div className="fish-list-tabs">
                 <button
@@ -5646,14 +5939,14 @@ function FishingView({
                   className={fishListMode === "collection" ? "active" : ""}
                   onClick={() => chooseFishListMode("collection")}
                 >
-                  Collection · {missingNow.length}
+                  {t("fishing.collectionCount", { count: missingNow.length })}
                 </button>
                 <button
                   type="button"
                   className={fishListMode === "all" ? "active" : ""}
                   onClick={() => chooseFishListMode("all")}
                 >
-                  All available · {allAvailable.length}
+                  {t("fishing.allAvailable", { count: allAvailable.length })}
                 </button>
               </div>
             </div>
@@ -5672,24 +5965,24 @@ function FishingView({
                     <SheetArtwork
                       id={fish.id}
                       kind="object"
-                      label={fish.name}
+                      label={fish.displayName}
                     />
                     <div>
                       <strong>
-                        {fish.name}
-                        {mission && <em>MISSION</em>}
-                        {here && <em className="here-badge">HERE</em>}
+                        {fish.displayName}
+                        {mission && <em>{t("fishing.mission")}</em>}
+                        {here && <em className="here-badge">{t("fishing.here")}</em>}
                         {fishListMode === "all" && fish.caught && (
-                          <em className="caught-badge">CAUGHT</em>
+                          <em className="caught-badge">{t("fishing.caught")}</em>
                         )}
                       </strong>
-                      <small>{fish.accessibleLocations.join(" · ")}</small>
-                      <WikiLink name={fish.name} />
+                      <small>{fish.accessibleLocations.map(locationName).join(" · ")}</small>
+                      <WikiLink name={fish.name} label={t("fishing.wiki")} />
                     </div>
                     <div className="fish-meta">
                       <b>{fish.basePrice}g</b>
                       <span>
-                        {fishWindow(fish)} · difficulty {fish.difficulty}
+                        {fishWindow(fish)} · {t("fishing.difficulty", { difficulty: fish.difficulty })}
                       </span>
                     </div>
                   </div>
@@ -5699,22 +5992,22 @@ function FishingView({
           ) : (
             <p className="fish-empty">
               {fishListMode === "collection"
-                ? "No available fish are missing at this time in this weather. Change the time to plan the rest of the day."
-                : "No fish are available at this time in this weather."}
+                ? t("fishing.noneMissingNow")
+                : t("fishing.noneAvailableNow")}
             </p>
           )}
           {laterToday.length > 0 && (
             <div className="later-fish">
-              <strong>Later today</strong>
+              <strong>{t("fishing.laterToday")}</strong>
               {laterToday.slice(0, 6).map((fish) => (
                 <span
                   className={questForFish(fish) ? "mission-fish" : ""}
                   key={fish.id}
                 >
-                  <SheetArtwork id={fish.id} kind="object" label={fish.name} />
-                  <b>{fish.name}</b>
-                  {questForFish(fish) && <em>MISSION</em>} · {fishWindow(fish)}{" "}
-                  · {fish.accessibleLocations[0]}
+                  <SheetArtwork id={fish.id} kind="object" label={fish.displayName} />
+                  <b>{fish.displayName}</b>
+                  {questForFish(fish) && <em>{t("fishing.mission")}</em>} · {fishWindow(fish)}{" "}
+                  · {locationName(fish.accessibleLocations[0])}
                 </span>
               ))}
             </div>
@@ -5723,27 +6016,24 @@ function FishingView({
         <article className="fish-panel money-panel">
           <div className="card-title">
             <div>
-              <p className="eyebrow">Optimize income</p>
+              <p className="eyebrow">{t("fishing.optimizeIncome")}</p>
               <h2>
                 {bestSpot
-                  ? `Go to ${bestSpot.location}`
-                  : "No area is available"}
+                  ? t("fishing.goTo", { location: locationName(bestSpot.location) })
+                  : t("fishing.noArea")}
               </h2>
             </div>
             {bestSpot && (
               <strong className="money-score">
                 {bestSpot.score}
-                <small>score</small>
+                <small>{t("fishing.score")}</small>
               </strong>
             )}
           </div>
           {bestSpot ? (
             <>
               <p className="money-explanation">
-                This is the best estimated opportunity for this hour based on
-                base price, difficulty, and your Fishing Level. It is not exact
-                gold per hour: casting distance, quality, bait, and time between
-                bites also matter.
+                {t("fishing.incomeExplanation")}
               </p>
               <div className="money-targets">
                 {bestSpot.fish.slice(0, 5).map((fish, index) => (
@@ -5755,18 +6045,18 @@ function FishingView({
                     <SheetArtwork
                       id={fish.id}
                       kind="object"
-                      label={fish.name}
+                      label={fish.displayName}
                     />
                     <strong>
-                      {fish.name}
-                      {questForFish(fish) && <em>MISSION</em>}
+                      {fish.displayName}
+                      {questForFish(fish) && <em>{t("fishing.mission")}</em>}
                     </strong>
                     <b>{fish.basePrice}g</b>
                     <small>
                       {fish.caught
-                        ? "Already caught"
-                        : "New for the collection"}{" "}
-                      · difficulty {fish.difficulty}
+                        ? t("fishing.alreadyCaught")
+                        : t("fishing.newCollection")}{" "}
+                      · {t("fishing.difficulty", { difficulty: fish.difficulty })}
                     </small>
                   </div>
                 ))}
@@ -5774,16 +6064,15 @@ function FishingView({
             </>
           ) : (
             <p className="fish-empty">
-              No rod-caught fish are recorded for this time and weather
-              combination.
+              {t("fishing.noRodFish")}
             </p>
           )}
           {moneySpots.length > 1 && (
             <div className="alternative-spots">
-              <strong>Alternatives</strong>
+              <strong>{t("fishing.alternatives")}</strong>
               {moneySpots.slice(1, 5).map((spot) => (
                 <span key={spot.location}>
-                  <b>{spot.location}</b>
+                  <b>{locationName(spot.location)}</b>
                   <i
                     style={{
                       width: `${Math.max(8, (spot.score / Math.max(1, bestSpot?.score || 1)) * 100)}%`,
@@ -5797,62 +6086,189 @@ function FishingView({
         </article>
       </div>
       <p className="fishing-note">
-        When Stardew is connected, the collection updates immediately after
-        catching a new species; while the game is closed it uses the latest
-        save.
+        {t("fishing.liveNote")}
       </p>
     </section>
   );
 }
 
-const communityRoomRewards: Record<
-  string,
-  { name: string; description: string }
-> = {
-  "Crafts Room": {
-    name: "Bridge Repair",
-    description: "Repairs the bridge east of The Mines and opens the Quarry.",
-  },
-  Pantry: {
-    name: "Greenhouse",
-    description:
-      "Restores the Greenhouse on the farm for year-round crops and fruit trees.",
-  },
-  "Fish Tank": {
-    name: "Glittering Boulder Removed",
-    description:
-      "Removes the boulder by The Mines and unlocks Copper Pan panning spots.",
-  },
-  "Boiler Room": {
-    name: "Minecarts Repaired",
-    description:
-      "Unlocks fast travel between the Bus Stop, Mines, Town, and Quarry.",
-  },
-  "Bulletin Board": {
-    name: "Friendship",
-    description:
-      "Adds two hearts with every non-datable villager you have met.",
-  },
-  Vault: {
-    name: "Bus Repair",
-    description: "Restores the bus so Pam can take you to Calico Desert.",
-  },
-  "Abandoned Joja Mart": {
-    name: "Movie Theater",
-    description: "Transforms the abandoned JojaMart into the Movie Theater.",
-  },
+const communityRoomKeys: Record<string, string> = {
+  Pantry: "pantry",
+  "Crafts Room": "craftsRoom",
+  "Fish Tank": "fishTank",
+  "Boiler Room": "boilerRoom",
+  Vault: "vault",
+  "Bulletin Board": "bulletinBoard",
+  "Abandoned Joja Mart": "abandonedJojaMart",
+};
+
+function routeLocationName(location: string, t: Translate) {
+  const key = location.replace(/\s+/g, "").toLowerCase();
+  const known = new Set([
+    "farm", "farmcave", "beach", "town", "mountain", "railroad",
+    "backwoods", "cindersapforest", "secretwoods", "desert", "busstop",
+  ]);
+  return known.has(key) ? t(`location.${key}`) : location;
+}
+
+function localizedTerrainFeature(feature: Terrain, t: Translate) {
+  const kindKey: Record<string, string> = {
+    Grass: "grass",
+    HoeDirt: "tilledSoil",
+    FruitTree: "fruitTree",
+    Bush: "bush",
+    Flooring: "flooring",
+  };
+  if (feature.kind !== "Tree")
+    return kindKey[feature.kind] ? t(`map.terrain.${kindKey[feature.kind]}`) : feature.kind;
+  const treeKey: Record<string, string> = {
+    Oak: "oak", Maple: "maple", Pine: "pine", Mahogany: "mahogany", Mushroom: "mushroom",
+  };
+  const tree = feature.treeType && treeKey[feature.treeType]
+    ? t(`map.tree.${treeKey[feature.treeType]}`)
+    : t("map.tree.generic");
+  return t(feature.tapped ? "map.tree.detailTapped" : "map.tree.detail", {
+    tree,
+    stage: feature.stage ?? 0,
+  });
+}
+
+function localizedStorageSource(source: string, t: Translate) {
+  return source
+    .replace(/^Backpack\b/, t("storage.backpack"))
+    .replace(/^Chest\b/, t("storage.chest"))
+    .replace(/\bFarmHouse\b|\bFarmhouse\b/g, t("storage.farmhouse"))
+    .replace(/\bFarm\b/g, t("nav.farm"))
+    .replace(/ · tile /g, ` · ${t("storage.tile")} `);
+}
+
+function routeItemName(item: DisplayNamedGameValue, t: Translate) {
+  if (item.name === "Artifact Spot") return t("world.artifactSpot");
+  if (item.name === "Seed Spot") return t("world.seedSpot");
+  return item.displayName || item.name;
+}
+
+const CROP_PLAN_KEYS: Record<string, string> = {
+  "400": "strawberry", "190": "cauliflower", "192": "potato",
+  "258": "blueberry", "254": "melon", "304": "hops", "256": "tomato",
+  "268": "starfruit", "282": "cranberry", "276": "pumpkin",
+};
+
+const BUILDING_PLAN_KEYS: Record<string, string> = {
+  Silo: "silo", Well: "well", Coop: "coop", Barn: "barn", Mill: "mill",
+  Shed: "shed", "Fish Pond": "fishPond", "Slime Hutch": "slimeHutch",
+  Stable: "stable", "Shipping Bin": "shippingBin", "Pet Bowl": "petBowl",
+  Cabin: "cabin", "Big Coop": "bigCoop", "Deluxe Coop": "deluxeCoop",
+  "Big Barn": "bigBarn", "Deluxe Barn": "deluxeBarn", "Big Shed": "bigShed",
+  "Farmhouse Upgrade 1": "farmhouse1", "Farmhouse Upgrade 2": "farmhouse2",
+  "Farmhouse Upgrade 3": "farmhouse3", "Junimo Hut": "junimoHut",
+  "Earth Obelisk": "earthObelisk", "Water Obelisk": "waterObelisk",
+  "Desert Obelisk": "desertObelisk", "Island Obelisk": "islandObelisk",
+  "Gold Clock": "goldClock", "Pam's House": "pamsHouse",
+  "Town Shortcuts": "townShortcuts",
+};
+
+function buildingDisplayName(name: string, t: Translate) {
+  const key = BUILDING_PLAN_KEYS[name];
+  return key ? t(`building.${key}.name`) : name;
+}
+
+function localizedInteriorName(interior: Interior, t: Translate) {
+  const compact = interior.name.replace(/[\s_-]+/g, "").toLowerCase();
+  if (compact === "farmhouse") return t("storage.farmhouse");
+  if (compact === "farmcave") return t("location.farmcave");
+  const buildingName = Object.keys(BUILDING_PLAN_KEYS).find(
+    (name) => name.replace(/[\s_-]+/g, "").toLowerCase() === compact,
+  );
+  return buildingName ? buildingDisplayName(buildingName, t) : interior.label;
+}
+
+function localizedHistoryAnnotation(
+  annotation: LocalizedValue,
+  t: Translate,
+  text: (value: LocalizedValue | null | undefined) => string,
+) {
+  if (typeof annotation === "string") return annotation;
+  const variables = { ...(annotation.variables || {}) };
+  if (typeof variables.building === "string")
+    variables.building = buildingDisplayName(variables.building, t);
+  if (typeof variables.tool === "string") {
+    const key: Record<string, string> = {
+      axe: "axe", pickaxe: "pickaxe", hoe: "hoe", wateringcan: "wateringCan", trashcan: "trashCan",
+    };
+    const normalized = variables.tool.replace(/[\s_-]+/g, "").toLowerCase();
+    if (key[normalized]) variables.tool = t(`history.tool.${key[normalized]}`);
+  }
+  if (typeof variables.tier === "string")
+    variables.tier = t(`history.tier.${variables.tier.toLowerCase()}`);
+  if (typeof variables.skill === "string")
+    variables.skill = t(`history.skill.${variables.skill.toLowerCase()}`);
+  return text({ ...annotation, variables });
+}
+
+function buildingPlanText(building: BuildingPlan, field: "name" | "why" | "prerequisite" | "unlock", t: Translate) {
+  const key = BUILDING_PLAN_KEYS[building.name];
+  const fallback = field === "name" ? buildingDisplayName(building.name, t) : building[field] || "";
+  return key ? t(`building.${key}.${field}`) : fallback;
+}
+
+function buildingCategoryName(category: string, t: Translate) {
+  const key = category.toLowerCase();
+  return ["all", "robin", "upgrades", "wizard", "community"].includes(key)
+    ? t(`building.category.${key}`)
+    : category;
+}
+
+function buildingProjectTypeName(projectType: string, t: Translate) {
+  const key: Record<string, string> = {
+    "Farm building": "farmBuilding", "Building upgrade": "buildingUpgrade",
+    "Home upgrade": "homeUpgrade", "Magical building": "magicalBuilding",
+    "Community upgrade": "communityUpgrade", "Multiplayer cabin · 7 styles": "multiplayerCabin",
+  };
+  return key[projectType] ? t(`building.projectType.${key[projectType]}`) : projectType;
+}
+
+function cropPlanNote(crop: CropPlan, t: Translate) {
+  const key = crop.id && CROP_PLAN_KEYS[crop.id];
+  return key ? t(`cropPlan.${key}.note`) : crop.note;
+}
+const communityBundleKeys: Record<string, string> = {
+  "0": "springCrops", "1": "summerCrops", "2": "fallCrops", "3": "qualityCrops",
+  "4": "animal", "5": "artisan", "6": "riverFish", "7": "lakeFish",
+  "8": "oceanFish", "9": "nightFishing", "10": "specialtyFish", "11": "crabPot",
+  "13": "springForaging", "14": "summerForaging", "15": "fallForaging",
+  "16": "winterForaging", "17": "construction", "19": "exoticForaging",
+  "20": "blacksmith", "21": "geologist", "22": "adventurer",
+  "23": "vault2500", "24": "vault5000", "25": "vault10000", "26": "vault25000",
+  "31": "chef", "32": "fieldResearch", "33": "enchanter", "34": "dye",
+  "35": "fodder", "36": "missing",
+};
+const communityRoomName = (id: string, translate: Translate) =>
+  translate(`community.room.${communityRoomKeys[id] || "restoration"}.name`);
+const communityRoomReward = (id: string, translate: Translate) => {
+  const key = communityRoomKeys[id] || "restoration";
+  return {
+    name: translate(`community.room.${key}.reward`),
+    description: translate(`community.room.${key}.description`),
+  };
+};
+const communityBundleName = (id: string, fallback: string, translate: Translate) => {
+  const key = communityBundleKeys[id];
+  return key ? translate(`community.bundle.${key}`) : fallback;
 };
 
 function CommunityRoomArtwork({ room }: { room: CommunityRoom }) {
+  const { t } = useI18n();
+  const label = communityRoomName(room.id, t);
   const state =
     room.total > 0 && room.completed >= room.total ? "complete" : "ruined";
   return (
     <span
       className="community-room-artwork"
-      title={`${room.name} room`}
+      title={t("community.room.preview", { room: label })}
       aria-hidden="true"
     >
-      <b>{room.name.slice(0, 1)}</b>
+      <b>{label.slice(0, 1)}</b>
       {/* This private room preview is rendered from the user's local Community Center map and tilesheets. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -5891,6 +6307,7 @@ function PlanningView({
   mode?: "farm" | "plan";
   onNavigateSection?: (section: PlanningSection) => void;
 }) {
+  const { t, locale } = useI18n();
   const [section, setSection] = useState<PlanningSection>(() => {
     if (typeof window === "undefined") return mode === "farm" ? "crops" : "community";
     const saved = window.localStorage.getItem(`stardew-tool-${mode}-section`);
@@ -5992,6 +6409,13 @@ function PlanningView({
   }, []);
 
   const plan = current.planningBrief;
+  const gameName = (name: string, qualifiedId?: string) =>
+    resolveGameDisplayName(
+      current.localizedNamesByQualifiedId || {},
+      current.localizedObjectNamesByEnglish || {},
+      name,
+      qualifiedId,
+    );
   const savedBackpackInventory = plan.inventory.filter(
     (item) => item.sources.includes("Backpack"),
   );
@@ -6021,13 +6445,14 @@ function PlanningView({
           }),
           ...(live.storage !== undefined
               ? live.storage.map((item) => {
+                const source = liveStorageSource(item);
                 const savedItem = savedChestInventory.find(
                   (candidate) =>
                     inventoryItemId(candidate) === inventoryItemId(item) &&
                     candidate.name === item.name,
                 );
                 const savedDetail = savedItem?.sourceDetails?.find(
-                  (detail) => detail.source === item.source,
+                  (detail) => detail.source === source,
                 );
                 return {
                   ...savedItem,
@@ -6036,10 +6461,10 @@ function PlanningView({
                   spriteIndex: item.spriteIndex || savedItem?.spriteIndex,
                   spriteWidth: item.spriteWidth || savedItem?.spriteWidth,
                   spriteHeight: item.spriteHeight || savedItem?.spriteHeight,
-                  sources: [item.source],
-                  sourceCounts: [{ source: item.source, count: item.count, quality: item.quality }],
+                  sources: [source],
+                  sourceCounts: [{ source, count: item.count, quality: item.quality }],
                   sourceDetails: [{
-                    source: item.source,
+                    source,
                     kind: "chest" as const,
                     name: item.containerName || savedDetail?.name,
                     itemId: item.containerItemId || savedDetail?.itemId,
@@ -6072,6 +6497,7 @@ function PlanningView({
       const existing = index[key] || {
         id: item.id,
         name: item.name,
+        displayName: gameName(item.displayName || item.name, item.id),
         count: 0,
         quality: item.quality,
         qualities: [],
@@ -6107,6 +6533,8 @@ function PlanningView({
       }
       if (!existing.spriteKind && item.spriteKind)
         existing.spriteKind = item.spriteKind;
+      if (!existing.displayName && item.displayName)
+        existing.displayName = item.displayName;
       if (!existing.spriteIndex && item.spriteIndex)
         existing.spriteIndex = item.spriteIndex;
       index[key] = existing;
@@ -6124,19 +6552,26 @@ function PlanningView({
       .map((detail) => [detail.source, detail] as const),
   );
   const displayStorageSource = (source: string) =>
-    readableStorageSource(source, storageDetailBySource.get(source), current);
+    localizedStorageSource(
+      readableStorageSource(source, storageDetailBySource.get(source), current, t),
+      t,
+    );
+  const displayStorageLocation = (detail: StorageSourceDetail | undefined) =>
+    readableStorageLocation(detail, current, t)
+      .replace(/\bFarmhouse\b/g, t("storage.farmhouse"))
+      .replace(/\bFarm\b/g, t("nav.farm"));
   const effectiveStorageLocation =
     storageLocation === "all" || storageLocations.includes(storageLocation)
       ? storageLocation
       : "all";
   const storageSearch = storageQuery.trim().toLowerCase();
-  const sortStorageItems = <T extends { name: string; count: number }>(items: T[]) =>
+  const sortStorageItems = <T extends { name: string; displayName?: string; count: number }>(items: T[]) =>
     [...items].sort((a, b) => {
       if (storageSort === "quantity-desc")
-        return b.count - a.count || a.name.localeCompare(b.name);
+        return b.count - a.count || (a.displayName || a.name).localeCompare(b.displayName || b.name, locale);
       if (storageSort === "quantity-asc")
-        return a.count - b.count || a.name.localeCompare(b.name);
-      return a.name.localeCompare(b.name);
+        return a.count - b.count || (a.displayName || a.name).localeCompare(b.displayName || b.name, locale);
+      return (a.displayName || a.name).localeCompare(b.displayName || b.name, locale);
     });
   const visibleStorage = sortStorageItems(
     storageIndex
@@ -6158,7 +6593,7 @@ function PlanningView({
         };
       })
       .filter((item) =>
-          `${item.name} ${item.sources.map(displayStorageSource).join(" ")}`
+          `${item.displayName || ""} ${item.name} ${item.sources.map(displayStorageSource).join(" ")}`
           .toLowerCase()
           .includes(storageSearch),
       ),
@@ -6184,7 +6619,7 @@ function PlanningView({
           .filter(
             (item) =>
               item.count > 0 &&
-              `${item.name} ${displayStorageSource(source)}`.toLowerCase().includes(storageSearch),
+              `${item.displayName || ""} ${item.name} ${displayStorageSource(source)}`.toLowerCase().includes(storageSearch),
           ),
       ),
     }))
@@ -6263,6 +6698,7 @@ function PlanningView({
         {
           id: string;
           name: string;
+          displayName: string;
           count: number;
           watered: number;
           daysRemaining: number;
@@ -6274,6 +6710,7 @@ function PlanningView({
       const entry = grouped[crop.name] || {
         id: crop.id,
         name: crop.name,
+        displayName: gameName(crop.name, `(O)${crop.id}`),
         count: 0,
         watered: 0,
         daysRemaining: crop.daysRemaining,
@@ -6291,11 +6728,14 @@ function PlanningView({
     }, {}),
   ).sort((a, b) =>
     plantedCropSort === "name"
-      ? a.name.localeCompare(b.name)
+      ? a.displayName.localeCompare(b.displayName, locale)
       : plantedCropSort === "harvest"
-        ? a.daysRemaining - b.daysRemaining || a.name.localeCompare(b.name)
-        : b.count - a.count || a.name.localeCompare(b.name),
+        ? a.daysRemaining - b.daysRemaining || a.displayName.localeCompare(b.displayName, locale)
+        : b.count - a.count || a.displayName.localeCompare(b.displayName, locale),
   );
+  const displayHarvestDate = (value: string) => {
+    return formatHarvestDate(value, t);
+  };
   const readyDeliveries = readyBundleDeliveries(community).map((item) => ({
     ...item,
     sources: inventoryForRequirement(item).flatMap((stock) => stock.sources),
@@ -6468,16 +6908,16 @@ function PlanningView({
     const ready =
       !building.completed && building.prerequisiteMet && resourcesReady;
     const status = building.completed
-      ? "Already completed"
+      ? t("building.status.completed")
       : ready
         ? building.owned > 0
-          ? `Ready · ${building.owned} on the farm`
-          : "Ready to order"
+          ? t("building.status.readyOwned", { count: building.owned })
+          : t("building.status.ready")
         : building.owned > 0
-          ? `${building.owned} on the farm`
+          ? t("building.status.owned", { count: building.owned })
           : !building.prerequisiteMet
-            ? "Prerequisite missing"
-            : "Missing materials";
+            ? t("building.status.prerequisite")
+            : t("building.status.materials");
     return { building, materials, ready, status };
   });
   const sortBuildingOptions = (items: typeof buildingOptions) =>
@@ -6490,17 +6930,16 @@ function PlanningView({
   const buildingGroups = [
     {
       id: "ready",
-      title: "Ready to order",
-      detail: "You meet the money, material, and prerequisite requirements.",
+      title: t("building.group.ready.title"),
+      detail: t("building.group.ready.detail"),
       items: sortBuildingOptions(
         buildingOptions.filter((option) => option.ready),
       ),
     },
     {
       id: "missing",
-      title: "Missing materials or requirements",
-      detail:
-        "These projects still need money, materials, or an earlier upgrade.",
+      title: t("building.group.missing.title"),
+      detail: t("building.group.missing.detail"),
       items: sortBuildingOptions(
         buildingOptions.filter(
           (option) => !option.ready && !option.building.completed,
@@ -6509,8 +6948,8 @@ function PlanningView({
     },
     {
       id: "completed",
-      title: "Already completed",
-      detail: "One-time upgrades already present in this save.",
+      title: t("building.group.completed.title"),
+      detail: t("building.group.completed.detail"),
       items: sortBuildingOptions(
         buildingOptions.filter((option) => option.building.completed),
       ),
@@ -6542,38 +6981,38 @@ function PlanningView({
           : 0;
       return {
         id: `building:${building.name}`,
-        category: "Construction",
-        title: building.name,
+        category: t("goal.category.construction"),
+        title: buildingPlanText(building, "name", t),
         progress: ready
-          ? "Money, materials, and prerequisites are ready."
-          : `${materials.length - missing.length}/${materials.length} material requirements ready`,
+          ? t("goal.construction.ready")
+          : t("goal.materialsReady", { ready: materials.length - missing.length, total: materials.length }),
         bottleneck: !building.prerequisiteMet
-          ? building.prerequisite || "A previous upgrade is required."
+          ? buildingPlanText(building, "prerequisite", t) || t("goal.previousUpgrade")
           : moneyMissing > 0
-            ? `${moneyMissing.toLocaleString("en-US")}g still needed`
+            ? t("goal.goldNeeded", { amount: moneyMissing.toLocaleString(locale) })
             : missing.length
               ? missing
                   .map(
                     (item) =>
-                      `${item.needed - item.owned} ${item.name}`,
+                      `${item.needed - item.owned} ${item.displayName || item.name}`,
                   )
                   .join(" · ")
-              : "No bottleneck",
+              : t("goal.noBottleneck"),
         forecast: ready
-          ? "Ready now"
+          ? t("goal.readyNow")
           : incomeDays
-            ? `About ${incomeDays} tracked income day${incomeDays === 1 ? "" : "s"} for the money gap`
-            : "No reliable date yet",
+            ? t("goal.incomeDays", { days: incomeDays })
+            : t("goal.noDate"),
         ready,
         requirements: [
           {
-            name: "Gold",
+            name: t("community.gold"),
             available: buildingMoney,
             required: building.money,
             suffix: "g",
           },
           ...materials.map((material) => ({
-            name: material.name,
+            name: material.displayName || material.name,
             available: material.owned,
             required: material.needed,
             artwork: artworkForItem(material.name),
@@ -6599,36 +7038,38 @@ function PlanningView({
     const targetTier = currentTier + 1;
     if (targetTier >= toolTiers.length) return [];
     const bar = upgradeBars[targetTier];
+    const localizedBar = gameName(bar);
+    const localizedTool = gameName(`${toolTiers[targetTier]} ${tool}`);
     const barMissing = Math.max(0, 5 - inventoryCount(bar));
     const moneyMissing = Math.max(0, upgradeCosts[targetTier] - buildingMoney);
     const ready = barMissing === 0 && moneyMissing === 0;
     return [{
       id: `tool:${tool}:${targetTier}`,
-      category: "Tool upgrade" as const,
-      title: `${toolTiers[targetTier]} ${tool}`,
-      progress: `${inventoryCount(bar)}/5 ${bar} · ${buildingMoney.toLocaleString("en-US")}/${upgradeCosts[targetTier].toLocaleString("en-US")}g`,
+      category: t("goal.category.toolUpgrade"),
+      title: localizedTool,
+      progress: `${inventoryCount(bar)}/5 ${localizedBar} · ${buildingMoney.toLocaleString(locale)}/${upgradeCosts[targetTier].toLocaleString(locale)}g`,
       bottleneck: ready
-        ? "Take the tool, bars, and money to Clint."
+        ? t("goal.tool.takeToClint")
         : [
-            barMissing ? `${barMissing} ${bar}` : "",
-            moneyMissing ? `${moneyMissing.toLocaleString("en-US")}g` : "",
+            barMissing ? `${barMissing} ${localizedBar}` : "",
+            moneyMissing ? `${moneyMissing.toLocaleString(locale)}g` : "",
           ].filter(Boolean).join(" · "),
       forecast:
         ready
-          ? "Ready to order now"
+          ? t("goal.tool.readyOrder")
           : moneyMissing > 0 && recentDailyIncome > 0
-            ? `About ${Math.ceil(moneyMissing / recentDailyIncome)} tracked income days for the money gap`
-            : "Waiting for bars or money",
+            ? t("goal.incomeDays", { days: Math.ceil(moneyMissing / recentDailyIncome) })
+            : t("goal.tool.waiting"),
       ready,
       requirements: [
         {
-          name: "Gold",
+          name: t("community.gold"),
           available: buildingMoney,
           required: upgradeCosts[targetTier],
           suffix: "g",
         },
         {
-          name: bar,
+          name: localizedBar,
           available: inventoryCount(bar),
           required: 5,
           artwork: artworkForItem(bar),
@@ -6641,6 +7082,7 @@ function PlanningView({
       const materials = (Object.entries(recipe.materials) as [string, number][]).map(
         ([name, amount]) => ({
           name,
+          displayName: gameName(name),
           needed: amount * craftingQuantity,
           owned: inventoryCount(name),
         }),
@@ -6649,18 +7091,18 @@ function PlanningView({
       const ready = missing.length === 0;
       return {
         id: `crafting:${recipe.name}`,
-        category: "Crafting",
-        title: `Craft ${craftingQuantity}× ${recipe.name}`,
-        progress: `${materials.length - missing.length}/${materials.length} material requirements ready`,
+        category: t("goal.category.crafting"),
+        title: t("goal.craftTitle", { count: craftingQuantity, item: gameName(recipe.name) }),
+        progress: t("goal.materialsReady", { ready: materials.length - missing.length, total: materials.length }),
         bottleneck: ready
-          ? "All listed ingredients are in storage."
+          ? t("goal.crafting.ingredientsReady")
           : missing
-              .map((item) => `${item.needed - item.owned} ${item.name}`)
+              .map((item) => `${item.needed - item.owned} ${item.displayName || item.name}`)
               .join(" · "),
-        forecast: ready ? "Ready to craft now" : "Waiting for the missing ingredients",
+        forecast: ready ? t("goal.crafting.ready") : t("goal.crafting.waiting"),
         ready,
         requirements: materials.map((material) => ({
-          name: material.name,
+          name: material.displayName || material.name,
           available: material.owned,
           required: material.needed,
           artwork: artworkForItem(material.name),
@@ -6679,18 +7121,18 @@ function PlanningView({
         const missing = remaining
           .filter((item) => !item.ready)
           .slice(0, 4)
-          .map((item) => item.name);
+          .map((item) => item.displayName || item.name);
         return {
           id: `bundle:${room.id}:${bundle.id}`,
-          category: "Community Center",
-          title: `${room.name} · ${bundle.name}`,
-          progress: `${bundle.donated}/${bundle.required} donated · ${available.length} ready in storage`,
+          category: t("goal.category.community"),
+          title: `${communityRoomName(room.id, t)} · ${communityBundleName(bundle.id, bundle.name, t)}`,
+          progress: t("goal.bundle.progress", { donated: bundle.donated, required: bundle.required, ready: available.length }),
           bottleneck: ready
-            ? "The remaining required items are already in storage."
+            ? t("goal.bundle.itemsReady")
             : missing.length
               ? missing.join(" · ")
-              : `${needed - available.length} more qualifying item${needed - available.length === 1 ? "" : "s"}`,
-          forecast: ready ? "Ready to deliver now" : "Depends on the missing seasonal items",
+              : t("goal.bundle.moreItems", { count: needed - available.length }),
+          forecast: ready ? t("goal.bundle.ready") : t("goal.bundle.waiting"),
           ready,
           requirements: remaining.map((item) => ({
             id: item.id,
@@ -6699,7 +7141,7 @@ function PlanningView({
             required: item.count,
             artwork: artworkForItem(item.name),
           })),
-          requirementsLabel: `Choose ${needed} of these remaining options`,
+          requirementsLabel: t("goal.bundle.choose", { count: needed }),
         };
       }),
   );
@@ -6747,14 +7189,14 @@ function PlanningView({
       <div className="planning-heading">
         <div>
           <p className="eyebrow">
-            Decision center{" "}
-            {live.active && <span className="live-badge">LIVE</span>}
+            {t("planning.decisionCenter")}{" "}
+            {live.active && <span className="live-badge">{t("status.live")}</span>}
           </p>
-          <h1>{mode === "farm" ? "What is happening on your farm" : "What to save, build, and do next"}</h1>
+          <h1>{mode === "farm" ? t("planning.farmTitle") : t("planning.planTitle")}</h1>
           <p>
             {mode === "farm"
-              ? "Current crops and production, updated from LIVE whenever Stardew is running."
-              : "Forward-looking goals use your current money, chests, and progress."}
+              ? t("planning.farmDescription")
+              : t("planning.planDescription")}
           </p>
         </div>
         <div className="planning-balance">
@@ -6762,31 +7204,37 @@ function PlanningView({
             {(live.active
               ? (live.money ?? current.money)
               : current.money
-            ).toLocaleString("en-US")}
+            ).toLocaleString(locale)}
             g
           </strong>
           <span>
             {live.active
               ? `${formatLiveTime(live.timeOfDay)} · ${live.location}`
-              : `Saved · ${formatGameDate(current)}`}
+              : t("planning.savedDate", {
+                  date: t("date.game", {
+                    year: current.year,
+                    season: t(`season.${current.season}`),
+                    day: current.day,
+                  }),
+                })}
           </span>
         </div>
       </div>
-      <nav className="planning-tabs" aria-label="Planning areas">
+      <nav className="planning-tabs" aria-label={t("planning.areas")}>
         {(
           (mode === "farm"
             ? [
-                ["crops", "Crops"],
-                ["production", "Production"],
-                ["animals", "Animals"],
-                ["storage", "Storage"],
+                ["crops", t("planning.crops")],
+                ["production", t("planning.production")],
+                ["animals", t("planning.animals")],
+                ["storage", t("planning.storage")],
               ]
             : [
-            ["community", "Community Center"],
-            ["crops", "Planting"],
-            ["buildings", "Buildings"],
-            ["friends", "Friendships"],
-            ["goals", "Goals"],
+            ["community", t("planning.community")],
+            ["crops", t("planning.planting")],
+            ["buildings", t("planning.buildings")],
+            ["friends", t("planning.friendships")],
+            ["goals", t("planning.goals")],
               ]) as [PlanningSection, string][]
         ).map(([id, label]) => (
           <button
@@ -6808,11 +7256,11 @@ function PlanningView({
       {section === "community" && (
         <div className="community-layout">
           <aside className="planning-summary">
-            <p className="eyebrow">Total progress</p>
+            <p className="eyebrow">{t("web.planning.totalProgress")}</p>
             <strong>
               {community.completed}/{community.total}
             </strong>
-            <span>completed bundles</span>
+            <span>{t("web.planning.completedBundles")}</span>
             <i>
               <b
                 style={{
@@ -6822,8 +7270,8 @@ function PlanningView({
             </i>
             <p>
               {community.readyItems
-                ? `You have ${community.readyItems} item${community.readyItems === 1 ? "" : "s"} ready to deliver:`
-                : "No complete deliveries were found in chests or the backpack."}
+                ? t("community.readyDeliveries", { count: community.readyItems })
+                : t("community.noReadyDeliveries")}
             </p>
             {readyDeliveries.length > 0 && (
               <div className="ready-deliveries">
@@ -6831,7 +7279,7 @@ function PlanningView({
                   <article
                     className="locatable-item-card"
                     data-storage-item={item.name}
-                    title={`Click to locate ${item.name}`}
+                    title={t("storage.clickToLocate", { item: item.id === "-1" ? t("community.gold") : item.displayName || item.name })}
                     key={`${item.room}-${item.bundle}-${item.id}`}
                   >
                     <ItemMentionArtwork
@@ -6840,15 +7288,15 @@ function PlanningView({
                       item={artworkForItem(item.name)}
                     />
                     <div>
-                      <strong>{formatBundleRequirement(item)}</strong>
+                      <strong>{formatBundleRequirement(item, t, locale)}</strong>
                       <span>
-                        {item.room} · {item.bundle}
+                        {communityRoomName(item.roomId, t)} · {communityBundleName(item.bundleId, item.bundle, t)}
                       </span>
                       <small>
-                        {item.owned.toLocaleString("en-US")}
-                        {item.id === "-1" ? "g" : ""} available
-                        {item.sources.length
-                          ? ` · ${[...new Set(item.sources)].join(" · ")}`
+                        {t("community.ownedAvailable", {
+                          count: `${item.owned.toLocaleString(locale)}${item.id === "-1" ? "g" : ""}`,
+                        })}{item.sources.length
+                          ? ` · ${[...new Set(item.sources)].map(displayStorageSource).join(" · ")}`
                           : ""}
                       </small>
                     </div>
@@ -6859,11 +7307,7 @@ function PlanningView({
           </aside>
           <div className="community-rooms">
             {community.rooms.map((room) => {
-              const reward = room.reward ||
-                communityRoomRewards[room.id] || {
-                  name: "Room restoration",
-                  description: "Completing every bundle restores this room.",
-                };
+              const reward = communityRoomReward(room.id, t);
               const complete = room.total > 0 && room.completed >= room.total;
               return (
                 <section
@@ -6874,8 +7318,8 @@ function PlanningView({
                     <div className="room-identity">
                       <CommunityRoomArtwork room={room} />
                       <div>
-                        <p className="eyebrow">Room</p>
-                        <h2>{room.name}</h2>
+                        <p className="eyebrow">{t("web.planning.room")}</p>
+                        <h2>{communityRoomName(room.id, t)}</h2>
                       </div>
                     </div>
                     <strong>
@@ -6885,8 +7329,8 @@ function PlanningView({
                   <div className={`room-reward ${complete ? "complete" : ""}`}>
                     <span>
                       {complete
-                        ? "✓ Room reward unlocked"
-                        : "Room completion reward"}
+                        ? t("community.rewardUnlocked")
+                        : t("community.completionReward")}
                     </span>
                     <strong>{reward.name}</strong>
                     <small>{reward.description}</small>
@@ -6910,11 +7354,14 @@ function PlanningView({
                               ? "!"
                               : "○"}
                         </span>
-                        <strong>{bundle.name}</strong>
+                        <strong>{communityBundleName(bundle.id, bundle.name, t)}</strong>
                         <small>
                           {bundle.complete
-                            ? "Completed"
-                            : `${bundle.ready}/${bundle.required} available`}
+                            ? t("community.completed")
+                            : t("community.bundleAvailable", {
+                                ready: bundle.ready,
+                                required: bundle.required,
+                              })}
                         </small>
                       </summary>
                       <div className="bundle-items">
@@ -6922,7 +7369,7 @@ function PlanningView({
                           <div
                             className={`${item.donated ? "donated" : item.ready ? "ready" : "missing"} locatable-item-card`}
                             data-storage-item={item.name}
-                            title={`Click to locate ${item.name}`}
+                            title={t("storage.clickToLocate", { item: item.displayName || item.name })}
                             key={`${bundle.id}-${item.id}-${index}`}
                           >
                             <span className="bundle-item-status">
@@ -6934,13 +7381,17 @@ function PlanningView({
                               item={artworkForItem(item.name)}
                             />
                             <span className="bundle-item-copy">
-                              <strong>{formatBundleRequirement(item)}</strong>
+                              <strong>{formatBundleRequirement(item, t, locale)}</strong>
                               <small>
                                 {item.donated
-                                  ? "Donated"
+                                  ? t("community.donated")
                                   : item.id === "-1"
-                                    ? `${item.owned.toLocaleString("en-US")}g available`
-                                    : `${item.owned}/${item.count} stored${item.quality ? ` · ${item.quality >= 4 ? "iridium" : item.quality === 2 ? "gold" : "silver"} quality` : ""}`}
+                                    ? t("community.goldAvailable", { count: item.owned.toLocaleString(locale) })
+                                    : t(item.quality ? "community.storedQuality" : "community.stored", {
+                                        owned: item.owned,
+                                        count: item.count,
+                                        quality: t(`quality.${item.quality >= 4 ? "iridium" : item.quality === 2 ? "gold" : "silver"}`),
+                                      })}
                               </small>
                             </span>
                           </div>
@@ -6960,20 +7411,17 @@ function PlanningView({
           {mode === "farm" && <section className="planted-section">
             <div className="crop-section-title">
               <div>
-                <p className="eyebrow">Read from your save</p>
-                <h2>Currently planted</h2>
-                <p>
-                  These are your actual crops. The same crop may show two dates
-                  when plants are at different growth stages.
-                </p>
+                <p className="eyebrow">{t("crops.fromSave")}</p>
+                <h2>{t("crops.currentlyPlanted")}</h2>
+                <p>{t("crops.description")}</p>
               </div>
               <div className="planted-sort-controls">
                 <strong>
                   {plantedCrops.reduce((sum, crop) => sum + crop.count, 0)}
-                  <small> planted tiles</small>
+                  <small> {t("crops.plantedTiles")}</small>
                 </strong>
                 <label>
-                  Sort by
+                  {t("storage.sort")}
                   <select
                     value={plantedCropSort}
                     onChange={(event) =>
@@ -6982,9 +7430,9 @@ function PlanningView({
                       )
                     }
                   >
-                    <option value="name">Alphabetical</option>
-                    <option value="quantity">Quantity: most first</option>
-                    <option value="harvest">Next harvest</option>
+                    <option value="name">{t("crops.sortAlphabetical")}</option>
+                    <option value="quantity">{t("crops.sortQuantity")}</option>
+                    <option value="harvest">{t("crops.sortHarvest")}</option>
                   </select>
                 </label>
               </div>
@@ -6992,18 +7440,20 @@ function PlanningView({
             <div className="planted-grid">
               {plantedCrops.map((crop) => (
                 <article className={crop.ready ? "ready" : ""} key={crop.name}>
-                  <SheetArtwork id={crop.id} kind="object" label={crop.name} />
+                  <SheetArtwork id={crop.id} kind="object" label={crop.displayName} />
                   <div>
                     <strong>
-                      {crop.count}× {crop.name}
+                      {crop.count}× {crop.displayName}
                     </strong>
                     <span>
                       {crop.ready
-                        ? "Some are ready today"
-                        : `Next harvest: ${crop.harvestDates.join(" / ")}`}
+                        ? t("crops.readyToday")
+                        : t("crops.nextHarvest", {
+                            date: crop.harvestDates.map(displayHarvestDate).join(" / "),
+                          })}
                     </span>
                     <small>
-                      {crop.watered}/{crop.count} watered in the latest save
+                      {t("crops.watered", { watered: crop.watered, count: crop.count })}
                     </small>
                   </div>
                 </article>
@@ -7013,39 +7463,27 @@ function PlanningView({
           {mode === "plan" && <section className="crop-options-section">
             <div className="crop-section-title">
               <div>
-                <p className="eyebrow">Planting guide for today</p>
-                <h2>
-                  If you plant one seed on {current.seasonLabel} {current.day}
-                </h2>
-                <p>
-                  These are not crops detected on your farm. Each card estimates
-                  what one newly planted tile can produce before the season ends
-                  and shows the final safe planting day for at least one
-                  harvest.
-                </p>
+                <p className="eyebrow">{t("web.planning.plantingGuideForToday")}</p>
+                <h2>{t("planning.plantOnDate", { date: t("date.seasonDay", { season: t(`season.${current.season}`), day: current.day }) })}</h2>
+                <p>{t("web.planning.theseAreNotCropsDetectedOnYourFarmEach")}</p>
               </div>
             </div>
             <div className="crop-simulation-guide">
               <div>
-                <b>Assumes</b>
-                <span>Watered every day</span>
+                <b>{t("web.planning.assumes")}</b>
+                <span>{t("web.planning.wateredEveryDay")}</span>
               </div>
               <div>
-                <b>Profit means</b>
-                <span>Base-quality crops sold raw minus the seed cost</span>
+                <b>{t("web.planning.profitMeans")}</b>
+                <span>{t("web.planning.baseQualityCropsSoldRawMinusTheSeedCost")}</span>
               </div>
               <div>
-                <b>Repeat crops</b>
-                <span>
-                  Every possible regrowth before the season ends is included
-                </span>
+                <b>{t("web.planning.repeatCrops")}</b>
+                <span>{t("web.planning.everyPossibleRegrowthBeforeTheSeasonEndsIsIncluded")}</span>
               </div>
               <div>
-                <b>Not included</b>
-                <span>
-                  Fertilizer, Speed-Gro, professions, processing, or missed
-                  watering
-                </span>
+                <b>{t("web.planning.notIncluded")}</b>
+                <span>{t("web.planning.fertilizerSpeedGroProfessionsProcessingOrMissedWatering")}</span>
               </div>
             </div>
             <div className="crop-plan-grid">
@@ -7054,19 +7492,19 @@ function PlanningView({
                   className={crop.harvests ? "crop-plan" : "crop-plan expired"}
                   key={crop.name}
                 >
-                  <span className="rank">#{index + 1} raw profit</span>
+                  <span className="rank">{t("planning.rankProfit", { rank: index + 1 })}</span>
                   <p className="eyebrow">
                     {crop.harvests
-                      ? `${crop.harvests} harvest${crop.harvests === 1 ? "" : "s"} before Fall`
-                      : "No harvest if planted today"}
+                      ? t("planning.harvestsBeforeSeason", { count: crop.harvests, season: t("season.fall") })
+                      : t("planning.noHarvestToday")}
                   </p>
                   <div className="crop-plan-identity">
                     <SheetArtwork
                       id={crop.id}
                       kind="object"
-                      label={crop.name}
+                      label={crop.displayName || crop.name}
                     />
-                    <h2>{crop.name}</h2>
+                    <h2>{crop.displayName || crop.name}</h2>
                   </div>
                   <strong
                     className={
@@ -7075,33 +7513,29 @@ function PlanningView({
                   >
                     {crop.profitPerTile >= 0 ? "+" : ""}
                     {crop.profitPerTile}g
-                    <small> estimated raw profit / tile</small>
+                    <small> {t("web.planning.estimatedRawProfitTile")}</small>
                   </strong>
                   <dl>
                     <div>
-                      <dt>Seed cost</dt>
+                      <dt>{t("web.planning.seedCost")}</dt>
                       <dd>{crop.seed}g</dd>
                     </div>
                     <div>
-                      <dt>First harvest in</dt>
-                      <dd>{crop.growth} days</dd>
+                      <dt>{t("web.planning.firstHarvestIn")}</dt>
+                      <dd>{t("planning.daysCount", { count: crop.growth })}</dd>
                     </div>
                     <div>
-                      <dt>Latest safe planting day</dt>
+                      <dt>{t("web.planning.latestSafePlantingDay")}</dt>
                       <dd>
-                        {current.seasonLabel} {crop.latestPlantDay}
+                        {t("date.seasonDay", { season: t(`season.${current.season}`), day: crop.latestPlantDay })}
                       </dd>
                     </div>
                   </dl>
-                  <p>{crop.note}</p>
+                  <p>{cropPlanNote(crop, t)}</p>
                 </article>
               ))}
             </div>
-            <p className="crop-simulation-footnote">
-              “Latest safe planting day” means the last day you can plant that
-              seed, water it every day, and still collect at least its first
-              harvest before the season changes.
-            </p>
+            <p className="crop-simulation-footnote">{t("web.planning.latestSafePlantingDayMeansTheLastDayYou")}</p>
           </section>}
         </div>
       )}
@@ -7110,21 +7544,17 @@ function PlanningView({
         <div className="building-catalog">
           <section className="building-catalog-head">
             <div>
-              <p className="eyebrow">Construction catalog</p>
-              <h2>Construction projects currently unlocked</h2>
-              <p>
-                This tab only shows projects your farmer can currently order, so
-                later characters, areas, and story unlocks are not spoiled.
-                Placement proposals remain in Map.
-              </p>
+              <p className="eyebrow">{t("web.planning.constructionCatalog")}</p>
+              <h2>{t("web.planning.constructionProjectsCurrentlyUnlocked")}</h2>
+              <p>{t("web.planning.thisTabOnlyShowsProjectsYourFarmerCanCurrently")}</p>
             </div>
             <strong>
               {availableBuildings.length}
-              <small> projects</small>
+              <small>{t("web.planning.projects")}</small>
             </strong>
           </section>
           <div className="building-controls">
-            <nav className="building-filters" aria-label="Building categories">
+            <nav className="building-filters" aria-label={t("web.planning.buildingCategories")}>
               {buildingCategories.map((category) => (
                 <button
                   type="button"
@@ -7132,7 +7562,7 @@ function PlanningView({
                   onClick={() => setBuildingCategory(category)}
                   key={category}
                 >
-                  {category}
+                  {buildingCategoryName(category, t)}
                   <b>
                     {category === "All"
                       ? availableBuildings.length
@@ -7143,16 +7573,14 @@ function PlanningView({
                 </button>
               ))}
             </nav>
-            <label>
-              Sort by
-              <select
+            <label>{t("web.planning.sortBy")}<select
                 value={buildingSort}
                 onChange={(event) =>
                   setBuildingSort(event.target.value as typeof buildingSort)
                 }
               >
-                <option value="name">Alphabetical</option>
-                <option value="cost">Cost: low to high</option>
+                <option value="name">{t("crops.sortAlphabetical")}</option>
+                <option value="cost">{t("web.planning.costLowToHigh")}</option>
               </select>
             </label>
           </div>
@@ -7167,10 +7595,10 @@ function PlanningView({
                     <div>
                       <p className="eyebrow">
                         {group.id === "ready"
-                          ? "Available now"
+                          ? t("building.group.ready.eyebrow")
                           : group.id === "completed"
-                            ? "Farm progress"
-                            : "Plan ahead"}
+                            ? t("building.group.completed.eyebrow")
+                            : t("building.group.missing.eyebrow")}
                       </p>
                       <h2>{group.title}</h2>
                       <p>{group.detail}</p>
@@ -7188,29 +7616,29 @@ function PlanningView({
                             <BuildingPreview name={building.name} catalog />
                             <div>
                               <p className="eyebrow">
-                                {building.category} · {building.projectType}
+                                {buildingCategoryName(building.category, t)} · {buildingProjectTypeName(building.projectType, t)}
                               </p>
-                              <h2>{building.name}</h2>
-                              <p>{building.why}</p>
+                              <h2>{buildingPlanText(building, "name", t)}</h2>
+                              <p>{buildingPlanText(building, "why", t)}</p>
                               <WikiLink name={building.name} />
                               <div className="building-notes">
                                 {building.footprint && (
-                                  <span>Footprint: {building.footprint}</span>
+                                  <span>{t("web.planning.footprint")}{building.footprint}</span>
                                 )}
                                 {building.prerequisite && (
-                                  <span className="met">✓ {building.prerequisite}</span>
+                                  <span className="met">✓ {buildingPlanText(building, "prerequisite", t)}</span>
                                 )}
                               </div>
                             </div>
                           </div>
                           <div className="building-price">
                             <strong>
-                              {building.money.toLocaleString("en-US")}g
+                              {building.money.toLocaleString(locale)}g
                             </strong>
                             <small>
                               {buildingMoney >= building.money
-                                ? "✓ enough money"
-                                : `${(building.money - buildingMoney).toLocaleString("en-US")}g missing`}
+                                ? t("building.money.enough")
+                                : t("building.money.missing", { amount: (building.money - buildingMoney).toLocaleString(locale) })}
                             </small>
                             <b>{status}</b>
                           </div>
@@ -7229,7 +7657,7 @@ function PlanningView({
                                     name={material.name}
                                     item={artworkForItem(material.name)}
                                   />
-                                  <b>{material.name}</b>
+                                  <b>{material.displayName || material.name}</b>
                                   <em>
                                     {material.owned}/{material.needed}
                                   </em>
@@ -7237,8 +7665,7 @@ function PlanningView({
                               ))
                             ) : (
                               <span className="done">
-                                <b>Materials</b>None
-                              </span>
+                                <b>{t("web.planning.materials")}</b>{t("common.none")}</span>
                             )}
                           </div>
                         </article>
@@ -7256,21 +7683,21 @@ function PlanningView({
           <section className="animal-dashboard">
             <div className="crop-section-title">
               <div>
-                <p className="eyebrow">Read from your save</p>
-                <h2>Your animals</h2>
-                <p>Care status comes from the latest saved day.</p>
+                <p className="eyebrow">{t("crops.fromSave")}</p>
+                <h2>{t("web.planning.yourAnimals")}</h2>
+                <p>{t("web.planning.careStatusComesFromTheLatestSavedDay")}</p>
               </div>
-              <strong>{animals.length}<small> animals</small></strong>
+              <strong>{animals.length}<small>{t("web.planning.animals")}</small></strong>
             </div>
             <div className="animal-grid">
               {animals.map((animal) => (
                 <article key={animal.id} className={animal.petted ? "petted" : "needs-care"}>
                   <span>{animal.petted ? "✓" : "!"}</span>
-                  <div><strong>{animal.name}</strong><small>{animal.type} · {animal.location}</small></div>
+                  <div><strong>{animal.name}</strong><small>{t(`animal.type.${animal.type.toLowerCase().replaceAll(" ", "")}`)} · {routeLocationName(animal.location, t)}</small></div>
                   <dl>
-                    <div><dt>Friendship</dt><dd>{animal.friendship}/1000</dd></div>
-                    <div><dt>Happiness</dt><dd>{animal.happiness}/255</dd></div>
-                    <div><dt>Today</dt><dd>{animal.petted ? "Petted" : "Needs petting"}</dd></div>
+                    <div><dt>{t("web.planning.friendship")}</dt><dd>{animal.friendship}/1000</dd></div>
+                    <div><dt>{t("web.planning.happiness")}</dt><dd>{animal.happiness}/255</dd></div>
+                    <div><dt>{t("today.when.today")}</dt><dd>{animal.petted ? t("animal.petted") : t("animal.needsPetting")}</dd></div>
                   </dl>
                 </article>
               ))}
@@ -7278,13 +7705,9 @@ function PlanningView({
           </section>
         ) : (
         <section className="empty-farm-section">
-          <p className="eyebrow">Farm animals</p>
-          <h2>No animals detected in this save yet</h2>
-          <p>
-            Coops, barns, their interiors, and animal care will appear here as
-            soon as the save contains them. Construction ideas stay in Plan;
-            this section only describes what actually exists.
-          </p>
+          <p className="eyebrow">{t("web.planning.farmAnimals")}</p>
+          <h2>{t("web.planning.noAnimalsDetectedInThisSaveYet")}</h2>
+          <p>{t("web.planning.coopsBarnsTheirInteriorsAndAnimalCareWillAppear")}</p>
         </section>
         )
       )}
@@ -7292,26 +7715,21 @@ function PlanningView({
       {section === "production" && (
         <div className="production-plan">
           <section>
-            <p className="eyebrow">
-              Current machines and Crab Pots{" "}
+            <p className="eyebrow">{t("web.planning.currentMachinesAndCrabPots")}{" "}
               {live.active && live.machines !== undefined && (
-                <span className="live-badge">LIVE</span>
+                <span className="live-badge">{t("status.live")}</span>
               )}
             </p>
-            <h2>What to collect and refill</h2>
+            <h2>{t("web.planning.whatToCollectAndRefill")}</h2>
             <div className="production-overview">
               <span>
-                <b>{machineTotals.built}</b> built
-              </span>
+                <b>{machineTotals.built}</b>{t("web.planning.built")}</span>
               <span className={machineTotals.ready ? "attention" : ""}>
-                <b>{machineTotals.ready}</b> ready
-              </span>
+                <b>{machineTotals.ready}</b>{t("web.planning.ready")}</span>
               <span>
-                <b>{machineTotals.working}</b> working
-              </span>
+                <b>{machineTotals.working}</b>{t("web.planning.working")}</span>
               <span className={machineTotals.idle ? "idle" : ""}>
-                <b>{machineTotals.idle}</b> idle
-              </span>
+                <b>{machineTotals.idle}</b>{t("web.planning.idle")}</span>
             </div>
             {machines.length ? (
               <div className="machine-plan-grid">
@@ -7337,62 +7755,60 @@ function PlanningView({
                         <SheetArtwork
                           id={machine.id}
                           kind={isCrabPot ? "object" : "craftable"}
-                          label={machine.name}
+                          label={machine.displayName || machine.name}
                         />
                         <span className="machine-heading">
-                          <strong>{machine.name}</strong>
-                          <span>{machine.count} built</span>
+                          <strong>{machine.displayName || machine.name}</strong>
+                          <span>{machine.count}{t("web.planning.built")}</span>
                           <b>
-                            {machine.ready} ready · {machine.working} working ·{" "}
-                            {idle} idle
-                          </b>
+                            {machine.ready}{t("web.planning.ready.b22a12")}{machine.working}{t("web.planning.working.2de782")}{" "}
+                            {idle}{t("web.planning.idle")}</b>
                         </span>
                       </summary>
                       <div className="machine-details">
                         {machine.readyOutputs?.length ? (
                           <p className="ready-output">
-                            <b>Collect</b>
+                            <b>{t("web.planning.collect")}</b>
                             {machine.readyOutputs
-                              .map((item) => `${item.count}× ${item.name}`)
+                              .map((item) => `${item.count}× ${item.displayName || item.name}`)
                               .join(" · ")}
                           </p>
                         ) : null}
                         {machine.inputs?.length ? (
                           <p>
-                            <b>Processing</b>
+                            <b>{t("web.home.processing")}</b>
                             {machine.inputs
-                              .map((item) => `${item.count}× ${item.name}`)
+                              .map((item) => `${item.count}× ${item.displayName || item.name}`)
                               .join(" · ")}
                             {machine.workingOutputs?.length
-                              ? ` → ${machine.workingOutputs.map((item) => `${item.count}× ${item.name}`).join(" · ")}`
+                              ? ` → ${machine.workingOutputs.map((item) => `${item.count}× ${item.displayName || item.name}`).join(" · ")}`
                               : ""}
                           </p>
                         ) : machine.working ? (
                           <p>
-                            <b>Processing</b>
-                            {machine.working} active machine
-                            {machine.working === 1 ? "" : "s"}
+                            <b>{t("web.home.processing")}</b>
+                            {machine.working}{t("web.planning.activeMachine")}{machine.working === 1 ? "" : "s"}
                           </p>
                         ) : null}
                         {duration && (
                           <p>
-                            <b>Next completion</b>
+                            <b>{t("web.planning.nextCompletion")}</b>
                             {duration}
                           </p>
                         )}
                         {idle > 0 && (
                           <p className="idle-output">
                             <b>
-                              {isCrabPot ? "Check bait" : "Available capacity"}
+                              {isCrabPot ? t("web.production.checkBait") : t("web.production.availableCapacity")}
                             </b>
                             {isCrabPot
-                              ? `${idle} pot${idle === 1 ? "" : "s"} need bait or are waiting for the next morning`
-                              : `${idle} machine${idle === 1 ? "" : "s"} can be filled now`}
+                              ? t("web.production.crabPotsWaiting", { count: idle })
+                              : t("web.production.machinesAvailable", { count: idle })}
                           </p>
                         )}
                         {machine.locations?.length ? (
                           <p>
-                            <b>Location</b>
+                            <b>{t("storage.location")}</b>
                             {machine.locations.join(" · ")}
                           </p>
                         ) : null}
@@ -7402,51 +7818,45 @@ function PlanningView({
                 })}
               </div>
             ) : (
-              <p className="empty-daily">
-                No production machines or Crab Pots have been detected yet.
-              </p>
+              <p className="empty-daily">{t("web.planning.noProductionMachinesOrCrabPotsHaveBeenDetected")}</p>
             )}
           </section>
           <section className="production-advice">
-            <p className="eyebrow">Next bottleneck</p>
+            <p className="eyebrow">{t("web.planning.nextBottleneck")}</p>
             <h2>
               {machines.some((machine) => machine.name === "Keg")
-                ? "Fill your Kegs before crafting more"
-                : "Preserves Jars first; Kegs later"}
+                ? t("web.production.fillKegsFirst")
+                : t("web.production.preserveJarsFirst")}
             </h2>
             <p>
               {machines.some((machine) => machine.name === "Keg")
-                ? "Prioritize Starfruit, Melon, and Hops. Do not leave machines empty when suitable produce is stored."
+                ? t("web.production.kegAdvice")
                 : machineTotals.ready
-                  ? `Collect ${machineTotals.ready} finished machine${machineTotals.ready === 1 ? "" : "s"} before starting another batch.`
+                  ? t("web.production.collectBeforeBatch", { count: machineTotals.ready })
                   : machineTotals.idle
-                    ? `You have ${machineTotals.idle} idle machine${machineTotals.idle === 1 ? "" : "s"}. Fill useful processors before crafting more capacity.`
-                    : "Cheap, fast crops can be sold; reserve Melon, Starfruit, and Hops for processing once you unlock enough capacity."}
+                    ? t("web.production.fillIdleBeforeCrafting", { count: machineTotals.idle })
+                    : t("web.production.futureProcessingAdvice")}
             </p>
             <div className="reserve-list">
               <span>
-                <b>Blueberry</b>
-                {inventoryCount("Blueberry")} stored
-              </span>
+                <b>{t("web.planning.blueberry")}</b>
+                {inventoryCount("Blueberry")}{t("web.planning.stored")}</span>
               <span>
-                <b>Melon</b>
-                {inventoryCount("Melon")} stored
-              </span>
+                <b>{t("web.planning.melon")}</b>
+                {inventoryCount("Melon")}{t("web.planning.stored")}</span>
               <span>
-                <b>Hops</b>
-                {inventoryCount("Hops")} stored
-              </span>
+                <b>{t("web.planning.hops")}</b>
+                {inventoryCount("Hops")}{t("web.planning.stored")}</span>
               <span>
-                <b>Starfruit</b>
-                {inventoryCount("Starfruit")} stored
-              </span>
+                <b>{t("web.planning.starfruit")}</b>
+                {inventoryCount("Starfruit")}{t("web.planning.stored")}</span>
             </div>
             <small className="inventory-source-note">
               {live.active
                 ? live.storage !== undefined
-                  ? "Backpack and chests are updating live."
-                  : "Backpack is live; chest counts use the latest save until the updated bridge is installed."
-                : "Inventory comes from the latest save."}
+                  ? t("web.production.inventoryLive")
+                  : t("web.production.backpackLiveStorageSaved")
+                : t("web.production.inventoryFromSave")}
             </small>
           </section>
         </div>
@@ -7457,56 +7867,53 @@ function PlanningView({
           <div className="storage-heading">
             <div>
               <p className="eyebrow">
-                Global storage index {live.active && <span className="live-badge">LIVE</span>}
+                {t("storage.eyebrow")} {live.active && <span className="live-badge">{t("status.live")}</span>}
               </p>
-              <h2>Find anything on the farm</h2>
-              <p>
-                Backpack and chest stacks are merged into one searchable index,
-                while every physical source remains visible.
-              </p>
+              <h2>{t("storage.title")}</h2>
+              <p>{t("storage.description")}</p>
             </div>
             <div className="storage-totals">
               <strong>{storageIndex.length}</strong>
-              <span>item types</span>
-              <b>{inventory.reduce((sum, item) => sum + item.count, 0).toLocaleString("en-US")} units</b>
+              <span>{t("storage.itemTypes")}</span>
+              <b>{t("storage.units", { count: inventory.reduce((sum, item) => sum + item.count, 0).toLocaleString(locale) })}</b>
             </div>
           </div>
           <div className="storage-controls">
             <label className="storage-search">
-              <span>Search by item or location</span>
+              <span>{t("storage.searchLabel")}</span>
               <input
                 type="search"
                 value={storageQuery}
                 onChange={(event) => setStorageQuery(event.target.value)}
-                placeholder="e.g. Wood, Farmhouse, chest…"
+                placeholder={t("storage.searchPlaceholder")}
               />
             </label>
             <label>
-              <span>View</span>
+              <span>{t("storage.view")}</span>
               <select
                 value={storageView}
                 onChange={(event) =>
                   setStorageView(event.target.value as "combined" | "containers")
                 }
               >
-                <option value="combined">Combined items</option>
-                <option value="containers">Group by container</option>
+                <option value="combined">{t("storage.combined")}</option>
+                <option value="containers">{t("storage.byContainer")}</option>
               </select>
             </label>
             <label>
-              <span>Location</span>
+              <span>{t("storage.location")}</span>
               <select
                 value={effectiveStorageLocation}
                 onChange={(event) => setStorageLocation(event.target.value)}
               >
-                <option value="all">All locations</option>
+                <option value="all">{t("storage.allLocations")}</option>
                 {storageLocations.map((location) => (
                   <option key={location} value={location}>{displayStorageSource(location)}</option>
                 ))}
               </select>
             </label>
             <label>
-              <span>Sort</span>
+              <span>{t("storage.sort")}</span>
               <select
                 value={storageSort}
                 onChange={(event) =>
@@ -7518,9 +7925,9 @@ function PlanningView({
                   )
                 }
               >
-                <option value="name">Name A–Z</option>
-                <option value="quantity-desc">Quantity: high to low</option>
-                <option value="quantity-asc">Quantity: low to high</option>
+                <option value="name">{t("storage.sortName")}</option>
+                <option value="quantity-desc">{t("storage.sortQuantityDesc")}</option>
+                <option value="quantity-asc">{t("storage.sortQuantityAsc")}</option>
               </select>
             </label>
           </div>
@@ -7530,15 +7937,15 @@ function PlanningView({
                 <article
                   className="locatable-item-card"
                   data-storage-item={item.name}
-                  title={`Click to locate ${item.name}`}
+                  title={t("storage.clickToLocate", { item: item.displayName || item.name })}
                   key={`${item.id}:${item.name}`}
                 >
                   <StorageArtwork item={item} />
                   <div>
-                    <strong>{item.name}</strong>
+                    <strong>{item.displayName || item.name}</strong>
                     <span>{item.sources.map(displayStorageSource).join(" · ")}</span>
                   </div>
-                  <b>{item.count.toLocaleString("en-US")}</b>
+                  <b>{item.count.toLocaleString(locale)}</b>
                 </article>
               ))}
             </div>
@@ -7550,12 +7957,12 @@ function PlanningView({
                     <div className="storage-container-identity">
                       <StorageContainerArtwork detail={group.detail} />
                       <div>
-                        <h3>{readableStorageSource(group.source, group.detail, current)}</h3>
+                        <h3>{displayStorageSource(group.source)}</h3>
                         {group.detail?.kind === "chest" && group.detail.location && (
                           <small>
-                            {readableStorageLocation(group.detail, current)}
+                            {displayStorageLocation(group.detail)}
                             {typeof group.detail.x === "number" && typeof group.detail.y === "number"
-                              ? ` · tile ${group.detail.x}, ${group.detail.y}`
+                              ? ` · ${t("storage.tile")} ${group.detail.x}, ${group.detail.y}`
                               : ""}
                           </small>
                         )}
@@ -7568,15 +7975,15 @@ function PlanningView({
                         live={live}
                         sprites={sprites}
                       />
-                      <span>{group.items.length} item types · {group.items.reduce((sum, item) => sum + item.count, 0).toLocaleString("en-US")} units</span>
+                      <span>{t("storage.groupSummary", { types: group.items.length, units: group.items.reduce((sum, item) => sum + item.count, 0).toLocaleString(locale) })}</span>
                     </div>
                   </header>
                   <div className="storage-results">
                     {group.items.map((item) => (
                       <article key={`${group.source}:${item.id}:${item.name}`}>
                         <StorageArtwork item={item} />
-                        <div><strong>{item.name}</strong></div>
-                        <b>{item.count.toLocaleString("en-US")}</b>
+                        <div><strong>{item.displayName || item.name}</strong></div>
+                        <b>{item.count.toLocaleString(locale)}</b>
                       </article>
                     ))}
                   </div>
@@ -7585,12 +7992,12 @@ function PlanningView({
             </div>
           )}
           {!visibleStorage.length && !storageGroups.length && (
-            <p className="empty-daily">No stored item matches that search.</p>
+            <p className="empty-daily">{t("storage.noMatches")}</p>
           )}
           <small className="inventory-source-note">
             {live.active && live.storage !== undefined
-              ? "Locations and quantities update while Stardew is running."
-              : "This index reflects the latest save. It is read-only and never moves game items."}
+              ? t("storage.liveNote")
+              : t("storage.savedNote")}
           </small>
         </section>
       )}
@@ -7598,23 +8005,20 @@ function PlanningView({
         <div className="goal-planner">
           <section className="goal-planner-heading">
             <div>
-              <p className="eyebrow">Goal planner</p>
-              <h2>Turn progress into a concrete next step</h2>
-              <p>
-                Linked goals reuse the same inventory, bundle, construction,
-                and history data as the rest of the app.
-              </p>
+              <p className="eyebrow">{t("web.planning.goalPlanner")}</p>
+              <h2>{t("web.planning.turnProgressIntoAConcreteNextStep")}</h2>
+              <p>{t("web.planning.linkedGoalsReuseTheSameInventoryBundleConstructionAnd")}</p>
             </div>
-            <strong>{personalGoals.filter((goal) => !goal.done).length}<small> active goals</small></strong>
+            <strong>{personalGoals.filter((goal) => !goal.done).length}<small>{t("web.planning.activeGoals")}</small></strong>
           </section>
           <section className="strategic-goal-builder">
             <label>
-              <span>Link a construction, tool, recipe, or bundle</span>
+              <span>{t("web.planning.linkAConstructionToolRecipeOrBundle")}</span>
               <select
                 value={selectedTargetId}
                 onChange={(event) => setSelectedTargetId(event.target.value)}
               >
-                <option value="">Choose a tracked objective…</option>
+                <option value="">{t("web.planning.chooseATrackedObjective")}</option>
                 {strategicTargets.map((target) => (
                   <option value={target.id} key={target.id}>
                     {target.category} · {target.title}
@@ -7624,7 +8028,7 @@ function PlanningView({
             </label>
             {selectedTargetId.startsWith("crafting:") && (
               <label className="crafting-quantity">
-                <span>Quantity to craft</span>
+                <span>{t("web.planning.quantityToCraft")}</span>
                 <input
                   type="number"
                   min="1"
@@ -7646,15 +8050,13 @@ function PlanningView({
                   <span>{selectedTarget.progress}</span>
                 </div>
                 <dl>
-                  <div><dt>Bottleneck</dt><dd>{selectedTarget.bottleneck}</dd></div>
-                  <div><dt>Forecast</dt><dd>{selectedTarget.forecast}</dd></div>
+                  <div><dt>{t("web.planning.bottleneck")}</dt><dd>{selectedTarget.bottleneck}</dd></div>
+                  <div><dt>{t("web.planning.forecast")}</dt><dd>{selectedTarget.forecast}</dd></div>
                 </dl>
                 <button
                   type="button"
                   onClick={() => addGoal(selectedTarget.title, selectedTarget.id)}
-                >
-                  Track this goal
-                </button>
+                >{t("web.planning.trackThisGoal")}</button>
                 <GoalRequirements target={selectedTarget} />
               </article>
             )}
@@ -7667,22 +8069,22 @@ function PlanningView({
             }}
           >
             <label>
-              <span>Personal goal</span>
+              <span>{t("web.planning.personalGoal")}</span>
               <input
                 value={goalDraft}
                 onChange={(event) => setGoalDraft(event.target.value)}
-                placeholder="e.g. Prepare 20 quality sprinklers"
+                placeholder={t("web.planning.eGPrepare20QualitySprinklers")}
               />
             </label>
             <label>
-              <span>Optional in-game deadline</span>
+              <span>{t("web.planning.optionalInGameDeadline")}</span>
               <input
                 value={goalDeadline}
                 onChange={(event) => setGoalDeadline(event.target.value)}
-                placeholder="Year 1, Fall 1"
+                placeholder={t("web.planning.year1Fall1")}
               />
             </label>
-            <button type="submit" disabled={!goalDraft.trim()}>Add goal</button>
+            <button type="submit" disabled={!goalDraft.trim()}>{t("web.planning.addGoal")}</button>
           </form>
           <section className="personal-goal-list">
             {personalGoals.map((goal) => {
@@ -7692,7 +8094,7 @@ function PlanningView({
                   <button
                     className="goal-check"
                     type="button"
-                    aria-label={goal.done ? `Reopen ${goal.title}` : `Complete ${goal.title}`}
+                    aria-label={goal.done ? t("goal.reopenNamed", { name: goal.title }) : t("goal.completeNamed", { name: goal.title })}
                     onClick={() => persistGoals(personalGoals.map((item) =>
                       item.id === goal.id ? { ...item, done: !item.done } : item,
                     ))}
@@ -7702,8 +8104,8 @@ function PlanningView({
                   <div>
                     <strong>{goal.title}</strong>
                     <span>
-                      {goal.deadline ? `Target: ${goal.deadline} · ` : ""}
-                      {target ? target.forecast : "Personal target"}
+                      {goal.deadline ? t("goal.deadline", { date: goal.deadline }) : ""}
+                      {target ? target.forecast : t("goal.personalTarget")}
                     </span>
                     {target && <small>{target.bottleneck}</small>}
                     {target && <GoalRequirements target={target} compact />}
@@ -7712,14 +8114,12 @@ function PlanningView({
                     className="goal-remove"
                     type="button"
                     onClick={() => persistGoals(personalGoals.filter((item) => item.id !== goal.id))}
-                  >
-                    Remove
-                  </button>
+                  >{t("web.planning.remove")}</button>
                 </article>
               );
             })}
             {!personalGoals.length && (
-              <p className="empty-daily">No personal goals yet. Link a tracked objective or write your own.</p>
+              <p className="empty-daily">{t("web.planning.noPersonalGoalsYetLinkATrackedObjectiveOr")}</p>
             )}
           </section>
         </div>
@@ -7729,11 +8129,10 @@ function PlanningView({
         <div className="friendship-planner">
           <section className="pet-friendship-card">
             <div>
-              <p className="eyebrow">Your pet</p>
+              <p className="eyebrow">{t("web.planning.yourPet")}</p>
               <h2>{pet.name}</h2>
               <span>
-                {pet.type} · {pet.points}/1000 friendship
-              </span>
+                {t(`pet.type.${pet.type.toLowerCase()}`)} · {pet.points}{t("web.planning.1000Friendship")}</span>
             </div>
             <div className="pet-progress">
               <i>
@@ -7741,93 +8140,79 @@ function PlanningView({
               </i>
               <strong>
                 {projectedPetPoints >= 999
-                  ? "On track for Grandpa's point"
-                  : `${999 - projectedPetPoints} projected points short`}
+                  ? t("friendship.pet.onTrack")
+                  : t("friendship.pet.pointsShort", { count: 999 - projectedPetPoints })}
               </strong>
               <small>
                 {petElapsed > 0
-                  ? `${petDailyGain.toFixed(1)} points/day over ${petElapsed} tracked days · projected ${projectedPetPoints}/1000 on Year 3, Spring 1`
-                  : "Pet daily and fill the water bowl. A projection will appear after two tracked days."}
+                  ? t("friendship.pet.projection", { rate: petDailyGain.toFixed(1), days: petElapsed, points: projectedPetPoints, date: t("date.game", { year: 3, season: t("season.spring"), day: 1 }) })
+                  : t("friendship.pet.noProjection")}
               </small>
             </div>
           </section>
           <div className="friend-plan-head">
             <div>
-              <p>
-                Open one person to see available Loved/Liked gifts and their
-                projection for Grandpa&apos;s visit.
-              </p>
+              <p>{t("web.planning.openOnePersonToSeeAvailableLovedLikedGifts")}</p>
               <div className="friend-plan-meta">
                 <strong>
-                  {projectedEightHeartFriends} projected at eight hearts ·
-                  milestones at 5 and 10 friends
-                </strong>
+                  {projectedEightHeartFriends}{t("web.planning.projectedAtEightHeartsMilestonesAt5And10")}</strong>
                 <span className="gift-points-tooltip">
                   <button
                     type="button"
-                    aria-label="How gift friendship points work"
+                    aria-label={t("web.planning.howGiftFriendshipPointsWork")}
                     aria-describedby="gift-points-tooltip"
-                  >
-                    Gift points&nbsp;?
-                  </button>
+                  >{t("web.planning.giftPoints")}</button>
                   <span id="gift-points-tooltip" role="tooltip">
-                    <strong>Friendship points per gift</strong>
+                    <strong>{t("web.planning.friendshipPointsPerGift")}</strong>
                     <span className="gift-reaction-row">
-                      <b>Loved</b>
+                      <b>{t("web.planning.loved")}</b>
                       <em>+80</em>
-                      <b>Liked</b>
+                      <b>{t("web.planning.liked")}</b>
                       <em>+45</em>
-                      <b>Neutral</b>
+                      <b>{t("web.planning.neutral")}</b>
                       <em>+20</em>
-                      <b>Disliked</b>
+                      <b>{t("web.planning.disliked")}</b>
                       <em>−20</em>
-                      <b>Hated</b>
+                      <b>{t("web.planning.hated")}</b>
                       <em>−40</em>
                     </span>
-                    <strong>Quality bonus for Loved and Liked gifts</strong>
+                    <strong>{t("web.planning.qualityBonusForLovedAndLikedGifts")}</strong>
                     <span className="gift-quality-row">
-                      <b>Quality</b>
-                      <b>Loved</b>
-                      <b>Liked</b>
-                      <span>Regular ×1</span>
+                      <b>{t("web.planning.quality")}</b>
+                      <b>{t("web.planning.loved")}</b>
+                      <b>{t("web.planning.liked")}</b>
+                      <span>{t("web.planning.regular1")}</span>
                       <span>+80</span>
                       <span>+45</span>
-                      <span>Silver ×1.10</span>
+                      <span>{t("web.planning.silver110")}</span>
                       <span>+88</span>
                       <span>+49</span>
-                      <span>Gold ×1.25</span>
+                      <span>{t("web.planning.gold125")}</span>
                       <span>+100</span>
                       <span>+56</span>
-                      <span>Iridium ×1.50</span>
+                      <span>{t("web.planning.iridium150")}</span>
                       <span>+120</span>
                       <span>+67</span>
                     </span>
-                    <small>
-                      Quality does not change Neutral, Disliked, or Hated gifts.
-                      Birthday gifts apply ×8 before the game rounds the points.
-                      Friendship 101 adds 10% to positive friendship gains.
-                    </small>
+                    <small>{t("web.planning.qualityDoesNotChangeNeutralDislikedOrHatedGifts")}</small>
                   </span>
                 </span>
               </div>
             </div>
-            <label>
-              Sort by
-              <select
+            <label>{t("web.planning.sortBy")}<select
                 value={friendSort}
                 onChange={(event) =>
                   setFriendSort(event.target.value as typeof friendSort)
                 }
               >
-                <option value="birthday">Next birthday</option>
-                <option value="name">Name A-Z</option>
-                <option value="friendship">Friendship</option>
+                <option value="birthday">{t("web.planning.nextBirthday")}</option>
+                <option value="name">{t("web.planning.nameAZ")}</option>
+                <option value="friendship">{t("web.planning.friendship")}</option>
               </select>
             </label>
             <span>
               {friendships.filter((friend) => friend.talkedToday).length}/
-              {friendships.length} greeted today
-            </span>
+              {friendships.length}{t("web.planning.greetedToday")}</span>
           </div>
           <div className="friend-plan-list">
             {sortedFriendships.slice(0, 30).map((friend) => {
@@ -7844,10 +8229,10 @@ function PlanningView({
                     : "unknown";
               const projectionLabel =
                 projectionStatus === "achieved"
-                  ? `✓ ${Math.min(10, friend.hearts)} ♥ reached`
+                  ? t("friendship.projection.reached", { hearts: Math.min(10, friend.hearts) })
                   : projectionStatus === "unknown"
-                    ? "No projection yet"
-                    : `↗ ${projection.projectedHearts.toFixed(1)} ♥ by Grandpa`;
+                    ? t("friendship.projection.none")
+                    : t("friendship.projection.grandpa", { hearts: projection.projectedHearts.toFixed(1) });
               return (
                 <article
                   className={`${friend.talkedToday ? "talked" : ""} ${expanded ? "expanded" : ""}`}
@@ -7869,8 +8254,7 @@ function PlanningView({
                       <span>
                         <strong>{friend.name}</strong>
                         <small>
-                          {friend.hearts} ♥ · {friend.points} points now
-                        </small>
+                          {friend.hearts} ♥ · {friend.points}{t("web.planning.pointsNow")}</small>
                       </span>
                     </div>
                     <span
@@ -7882,16 +8266,16 @@ function PlanningView({
                       <span className={friend.talkedToday ? "done" : "pending"}>
                         <i>{friend.talkedToday ? "✓" : "○"}</i>
                         {friend.talkedToday
-                          ? "Talked today"
-                          : "Not talked today"}
+                          ? t("friendship.talked")
+                          : t("friendship.notTalked")}
                       </span>
                       <span className={giftsToday > 0 ? "done" : "pending"}>
                         <i>{giftsToday > 0 ? "✓" : "○"}</i>
-                        {giftsToday > 0 ? "Gift given today" : "No gift today"}
+                        {giftsToday > 0 ? t("friendship.giftToday") : t("friendship.noGiftToday")}
                       </span>
                       <span
                         className={`weekly-gifts ${friend.giftsThisWeek >= 2 ? "complete" : ""}`}
-                        aria-label={`${friend.giftsThisWeek} of 2 gifts given this week`}
+                        aria-label={t("friendship.weeklyGifts", { count: friend.giftsThisWeek })}
                       >
                         <i
                           className={friend.giftsThisWeek >= 1 ? "filled" : ""}
@@ -7903,8 +8287,7 @@ function PlanningView({
                         >
                           ◆
                         </i>
-                        {friend.giftsThisWeek}/2 this week
-                      </span>
+                        {friend.giftsThisWeek}{t("web.planning.2ThisWeek")}</span>
                     </div>
                     <div className="heart-track">
                       <i>
@@ -7916,13 +8299,10 @@ function PlanningView({
                       </i>
                     </div>
                     {friend.daysToBirthday === 0 ? (
-                      <small>Birthday today</small>
+                      <small>{t("web.planning.birthdayToday")}</small>
                     ) : friend.daysToBirthday !== null &&
                       friend.daysToBirthday <= 14 ? (
-                      <small>
-                        Birthday in {friend.daysToBirthday} day
-                        {friend.daysToBirthday === 1 ? "" : "s"}
-                      </small>
+                      <small>{t("friendship.birthdayIn", { days: friend.daysToBirthday })}</small>
                     ) : null}
                     <b className="friend-expand-symbol">
                       {expanded ? "−" : "+"}
@@ -7930,7 +8310,7 @@ function PlanningView({
                   </button>
                   {expanded && (
                     <div className="friend-details">
-                      <WikiLink name={friend.name} label={`${friend.name} on the Wiki`} />
+                      <WikiLink name={friend.name} label={t("wiki.named", { name: friend.name })} />
                       <section
                         className={
                           projection.projectedPoints >= 1975
@@ -7944,34 +8324,31 @@ function PlanningView({
                             kind="portrait"
                           />
                           <div>
-                            <p className="eyebrow">
-                              Year 3, Spring 1 projection
-                            </p>
+                            <p className="eyebrow">{t("web.planning.year3Spring1Projection")}</p>
                             <strong>
-                              {projection.projectedHearts.toFixed(1)} hearts ·{" "}
-                              {projection.projectedPoints} points
-                            </strong>
+                              {projection.projectedHearts.toFixed(1)}{t("web.planning.hearts")}{" "}
+                              {projection.projectedPoints}{t("web.planning.points")}</strong>
                             <span>
                               {projection.projectedPoints >= 1975
-                                ? "On track for the eight-heart Grandpa milestone."
-                                : `${1975 - projection.projectedPoints} projected points short of the eight-heart milestone.`}
+                                ? t("friendship.projection.onTrack")
+                                : t("friendship.projection.pointsShort", { count: 1975 - projection.projectedPoints })}
                             </span>
                           </div>
                         </div>
                         <small>
                           {projection.sampleDays > 0
-                            ? `Observed pace: +${projection.dailyGain.toFixed(1)} points/day across ${projection.sampleDays} tracked days. ${projection.daysRemaining} days remain.`
-                            : "Not enough history yet. Keep the app/SMAPI bridge active across day changes to establish your pace."}
+                            ? t("friendship.projection.observedPace", { rate: projection.dailyGain.toFixed(1), tracked: projection.sampleDays, remaining: projection.daysRemaining })
+                            : t("friendship.projection.notEnoughHistory")}
                         </small>
                       </section>
                       <div className="friend-gifts">
                         <GiftGroup
-                          label="Loved and available"
+                          label={t("friendship.lovedAvailable")}
                           tone="love"
                           items={friend.gifts.love}
                         />
                         <GiftGroup
-                          label="Liked and available"
+                          label={t("friendship.likedAvailable")}
                           tone="like"
                           items={friend.gifts.like}
                         />
@@ -7997,12 +8374,10 @@ function DailyBriefModal({
   onClose: () => void;
   onOpenAgenda: () => void;
 }) {
+  const { t, text, date } = useI18n();
   const brief = current.dailyBrief;
   const birthday = brief.birthdays[0];
-  const extraTv = brief.tv.find(
-    (program) =>
-      !["Weather Report", "Fortune Teller"].includes(program.channel),
-  );
+  const extraTv = brief.tv.find((program) => !isCoreTvProgram(program));
   const quest = brief.boardQuest ?? brief.dailyQuest;
   const readyCrops = brief.crops
     .filter((item) => item.ready)
@@ -8024,80 +8399,88 @@ function DailyBriefModal({
         <button
           className="modal-close"
           onClick={onClose}
-          aria-label="Close daily brief"
+          aria-label={t("today.brief.closeLabel")}
         >
           ×
         </button>
-        <p className="eyebrow">Automatic agenda · {formatGameDate(current)}</p>
-        <h1 id="daily-title">Good morning, {current.farmer}</h1>
-        <p className="daily-lead">{brief.summary}</p>
+        <p className="eyebrow">{t("today.automaticAgenda")} · {date(current)}</p>
+        <h1 id="daily-title">{t("today.goodMorning", { farmer: current.farmer })}</h1>
+        <p className="daily-lead">{text(brief.summary)}</p>
         <div className="daily-modal-grid">
           <div>
             <span>☀</span>
-            <strong>Tomorrow</strong>
-            <p>{brief.weatherTomorrow.label}</p>
+            <strong>{t("today.brief.tomorrow")}</strong>
+            <p>{t(`weather.${brief.weatherTomorrow.code}`)}</p>
           </div>
           <div>
             <span>✦</span>
-            <strong>Luck</strong>
-            <p>{brief.luck.label}</p>
+            <strong>{t("today.brief.luck")}</strong>
+            <p>{text(brief.luck.label)}</p>
           </div>
           <div>
             <span>▣</span>
-            <strong>Channel</strong>
-            <p>{extraTv?.title || "None"}</p>
+            <strong>{t("today.brief.channel")}</strong>
+            <p>{extraTv ? text(extraTv.title) : t("common.none")}</p>
           </div>
           <div>
             <span>♟</span>
-            <strong>Birthday</strong>
+            <strong>{t("today.brief.birthday")}</strong>
             <p>
               {birthday
-                ? `${birthday.when}: ${birthday.person}`
-                : "None today or tomorrow"}
+                ? t("today.brief.birthdayValue", {
+                    when: birthdayWhenLabel(birthday.when, t),
+                    person: birthday.person,
+                  })
+                : t("today.brief.noBirthday")}
             </p>
           </div>
           <div>
             <span>!</span>
-            <strong>Help Wanted</strong>
+            <strong>{t("today.brief.helpWanted")}</strong>
             <p>
-              {quest.available || quest.accepted ? quest.title : "Nothing new"}
+              {quest.available || quest.accepted ? text(quest.title) : t("common.none")}
             </p>
           </div>
         </div>
         <div className="modal-tv">
-          <strong>On TV</strong>
+          <strong>{t("today.brief.onTv")}</strong>
           {brief.tv.map((program) => (
-            <p key={program.channel}>
-              <b>{program.channel}:</b> {program.title}
+            <p key={program.id}>
+              <b>{text(program.channel)}:</b> {text(program.title)}
             </p>
           ))}
         </div>
         {(brief.toolUpgrade || brief.fruitCave.count > 0 || readyCrops > 0) && (
           <div className="daily-priority-list">
-            <strong>Before leaving the farm</strong>
+            <strong>{t("today.brief.beforeLeaving")}</strong>
             {brief.toolUpgrade && (
               <p className={brief.toolUpgrade.ready ? "urgent" : ""}>
                 ⚒{" "}
                 {brief.toolUpgrade.ready
-                  ? `Collect ${brief.toolUpgrade.name} from Clint today.`
-                  : `${brief.toolUpgrade.name}: ${brief.toolUpgrade.daysRemaining} day(s) until pickup.`}
+                  ? t("today.brief.collectTool", { tool: brief.toolUpgrade.displayName || brief.toolUpgrade.name })
+                  : t("today.brief.toolDays", {
+                      tool: brief.toolUpgrade.displayName || brief.toolUpgrade.name,
+                      count: brief.toolUpgrade.daysRemaining,
+                    })}
               </p>
             )}
             {brief.fruitCave.count > 0 && (
               <p>
-                ♣ There are {brief.fruitCave.count} items in the{" "}
-                {brief.fruitCave.type} cave.
+                ♣ {t("today.brief.caveCollectibles", {
+                  count: brief.fruitCave.count,
+                  cave: caveTypeLabel(brief.fruitCave.type, t),
+                })}
               </p>
             )}
             {readyCrops > 0 && (
-              <p>♨ You have {readyCrops} crops ready to harvest.</p>
+              <p>♨ {t("today.brief.readyCrops", { count: readyCrops })}</p>
             )}
           </div>
         )}
         <div className="modal-actions">
-          <button onClick={onClose}>Close</button>
+          <button onClick={onClose}>{t("today.brief.close")}</button>
           <button className="primary" onClick={onOpenAgenda}>
-            View full agenda
+            {t("today.brief.viewAgenda")}
           </button>
         </div>
       </section>
@@ -8167,6 +8550,7 @@ function SectionVisibilityMenu({
   onShowAll: () => void;
   onMove: (id: string, direction: -1 | 1) => void;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -8197,17 +8581,15 @@ function SectionVisibilityMenu({
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <span aria-hidden="true">⚙</span>
-        Sections
-      </button>
+        <span aria-hidden="true">⚙</span>{t("shell.sections")}</button>
       {open && (
         <div className="section-visibility-panel" role="dialog" aria-label={label}>
           <header>
             <div>
-              <strong>Visible sections</strong>
-              <small>{visibleCount}/{options.length} shown</small>
+              <strong>{t("web.sectionVisibilityMenu.visibleSections")}</strong>
+              <small>{visibleCount}/{options.length}{t("web.sectionVisibilityMenu.shown")}</small>
             </div>
-            <button type="button" onClick={onShowAll}>Show all</button>
+            <button type="button" onClick={onShowAll}>{t("web.sectionVisibilityMenu.showAll")}</button>
           </header>
           <div>
             {orderedOptions.map((option, index) => (
@@ -8225,20 +8607,20 @@ function SectionVisibilityMenu({
                   <button
                     type="button"
                     disabled={index === 0}
-                    aria-label={`Move ${option.label} up`}
+                    aria-label={t("sections.moveUp", { section: option.label })}
                     onClick={() => onMove(option.id, -1)}
                   >↑</button>
                   <button
                     type="button"
                     disabled={index === orderedOptions.length - 1}
-                    aria-label={`Move ${option.label} down`}
+                    aria-label={t("sections.moveDown", { section: option.label })}
                     onClick={() => onMove(option.id, 1)}
                   >↓</button>
                 </span>
               </div>
             ))}
           </div>
-          <p>Saved automatically on this device.</p>
+          <p>{t("web.sectionVisibilityMenu.savedAutomaticallyOnThisDevice")}</p>
         </div>
       )}
     </div>
@@ -8260,18 +8642,19 @@ function DailyBriefView({
   sessionBaseline: SessionSummary | null;
   onOpenCommunityCenter: () => void;
 }) {
+  const { t, text, date, locale } = useI18n();
   const todaySectionOptions = [
-    { id: "overview", label: "Daily overview" },
-    { id: "priorities", label: "Priorities right now" },
-    { id: "completable", label: "What can I complete today?" },
-    { id: "session", label: "Changes since last session" },
-    { id: "yesterday", label: "Changes since yesterday" },
-    { id: "quests", label: "Accepted quests" },
-    { id: "special-orders", label: "Special Orders" },
-    { id: "live-map", label: "Current LIVE map" },
-    { id: "route", label: "Suggested route" },
-    { id: "crops", label: "Crop forecast" },
-    { id: "birthdays", label: "Birthdays" },
+    { id: "overview", label: t("today.section.overview") },
+    { id: "priorities", label: t("today.section.priorities") },
+    { id: "completable", label: t("today.section.completable") },
+    { id: "session", label: t("today.section.session") },
+    { id: "yesterday", label: t("today.section.yesterday") },
+    { id: "quests", label: t("today.section.quests") },
+    { id: "special-orders", label: t("today.section.specialOrders") },
+    { id: "live-map", label: t("today.section.liveMap") },
+    { id: "route", label: t("today.section.route") },
+    { id: "crops", label: t("today.section.crops") },
+    { id: "birthdays", label: t("today.section.birthdays") },
   ] as const;
   const [visibleSections, setSectionVisible, showAllSections, sectionOrder, moveSection] =
     useSectionVisibility(
@@ -8293,10 +8676,7 @@ function DailyBriefView({
   const readyMachinesCount = live.active
     ? liveReadyMachines.length
     : savedReadyMachines.length;
-  const extraTv = brief.tv.filter(
-    (program) =>
-      !["Weather Report", "Fortune Teller"].includes(program.channel),
-  );
+  const extraTv = brief.tv.filter((program) => !isCoreTvProgram(program));
   const currentEconomy = history.entries.find(
     (entry) => entry.dateKey === current.dateKey,
   );
@@ -8343,44 +8723,44 @@ function DailyBriefView({
   const dailyChanges = previous
     ? [
         {
-          label: "Balance",
+          label: t("today.change.balance"),
           value: `${current.money - previous.money >= 0 ? "+" : ""}${(current.money - previous.money).toLocaleString("en-US")}g`,
-          detail: `${(currentEconomy?.income || 0).toLocaleString("en-US")}g earned · ${(currentEconomy?.spending || 0).toLocaleString("en-US")}g spent`,
+          detail: t("today.change.balanceDetail", { earned: (currentEconomy?.income || 0).toLocaleString(locale), spent: (currentEconomy?.spending || 0).toLocaleString(locale) }),
           tone: current.money >= previous.money ? "positive" : "negative",
         },
         {
-          label: "Production",
-          value: `${newlyReadyMachines.length} new`,
+          label: t("today.change.production"),
+          value: t("today.change.newCount", { count: newlyReadyMachines.length }),
           detail: newlyReadyMachines.length
             ? newlyReadyMachines
                 .map((item) => item.output || item.name)
                 .slice(0, 4)
                 .join(" · ")
-            : "No newly completed machines",
+            : t("today.change.noNewMachines"),
           tone: newlyReadyMachines.length ? "positive" : "neutral",
         },
         {
-          label: "Ready crops",
+          label: t("today.change.readyCrops"),
           value: `${readyCrops}`,
           detail:
             readyCrops > previousReadyCrops
-              ? `${readyCrops - previousReadyCrops} more became ready`
+              ? t("today.change.moreCropsReady", { count: readyCrops - previousReadyCrops })
               : readyCrops < previousReadyCrops
-                ? `${previousReadyCrops - readyCrops} collected or changed`
-                : "No change since yesterday",
+                ? t("today.change.cropsCollected", { count: previousReadyCrops - readyCrops })
+                : t("today.change.noChangeYesterday"),
           tone: readyCrops > previousReadyCrops ? "positive" : "neutral",
         },
         {
-          label: "Construction",
+          label: t("today.change.construction"),
           value:
             newBuildings.length || completedBuildings.length
-              ? `${newBuildings.length + completedBuildings.length} change${newBuildings.length + completedBuildings.length === 1 ? "" : "s"}`
-              : "No change",
+              ? t("today.change.changeCount", { count: newBuildings.length + completedBuildings.length })
+              : t("today.change.noChange"),
           detail:
             [
-              ...newBuildings.map((item) => `${item.name} added`),
-              ...completedBuildings.map((item) => `${item.name} completed`),
-            ].join(" · ") || "No new or completed buildings",
+              ...newBuildings.map((item) => t("today.change.buildingAdded", { building: item.name })),
+              ...completedBuildings.map((item) => t("today.change.buildingCompleted", { building: item.name })),
+            ].join(" · ") || t("today.change.noBuildings"),
           tone:
             newBuildings.length || completedBuildings.length
               ? "positive"
@@ -8406,7 +8786,15 @@ function DailyBriefView({
   const liveWorldItems = new Map(
     (live.active ? live.routeState?.worldTasks || [] : []).map((stop) => [
       LIVE_ROUTE_LOCATION_NAMES[stop.location] || stop.location,
-      stop.items,
+      stop.items.map((item) => ({
+        ...item,
+        displayName:
+          item.displayName || resolveGameDisplayName(
+            current.localizedNamesByQualifiedId || {},
+            current.localizedObjectNamesByEnglish || {},
+            item.name,
+          ),
+      })),
     ]),
   );
   const routeSource = brief.world
@@ -8433,26 +8821,33 @@ function DailyBriefView({
     return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
   });
   const liveAcceptedQuests = live.active
-    ? (live.acceptedQuests || []).map((quest) => liveQuestStatus(quest, live))
+    ? (live.acceptedQuests || []).map((quest) =>
+        liveQuestStatus(
+          quest,
+          live,
+          t,
+          matchingSavedQuest(quest, brief.acceptedQuests || []),
+        ),
+      )
     : [];
   const liveDailyQuest = liveAcceptedQuests.find((quest) => quest.daily);
   const liveBoardQuest =
     live.active && live.boardQuest
-      ? liveQuestStatus(live.boardQuest, live)
+      ? liveQuestStatus(live.boardQuest, live, t)
       : null;
   const inactiveQuest: DailyQuest = {
     accepted: false,
     available: false,
     daily: true,
     title: live.dailyQuestCompleted
-      ? "Help Wanted completed"
-      : "No active request",
+      ? t("today.quest.helpWantedCompleted")
+      : t("today.quest.noActiveRequest"),
     description: live.dailyQuestCompleted
-      ? "You completed today's Help Wanted request."
-      : "There is no Help Wanted request active right now.",
+      ? t("today.quest.completedDescription")
+      : t("today.quest.noActiveDescription"),
     objective: live.dailyQuestCompleted
-      ? "Delivered and completed"
-      : "Check again tomorrow",
+      ? t("today.quest.deliveredCompleted")
+      : t("today.quest.checkTomorrow"),
     type: "None",
     requester: null,
     reward: 0,
@@ -8471,21 +8866,21 @@ function DailyBriefView({
   const routeNotes = (location: string) => {
     const notes: string[] = [];
     if (location === "Farm") {
-      if (readyCrops) notes.push(`${readyCrops} crops ready`);
+      if (readyCrops) notes.push(t("today.route.cropsReady", { count: readyCrops }));
       if (readyMachinesCount)
-        notes.push(`${readyMachinesCount} machines ready`);
+        notes.push(t("today.route.machinesReady", { count: readyMachinesCount }));
     }
     if (location === "Town") {
       if ((live.active ? liveBoardQuest : brief.boardQuest)?.available)
-        notes.push("Help Wanted available");
-      if (activeDailyQuest.accepted) notes.push("Help Wanted accepted");
+        notes.push(t("today.route.helpWantedAvailable"));
+      if (activeDailyQuest.accepted) notes.push(t("today.route.helpWantedAccepted"));
       if (live.active && live.dailyQuestCompleted)
-        notes.push("Help Wanted completed");
+        notes.push(t("today.route.helpWantedCompleted"));
       if (brief.toolUpgrade)
         notes.push(
           brief.toolUpgrade.ready
-            ? `${brief.toolUpgrade.name} ready at Clint's`
-            : `${brief.toolUpgrade.name} still at Clint's`,
+            ? t("today.route.toolReady", { tool: brief.toolUpgrade.displayName || brief.toolUpgrade.name })
+            : t("today.route.toolWaiting", { tool: brief.toolUpgrade.displayName || brief.toolUpgrade.name }),
         );
     }
     return notes;
@@ -8503,12 +8898,12 @@ function DailyBriefView({
   const questVisible =
     displayedQuest.accepted || displayedQuest.available || questCompletedNow;
   const questPossession = questCompletedNow
-    ? "✓ Delivered and completed"
+    ? t("today.quest.deliveredCompletedCheck")
     : displayedQuest.hasRequestedItems
-      ? "✓ You have what is needed"
+      ? t("today.quest.haveNeededCheck")
       : displayedQuest.target > 0
-        ? `${displayedQuest.owned}/${displayedQuest.target} available`
-        : "Review the objective";
+        ? t("today.quest.availableCount", { owned: displayedQuest.owned, target: displayedQuest.target })
+        : t("today.quest.reviewObjective");
   const worldStorageKey = `stardew-tool-world-checklist-${current.farmName}-${current.dateKey}`;
   const manualWorldStorageKey = `${worldStorageKey}-manual`;
   const [manualCompletedWorld, setManualCompletedWorld] = useState<string[]>(
@@ -8592,31 +8987,31 @@ function DailyBriefView({
   );
   const bundleDeliveryDetail = bundleDeliveries
     .map(
-      (item) => `${formatBundleRequirement(item)} → ${item.room} · ${item.bundle}`,
+      (item) => `${formatBundleRequirement(item, t, locale)} → ${communityRoomName(item.roomId, t)} · ${communityBundleName(item.bundleId, item.bundle, t)}`,
     )
     .join(" · ");
   const priorityItems = [
     unwateredCrops > 0 && !live.raining
       ? {
           level: "urgent",
-          title: `Water ${unwateredCrops} crops`,
+          title: t("today.priority.waterCrops", { count: unwateredCrops }),
           detail:
             live.active && (live.timeOfDay || 0) >= 1800
-              ? "It is getting late; do it before sleeping."
-              : "They will not grow tonight without water.",
+              ? t("today.priority.gettingLate")
+              : t("today.priority.needWater"),
         }
       : null,
     readyCrops > 0
       ? {
           level: "ready",
-          title: `Harvest ${readyCrops} ${readyCrops === 1 ? "crop" : "crops"}`,
-          detail: "The count updates as you harvest them.",
+          title: t("today.priority.harvestCrops", { count: readyCrops }),
+          detail: t("today.priority.harvestUpdates"),
         }
       : null,
     readyMachinesCount > 0
       ? {
           level: "ready",
-          title: `Collect ${readyMachinesCount} machines`,
+          title: t("today.priority.collectMachines", { count: readyMachinesCount }),
           detail: live.active
             ? summarizeReadyLiveMachines(liveReadyMachines)
             : summarizeReadyMachines(savedReadyMachines),
@@ -8625,21 +9020,21 @@ function DailyBriefView({
     (live.active ? live.routeState?.toolPickupReady : brief.toolUpgrade?.ready)
       ? {
           level: "urgent",
-          title: `Collect ${brief.toolUpgrade?.name || "your upgraded tool"}`,
-          detail: "It is ready at Clint's.",
+          title: t("today.priority.collectTool", { tool: brief.toolUpgrade?.displayName || brief.toolUpgrade?.name || t("today.priority.upgradedTool") }),
+          detail: t("today.priority.readyAtClint"),
         }
       : null,
     activeDailyQuest.accepted && activeDailyQuest.daysLeft <= 1
       ? {
           level: "urgent",
           title: activeDailyQuest.title,
-          detail: `${activeDailyQuest.objective} · final day`,
+          detail: t("today.priority.finalDay", { objective: text(activeDailyQuest.objective) }),
         }
       : null,
     bundleDeliveries.length > 0
       ? {
           level: "ready",
-          title: `${bundleDeliveries.length} bundle ${bundleDeliveries.length === 1 ? "delivery" : "deliveries"}`,
+          title: t("today.priority.bundleDeliveries", { count: bundleDeliveries.length }),
           detail: bundleDeliveryDetail,
           action: "community" as const,
         }
@@ -8647,8 +9042,8 @@ function DailyBriefView({
     live.active && (live.energy || 0) < (live.maxEnergy || 1) * 0.2
       ? {
           level: "warning",
-          title: "Low energy",
-          detail: `${Math.round(live.energy || 0)}/${Math.round(live.maxEnergy || 0)} · eat before using more tools.`,
+          title: t("today.priority.lowEnergy"),
+          detail: t("today.priority.lowEnergyDetail", { energy: Math.round(live.energy || 0), max: Math.round(live.maxEnergy || 0) }),
         }
       : null,
   ].filter(Boolean) as {
@@ -8662,57 +9057,57 @@ function DailyBriefView({
   const sessionChanges = sessionBaseline
     ? [
         currentSession.money !== sessionBaseline.money
-          ? `${currentSession.money - sessionBaseline.money >= 0 ? "+" : ""}${(currentSession.money - sessionBaseline.money).toLocaleString("en-US")}g balance`
+          ? t("today.session.balance", { amount: `${currentSession.money - sessionBaseline.money >= 0 ? "+" : ""}${(currentSession.money - sessionBaseline.money).toLocaleString(locale)}` })
           : null,
         currentSession.totalMoneyEarned !== sessionBaseline.totalMoneyEarned
-          ? `+${Math.max(0, currentSession.totalMoneyEarned - sessionBaseline.totalMoneyEarned).toLocaleString("en-US")}g earned`
+          ? t("today.session.earned", { amount: Math.max(0, currentSession.totalMoneyEarned - sessionBaseline.totalMoneyEarned).toLocaleString(locale) })
           : null,
         currentSession.readyCrops !== sessionBaseline.readyCrops
-          ? `${currentSession.readyCrops - sessionBaseline.readyCrops >= 0 ? "+" : ""}${currentSession.readyCrops - sessionBaseline.readyCrops} ready crops`
+          ? t("today.session.readyCrops", { count: `${currentSession.readyCrops - sessionBaseline.readyCrops >= 0 ? "+" : ""}${currentSession.readyCrops - sessionBaseline.readyCrops}` })
           : null,
         currentSession.readyMachines !== sessionBaseline.readyMachines
-          ? `${currentSession.readyMachines - sessionBaseline.readyMachines >= 0 ? "+" : ""}${currentSession.readyMachines - sessionBaseline.readyMachines} ready machines`
+          ? t("today.session.readyMachines", { count: `${currentSession.readyMachines - sessionBaseline.readyMachines >= 0 ? "+" : ""}${currentSession.readyMachines - sessionBaseline.readyMachines}` })
           : null,
         ...currentSession.buildings
           .filter((building) => !sessionBaseline.buildings.includes(building))
-          .map((building) => `${building.split("@")[0]} added`),
+          .map((building) => t("today.session.buildingAdded", { building: building.split("@")[0] })),
         currentSession.completedBundles > sessionBaseline.completedBundles
-          ? `${currentSession.completedBundles - sessionBaseline.completedBundles} bundle${currentSession.completedBundles - sessionBaseline.completedBundles === 1 ? "" : "s"} completed`
+          ? t("today.session.bundlesCompleted", { count: currentSession.completedBundles - sessionBaseline.completedBundles })
           : null,
         ...currentSession.completedAchievements
           .filter((achievement) => !sessionBaseline.completedAchievements.includes(achievement))
-          .map((achievement) => `${achievement} achievement completed`),
+          .map((achievement) => t("today.session.achievementCompleted", { achievement })),
         ...Object.entries(currentSession.friendships)
           .filter(([name, points]) => points > (sessionBaseline.friendships[name] || 0))
           .slice(0, 5)
-          .map(([name, points]) => `${name}: +${points - (sessionBaseline.friendships[name] || 0)} friendship`),
+          .map(([name, points]) => t("today.session.friendship", { name, count: points - (sessionBaseline.friendships[name] || 0) })),
         ...sessionBaseline.activeQuests
           .filter((quest) => !currentSession.activeQuests.includes(quest))
-          .map((quest) => `${quest} left the journal`),
+          .map((quest) => t("today.session.questLeft", { quest })),
       ].filter(Boolean) as string[]
     : [];
-  const completableToday = [
+  const completableToday: { kind: string; title: string; detail: string; action?: "community" }[] = [
     ...acceptedQuests
       .filter((quest) => quest.ready || (quest.target > 0 && quest.progress >= quest.target))
       .map((quest) => ({
-        kind: "Quest",
-        title: quest.title,
-        detail: quest.requester ? `Ready to deliver to ${quest.requester}.` : "The objective is complete; claim or deliver it now.",
+        kind: t("today.kind.quest"),
+        title: localizedQuestTitle(quest, t, text),
+        detail: quest.requester ? t("today.completable.deliverTo", { requester: quest.requester }) : t("today.completable.claimNow"),
       })),
     ...bundleDeliveries.map((delivery) => ({
-      kind: "Bundle",
-      title: `${delivery.name} → ${delivery.bundle}`,
-      detail: `You have the required item for the ${delivery.room}.`,
+      kind: t("today.kind.bundle"),
+      title: `${delivery.id === "-1" ? t("community.gold") : delivery.displayName || delivery.name} → ${communityBundleName(delivery.bundleId, delivery.bundle, t)}`,
+      detail: t("today.completable.bundleReady", { room: communityRoomName(delivery.roomId, t) }),
       action: "community" as const,
     })),
     ...((live.active ? live.routeState?.toolPickupReady : brief.toolUpgrade?.ready)
-      ? [{ kind: "Pickup", title: brief.toolUpgrade?.name || "Upgraded tool", detail: "Ready to collect at Clint's." }]
+      ? [{ kind: t("today.kind.pickup"), title: brief.toolUpgrade?.displayName || brief.toolUpgrade?.name || t("today.priority.upgradedTool"), detail: t("today.completable.readyAtClint") }]
       : []),
     ...(readyCrops
-      ? [{ kind: "Farm", title: `Harvest ${readyCrops} crop${readyCrops === 1 ? "" : "s"}`, detail: "Available on the farm now." }]
+      ? [{ kind: t("today.kind.farm"), title: t("today.priority.harvestCrops", { count: readyCrops }), detail: t("today.completable.availableFarm") }]
       : []),
     ...(readyMachinesCount
-      ? [{ kind: "Production", title: `Collect ${readyMachinesCount} machine${readyMachinesCount === 1 ? "" : "s"}`, detail: live.active ? summarizeReadyLiveMachines(liveReadyMachines) : summarizeReadyMachines(savedReadyMachines) }]
+      ? [{ kind: t("today.kind.production"), title: t("today.priority.collectMachines", { count: readyMachinesCount }), detail: live.active ? summarizeReadyLiveMachines(liveReadyMachines) : summarizeReadyMachines(savedReadyMachines) }]
       : []),
   ];
 
@@ -8729,21 +9124,21 @@ function DailyBriefView({
     <section className="daily-page">
       <div className="daily-heading">
         <div>
-          <p className="eyebrow">Saved daily brief</p>
-          <h1>Good morning, {current.farmer}</h1>
+          <p className="eyebrow">{t("today.savedBrief")}</p>
+          <h1>{t("today.goodMorning", { farmer: current.farmer })}</h1>
           <p>
-            {formatGameDate(current)} · {brief.summary}
+            {date(current)} · {text(brief.summary)}
           </p>
         </div>
         <div className="page-heading-actions">
           <div className="daily-date">
-            <span>Year {current.year}</span>
+            <span>{t("today.year", { year: current.year })}</span>
             <strong>
-              {current.seasonLabel} {current.day}
+              {t(`season.${current.season}`)} {current.day}
             </strong>
           </div>
           <SectionVisibilityMenu
-            label="Customize Today sections"
+            label={t("today.customizeSections")}
             options={todaySectionOptions}
             visible={visibleSections}
             order={sectionOrder}
@@ -8757,9 +9152,9 @@ function DailyBriefView({
         <article>
           <span className="daily-symbol">☀</span>
           <div>
-            <p className="eyebrow">{"Tomorrow's weather"}</p>
-            <h2>{brief.weatherTomorrow.label}</h2>
-            <small>Forecast for Stardew Valley</small>
+            <p className="eyebrow">{t("today.tomorrowWeather")}</p>
+            <h2>{t(`weather.${brief.weatherTomorrow.code}`)}</h2>
+            <small>{t("today.forecast")}</small>
           </div>
         </article>
         <button
@@ -8769,30 +9164,30 @@ function DailyBriefView({
         >
           <span className="daily-symbol">✦</span>
           <div>
-            <p className="eyebrow">{"Today's luck"}</p>
+            <p className="eyebrow">{t("today.luck")}</p>
             <h2>
               {brief.luck.value >= 0.02
-                ? "Favorable"
+                ? t("today.favorable")
                 : brief.luck.value <= -0.02
-                  ? "Unfavorable"
-                  : "Normal"}
+                  ? t("today.unfavorable")
+                  : t("today.normal")}
             </h2>
-            <small>{brief.luck.label}</small>
+            <small>{text(brief.luck.label)}</small>
           </div>
           <div
             className="luck-summary-tooltip"
             id="luck-summary-tooltip"
             role="tooltip"
           >
-            <strong>{brief.luck.advice}</strong>
+            <strong>{text(brief.luck.advice)}</strong>
             <span>
               {brief.luck.value > 0 ? "+" : ""}
               {brief.luck.value.toFixed(3)}
             </span>
             {brief.luck.recommendations.map((item, index) => (
-              <p key={index}>{item}</p>
+              <p key={index}>{text(item)}</p>
             ))}
-            <small>{brief.luck.explanation}</small>
+            <small>{text(brief.luck.explanation)}</small>
           </div>
         </button>
         <button
@@ -8802,12 +9197,12 @@ function DailyBriefView({
         >
           <span className="daily-symbol">▣</span>
           <div>
-            <p className="eyebrow">Extra channel</p>
-            <h2>{extraTv[0]?.title || "None"}</h2>
+            <p className="eyebrow">{t("web.dailyBrief.extraChannel")}</p>
+            <h2>{extraTv[0] ? text(extraTv[0].title) : t("common.none")}</h2>
             <small>
               {extraTv.length
-                ? extraTv.map((program) => program.channel).join(" · ")
-                : "No additional program"}
+                ? extraTv.map((program) => text(program.channel)).join(" · ")
+                : t("today.noAdditionalProgram")}
             </small>
           </div>
           {extraTv.length > 0 && (
@@ -8817,11 +9212,11 @@ function DailyBriefView({
               role="tooltip"
             >
               {extraTv.map((program) => (
-                <div key={program.channel}>
+                <div key={program.id}>
                   <strong>
-                    {program.channel} · {program.title}
+                    {text(program.channel)} · {text(program.title)}
                   </strong>
-                  <p>{program.detail}</p>
+                  <p>{text(program.detail)}</p>
                 </div>
               ))}
             </div>
@@ -8845,12 +9240,14 @@ function DailyBriefView({
             <span className="daily-symbol">♟</span>
           )}
           <div>
-            <p className="eyebrow">Birthday</p>
-            <h2>{brief.birthdays[0]?.person || "None"}</h2>
+            <p className="eyebrow">{t("today.brief.birthday")}</p>
+            <h2>{brief.birthdays[0]?.person || t("common.none")}</h2>
             <small>
               {brief.birthdays[0]
-                ? `${brief.birthdays[0].when} · View gifts`
-                : "Not today or tomorrow · View calendar"}
+                ? t("today.birthday.viewGifts", {
+                    when: birthdayWhenLabel(brief.birthdays[0].when, t),
+                  })
+                : t("today.birthday.viewCalendar")}
             </small>
           </div>
         </button>
@@ -8861,10 +9258,10 @@ function DailyBriefView({
         >
           <span className="daily-symbol">!</span>
           <div>
-            <p className="eyebrow">Help Wanted</p>
-            <h2>{questVisible ? displayedQuest.title : "Nothing new"}</h2>
+            <p className="eyebrow">{t("today.brief.helpWanted")}</p>
+            <h2>{questVisible ? localizedQuestTitle(displayedQuest, t, text) : t("common.none")}</h2>
             <small>
-              {questVisible ? questPossession : "No new notice today"}
+              {questVisible ? questPossession : t("today.quest.noNotice")}
             </small>
           </div>
           <div
@@ -8874,14 +9271,14 @@ function DailyBriefView({
           >
             {questVisible ? (
               <>
-                <strong>{displayedQuest.objective}</strong>
+                <strong>{text(displayedQuest.objective)}</strong>
                 <p>
                   {questCompletedNow
-                    ? "Completed today"
+                    ? t("today.quest.completedToday")
                     : displayedQuest.accepted
-                      ? `Accepted · ${displayedQuest.daysLeft} day(s)`
-                      : "Available today on Pierre's board"}{" "}
-                  · {displayedQuest.reward.toLocaleString("en-US")}g
+                      ? t("today.quest.acceptedDays", { days: displayedQuest.daysLeft })
+                      : t("today.quest.availablePierre")}{" "}
+                  · {displayedQuest.reward.toLocaleString(locale)}g
                 </p>
                 <p
                   className={
@@ -8894,23 +9291,22 @@ function DailyBriefView({
                 </p>
                 {displayedQuest.stock.map((item, index) => (
                   <small key={`${item.name}-${index}`}>
-                    {item.count}× {item.name} · {item.sources.join(" · ")}
+                    {item.count}× {item.displayName || item.name} · {item.sources.join(" · ")}
                   </small>
                 ))}
                 {displayedQuest.stockNote && (
-                  <small>{displayedQuest.stockNote}</small>
+                  <small>{text(displayedQuest.stockNote)}</small>
                 )}
                 {hasSeparateAcceptedQuest && (
-                  <small>
-                    Also: {brief.dailyQuest.title} ·{" "}
-                    {brief.dailyQuest.objective}
+                  <small>{t("web.dailyBrief.also")}{localizedQuestTitle(brief.dailyQuest, t, text)} ·{" "}
+                    {text(brief.dailyQuest.objective)}
                   </small>
                 )}
               </>
             ) : (
               <>
-                <strong>There is no new Help Wanted today.</strong>
-                <p>You can continue any previous request from your journal.</p>
+                <strong>{t("web.dailyBrief.thereIsNoNewHelpWantedToday")}</strong>
+                <p>{t("web.dailyBrief.youCanContinueAnyPreviousRequestFromYourJournal")}</p>
               </>
             )}
           </div>
@@ -8919,20 +9315,19 @@ function DailyBriefView({
       {visibleSections.priorities && <section className={`priority-center ${live.active ? "live" : ""}`} style={{ order: sectionOrder.indexOf("priorities") + 1 }}>
         <div className="priority-title">
           <div>
-            <p className="eyebrow">
-              Priorities {live.active ? "in real time" : "from the latest save"}
+            <p className="eyebrow">{t("web.dailyBrief.priorities")} {live.active ? t("today.priority.realtime") : t("today.priority.latestSave")}
             </p>
             <h2>
               {priorityItems.length
-                ? "Most important right now"
-                : "Everything urgent is under control"}
+                ? t("today.priority.mostImportant")
+                : t("today.priority.underControl")}
             </h2>
           </div>
           {live.active && (
             <div className="live-position">
               <strong>{formatLiveTime(live.timeOfDay)}</strong>
               <span>
-                {live.location} · Energy {Math.round(live.energy || 0)}/
+                {live.location}{t("web.dailyBrief.energy")}{Math.round(live.energy || 0)}/
                 {Math.round(live.maxEnergy || 0)}
               </span>
             </div>
@@ -8956,7 +9351,7 @@ function DailyBriefView({
                   className={`${item.level} interactive`}
                   key={`${item.title}-${index}`}
                   onClick={onOpenCommunityCenter}
-                  aria-label={`${item.title}: open Plan, Community Center`}
+                  aria-label={t("today.openCommunity", { item: item.title })}
                 >
                   {content}
                 </button>
@@ -8968,16 +9363,13 @@ function DailyBriefView({
             })}
           </div>
         ) : (
-          <p className="priority-empty">
-            You can spend the rest of the day fishing, mining, socializing, or
-            clearing the farm.
-          </p>
+          <p className="priority-empty">{t("web.dailyBrief.youCanSpendTheRestOfTheDayFishing")}</p>
         )}
       </section>}
       {visibleSections.completable && <section className="completable-today" style={{ order: sectionOrder.indexOf("completable") + 1 }}>
         <div className="daily-changes-title">
-          <div><p className="eyebrow">Reachable with your current state</p><h2>What can I complete today?</h2></div>
-          <span>{completableToday.length} actionable now</span>
+          <div><p className="eyebrow">{t("web.dailyBrief.reachableWithYourCurrentState")}</p><h2>{t("web.dailyBrief.whatCanICompleteToday")}</h2></div>
+          <span>{completableToday.length}{t("web.dailyBrief.actionableNow")}</span>
         </div>
         {completableToday.length ? (
           <div className="completable-grid">
@@ -8988,28 +9380,28 @@ function DailyBriefView({
               ) : <article key={`${item.title}-${index}`}>{content}</article>;
             })}
           </div>
-        ) : <p className="empty-daily">Nothing can be confirmed as finishable from the current save yet.</p>}
+        ) : <p className="empty-daily">{t("web.dailyBrief.nothingCanBeConfirmedAsFinishableFromTheCurrent")}</p>}
       </section>}
       {visibleSections.session && <section className="session-changes" style={{ order: sectionOrder.indexOf("session") + 1 }}>
         <div className="daily-changes-title">
-          <div><p className="eyebrow">Since the previous app opening</p><h2>What changed since my last session?</h2></div>
-          <span>{sessionBaseline ? new Date(sessionBaseline.capturedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "Baseline created now"}</span>
+          <div><p className="eyebrow">{t("web.dailyBrief.sinceThePreviousAppOpening")}</p><h2>{t("web.dailyBrief.whatChangedSinceMyLastSession")}</h2></div>
+          <span>{sessionBaseline ? new Date(sessionBaseline.capturedAt).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" }) : t("today.session.baselineCreated")}</span>
         </div>
         {sessionBaseline ? (
           sessionChanges.length ? <div className="session-change-list">{sessionChanges.map((change) => <span key={change}>{change}</span>)}</div>
-          : <p className="empty-daily">No measurable change since the previous app session.</p>
-        ) : <p className="empty-daily">This opening establishes the first baseline. The next session will show its changes here.</p>}
+          : <p className="empty-daily">{t("web.dailyBrief.noMeasurableChangeSinceThePreviousAppSession")}</p>
+        ) : <p className="empty-daily">{t("web.dailyBrief.thisOpeningEstablishesTheFirstBaselineTheNextSession")}</p>}
       </section>}
       {visibleSections.yesterday && <section className="daily-changes" style={{ order: sectionOrder.indexOf("yesterday") + 1 }}>
         <div className="daily-changes-title">
           <div>
-            <p className="eyebrow">Automatic comparison</p>
-            <h2>What changed since yesterday</h2>
+            <p className="eyebrow">{t("web.dailyBrief.automaticComparison")}</p>
+            <h2>{t("web.dailyBrief.whatChangedSinceYesterday")}</h2>
           </div>
           <span>
             {previous
-              ? `${formatGameDate(previous)} → today`
-              : "Waiting for another snapshot"}
+              ? t("today.change.dateToToday", { date: formatGameDate(previous, t) })
+              : t("today.change.waitingSnapshot")}
           </span>
         </div>
         {dailyChanges.length ? (
@@ -9023,20 +9415,15 @@ function DailyBriefView({
             ))}
           </div>
         ) : (
-          <p className="empty-daily">
-            There is no comparable previous day saved yet.
-          </p>
+          <p className="empty-daily">{t("web.dailyBrief.thereIsNoComparablePreviousDaySavedYet")}</p>
         )}
       </section>}
       {visibleSections.quests && <section className="accepted-quests-section" style={{ order: sectionOrder.indexOf("quests") + 1 }}>
         <div className="accepted-quests-heading">
           <div>
-            <p className="eyebrow">Your journal</p>
-            <h2>Accepted quests</h2>
-            <p>
-              Active story quests and timed requests read directly from the
-              latest save.
-            </p>
+            <p className="eyebrow">{t("web.dailyBrief.yourJournal")}</p>
+            <h2>{t("web.dailyBrief.acceptedQuests")}</h2>
+            <p>{t("web.dailyBrief.activeStoryQuestsAndTimedRequestsReadDirectlyFrom")}</p>
           </div>
           <strong>{acceptedQuests.length}</strong>
         </div>
@@ -9062,24 +9449,24 @@ function DailyBriefView({
               return (
                 <article
                   className={acceptedQuest.ready ? "ready" : ""}
-                  key={`${acceptedQuest.id}-${acceptedQuest.title}`}
+                  key={`${acceptedQuest.id}-${localizedQuestTitle(acceptedQuest, t, text)}`}
                 >
                   <div className="accepted-quest-title">
                     <div>
                       <span>
                         {acceptedQuest.daily
-                          ? `Timed · ${acceptedQuest.daysLeft} day${acceptedQuest.daysLeft === 1 ? "" : "s"} left`
-                          : "Story quest"}
+                          ? t("today.quest.timedDays", { days: acceptedQuest.daysLeft })
+                          : t("today.quest.story")}
                       </span>
-                      <h3>{acceptedQuest.title}</h3>
+                      <h3>{localizedQuestTitle(acceptedQuest, t, text)}</h3>
                     </div>
                     {acceptedQuest.reward > 0 && (
                       <strong>
-                        {acceptedQuest.reward.toLocaleString("en-US")}g
+                        {acceptedQuest.reward.toLocaleString(locale)}g
                       </strong>
                     )}
                   </div>
-                  <p>{acceptedQuest.objective}</p>
+                  <p>{text(acceptedQuest.objective)}</p>
                   {hasMeasuredProgress && (
                     <div className="accepted-quest-progress">
                       <i>
@@ -9100,35 +9487,35 @@ function DailyBriefView({
                     >
                       <strong>
                         {acceptedQuest.hasRequestedItems
-                          ? "You have the requested items"
-                          : "Items found in your storage"}
+                          ? t("today.quest.haveRequestedItems")
+                          : t("today.quest.itemsInStorage")}
                       </strong>
                       {acceptedQuest.stock.map((item, index) => (
                         <p
                           className="locatable-item-card"
                           data-storage-item={item.name}
-                          title={`Click to locate ${item.name}`}
+                          title={t("storage.clickToLocate", { item: item.displayName || item.name })}
                           key={`${item.name}-${index}`}
                         >
                           <ItemMentionArtwork name={item.name} />
-                          <span>{item.count}× {item.name} · {item.sources.join(" · ")}</span>
+                          <span>{item.count}× {item.displayName || item.name} · {item.sources.join(" · ")}</span>
                         </p>
                       ))}
                     </div>
                   )}
                   {acceptedQuest.stockNote && (
                     <small className="accepted-quest-note">
-                      {acceptedQuest.stockNote}
+                      {text(acceptedQuest.stockNote)}
                     </small>
                   )}
                   <details className="quest-spoilers">
-                    <summary>Show guidance and possible spoilers</summary>
+                    <summary>{t("web.dailyBrief.showGuidanceAndPossibleSpoilers")}</summary>
                     {acceptedQuest.description && (
-                      <p>{acceptedQuest.description}</p>
+                      <p>{text(acceptedQuest.description)}</p>
                     )}
                     <ol>
                       {(acceptedQuest.tips || []).map((tip, index) => (
-                        <li key={index}>{tip}</li>
+                        <li key={index}>{text(tip)}</li>
                       ))}
                     </ol>
                   </details>
@@ -9137,7 +9524,7 @@ function DailyBriefView({
             })}
           </div>
         ) : (
-          <p className="empty-daily">Your journal has no active quests.</p>
+          <p className="empty-daily">{t("web.dailyBrief.yourJournalHasNoActiveQuests")}</p>
         )}
       </section>}
       {visibleSections["special-orders"] &&
@@ -9145,9 +9532,9 @@ function DailyBriefView({
         <section className="special-orders-section" style={{ order: sectionOrder.indexOf("special-orders") + 1 }}>
           <div className="accepted-quests-heading">
             <div>
-              <p className="eyebrow">Weekly boards</p>
-              <h2>Special Orders</h2>
-              <p>Longer requests from the Town board and, once available, Mr. Qi&apos;s room.</p>
+              <p className="eyebrow">{t("web.dailyBrief.weeklyBoards")}</p>
+              <h2>{t("web.dailyBrief.specialOrders")}</h2>
+              <p>{t("web.dailyBrief.longerRequestsFromTheTownBoardAndOnceAvailable")}</p>
             </div>
             <strong>{specialOrders.length}</strong>
           </div>
@@ -9160,7 +9547,7 @@ function DailyBriefView({
                       <span>{order.requester} · {order.duration}</span>
                       <h3>{order.title}</h3>
                     </div>
-                    <strong>{order.daysLeft} day{order.daysLeft === 1 ? "" : "s"} left</strong>
+                    <strong>{order.daysLeft}{t("web.home.day.944c27")}{order.daysLeft === 1 ? "" : "s"}{t("web.dailyBrief.left")}</strong>
                   </header>
                   {order.description && <p>{order.description}</p>}
                   <ul>
@@ -9171,14 +9558,12 @@ function DailyBriefView({
                       </li>
                     ))}
                   </ul>
-                  {order.reward && <small>Reward · {order.reward}</small>}
+                  {order.reward && <small>{t("web.dailyBrief.reward")}{order.reward}</small>}
                 </article>
               ))}
             </div>
           ) : (
-            <p className="empty-daily">
-              The Town Special Orders board is unlocked, but no order is currently accepted.
-            </p>
+            <p className="empty-daily">{t("web.dailyBrief.theTownSpecialOrdersBoardIsUnlockedButNo")}</p>
           )}
         </section>
       )}
@@ -9190,7 +9575,7 @@ function DailyBriefView({
           >
             <div className="card-title">
               <div>
-                <p className="eyebrow">LIVE location</p>
+                <p className="eyebrow">{t("web.dailyBrief.liveLocation")}</p>
                 <h2>{live.location || live.locationId}</h2>
               </div>
               <small>{formatLiveTime(live.timeOfDay)}</small>
@@ -9201,14 +9586,14 @@ function DailyBriefView({
         {visibleSections.route && <article className="daily-card world-card" style={{ order: sectionOrder.indexOf("route") + 1 }}>
           <div className="card-title">
             <div>
-              <p className="eyebrow">Suggested route</p>
-              <h2>Trip around Stardew Valley</h2>
+              <p className="eyebrow">{t("web.dailyBrief.suggestedRoute")}</p>
+              <h2>{t("web.dailyBrief.tripAroundStardewValley")}</h2>
             </div>
             <div className="world-progress">
               <strong>
                 {completedWorld.length}/{worldTaskCount}
               </strong>
-              <span>stops completed</span>
+              <span>{t("web.dailyBrief.stopsCompleted")}</span>
             </div>
           </div>
           <div className="world-list route-list">
@@ -9237,15 +9622,15 @@ function DailyBriefView({
                     />
                     <i>{checked ? "✓" : ""}</i>
                     <span>
-                      <b>{location.location}</b>
+                      <b>{routeLocationName(location.location, t)}</b>
                       <small>
                         {currentLocation
-                          ? `You are here · ${formatLiveTime(live.timeOfDay)}`
+                          ? t("today.route.youAreHere", { time: formatLiveTime(live.timeOfDay) })
                           : automatic
-                            ? "Completed automatically from LIVE"
+                            ? t("today.route.completedLive")
                             : checked
-                              ? "Completed manually"
-                              : "Next suggested stop"}
+                              ? t("today.route.completedManual")
+                              : t("today.route.nextStop")}
                       </small>
                     </span>
                   </label>
@@ -9256,7 +9641,7 @@ function DailyBriefView({
                           key={`${item.name}-${itemIndex}`}
                         >
                           <ItemMentionArtwork name={item.name} locatable={false} />
-                          <b>{item.count}×</b> {item.name}
+                          <b>{item.count}×</b> {routeItemName(item, t)}
                         </span>
                       ))}
                     </div>
@@ -9267,10 +9652,14 @@ function DailyBriefView({
                   {location.location === "Farm" &&
                     brief.fruitCave.count > 0 && (
                       <div className="route-detail">
-                        <strong>Farm Cave · {brief.fruitCave.type}</strong>
+                        <strong>
+                          {t("today.cave.routeTitle", {
+                            cave: caveTypeLabel(brief.fruitCave.type, t),
+                          })}
+                        </strong>
                         <span>
                           {brief.fruitCave.items
-                            .map((item) => `${item.count}× ${item.name}`)
+                            .map((item) => `${item.count}× ${item.displayName || item.name}`)
                             .join(" · ")}
                         </span>
                       </div>
@@ -9279,12 +9668,10 @@ function DailyBriefView({
                     <div className="route-tool-alert">
                       <span>⚒</span>
                       <div>
-                        <strong>
-                          Collect your {brief.toolUpgrade.name} today
-                        </strong>
+                        <strong>{t("web.dailyBrief.collectYour")}{brief.toolUpgrade.displayName || brief.toolUpgrade.name}{t("web.dailyBrief.today")}</strong>
                         <small>
                           {
-                            "It is ready at Clint's; there is no need to wait another day."
+                            t("today.route.clintReadyDetail")
                           }
                         </small>
                       </div>
@@ -9293,8 +9680,8 @@ function DailyBriefView({
                   {currentLocation && (
                     <span
                       className="route-player-marker"
-                      title={`${current.farmer} is here`}
-                      aria-label={`${current.farmer} is here`}
+                      title={t("today.route.farmerHere", { farmer: current.farmer })}
+                      aria-label={t("today.route.farmerHere", { farmer: current.farmer })}
                     >
                       <i />
                       <b />
@@ -9311,21 +9698,15 @@ function DailyBriefView({
                 setManualCompletedWorld([]);
                 window.localStorage.removeItem(manualWorldStorageKey);
               }}
-            >
-              Reset manual checks
-            </button>
+            >{t("web.dailyBrief.resetManualChecks")}</button>
           )}
-          <small className="daily-caveat">
-            Manual checks remain saved for this day. LIVE checks are
-            recalculated from the game and disappear if the task becomes pending
-            again or the day is restarted.
-          </small>
+          <small className="daily-caveat">{t("web.dailyBrief.manualChecksRemainSavedForThisDayLIVEChecks")}</small>
         </article>}
         {visibleSections.crops && <article className="daily-card crop-forecast-card" style={{ order: sectionOrder.indexOf("crops") + 1 }}>
           <div className="card-title">
             <div>
-              <p className="eyebrow">Forecast with daily watering</p>
-              <h2>When your crops will be ready</h2>
+              <p className="eyebrow">{t("web.dailyBrief.forecastWithDailyWatering")}</p>
+              <h2>{t("web.dailyBrief.whenYourCropsWillBeReady")}</h2>
             </div>
             <strong className="big-count">
               {brief.crops.reduce((sum, item) => sum + item.count, 0)}
@@ -9339,20 +9720,22 @@ function DailyBriefView({
                 }
                 key={`${crop.id}-${crop.daysRemaining}-${index}`}
               >
-                <SheetArtwork id={crop.id} kind="object" label={crop.name} />
+                <SheetArtwork id={crop.id} kind="object" label={crop.displayName || crop.name} />
                 <span className="crop-forecast-copy">
                   <strong>
-                    {crop.count}× {crop.name}
+                    {crop.count}× {crop.displayName || crop.name}
                   </strong>
                   <span>
                     {crop.ready
-                      ? "Ready today"
-                      : `${crop.regrowing ? "Regrows in " : "Harvest in "}${crop.daysRemaining} day${crop.daysRemaining === 1 ? "" : "s"} · ${crop.harvestDate}`}
+                      ? t("today.crop.readyToday")
+                      : t(crop.regrowing ? "today.crop.regrowsIn" : "today.crop.harvestIn", {
+                          days: crop.daysRemaining,
+                          date: formatHarvestDate(crop.harvestDate, t),
+                        })}
                   </span>
                   <small>
-                    {crop.watered}/{crop.count} watered in the save
-                    {crop.willWither
-                      ? " · Will not mature before the season changes"
+                    {crop.watered}/{crop.count}{t("web.dailyBrief.wateredInTheSave")}{crop.willWither
+                      ? t("today.crop.willWither")
                       : ""}
                   </small>
                 </span>
@@ -9361,19 +9744,18 @@ function DailyBriefView({
           </div>
           <p className="daily-caveat">
             {
-              "The date uses each plant's internal phase and counter. For repeat crops, it distinguishes a mature plant from one regrowing after harvest. It assumes daily watering; skipping today delays the date."
+              t("today.crop.explanation")
             }
           </p>
         </article>}
         {visibleSections.birthdays && <article className="daily-card birthday-card" id="birthday-gifts" style={{ order: sectionOrder.indexOf("birthdays") + 1 }}>
           <div className="card-title">
             <div>
-              <p className="eyebrow">Calendar and available gifts</p>
-              <h2>Birthdays</h2>
+              <p className="eyebrow">{t("web.dailyBrief.calendarAndAvailableGifts")}</p>
+              <h2>{t("web.dailyBrief.birthdays")}</h2>
             </div>
             <span className="checked-items">
-              {brief.inventoryItemsChecked} types checked
-            </span>
+              {brief.inventoryItemsChecked}{t("web.dailyBrief.typesChecked")}</span>
           </div>
           {brief.birthdays.length ? (
             brief.birthdays.map((birthday) => (
@@ -9387,37 +9769,31 @@ function DailyBriefView({
                     kind="portrait"
                   />
                   <div>
-                    <span>{birthday.when}</span>
+                    <span>{birthdayWhenLabel(birthday.when, t)}</span>
                     <strong>{birthday.person}</strong>
                   </div>
                 </div>
                 <GiftGroup
-                  label="Loved"
+                  label={t("gift.loved")}
                   tone="love"
                   items={birthday.gifts.love}
                 />
                 <GiftGroup
-                  label="Liked"
+                  label={t("gift.liked")}
                   tone="like"
                   items={birthday.gifts.like}
                 />
                 <GiftGroup
-                  label="Neutral"
+                  label={t("gift.neutral")}
                   tone="neutral"
                   items={birthday.gifts.neutral}
                 />
               </div>
             ))
           ) : (
-            <p className="empty-daily">
-              There are no birthdays today or tomorrow.
-            </p>
+            <p className="empty-daily">{t("web.dailyBrief.thereAreNoBirthdaysTodayOrTomorrow")}</p>
           )}
-          <p className="daily-caveat">
-            Only items currently in your backpack or saved chests are shown.
-            Quality is preserved because it improves friendship points from the
-            gift.
-          </p>
+          <p className="daily-caveat">{t("web.dailyBrief.onlyItemsCurrentlyInYourBackpackOrSavedChests")}</p>
         </article>}
       </div>
     </section>
@@ -9433,6 +9809,7 @@ function GiftGroup({
   tone: string;
   items: GiftItem[];
 }) {
+  const { t } = useI18n();
   const quality = ["normal", "silver", "gold", "iridium", "iridium"];
   return (
     <div className={`gift-group ${tone}`}>
@@ -9445,7 +9822,7 @@ function GiftGroup({
             <div
               className="locatable-item-card"
               data-storage-item={item.name}
-              title={`Click to locate ${item.name}`}
+              title={t("storage.clickToLocate", { item: item.displayName || item.name })}
               key={`${item.name}-${item.quality}-${index}`}
             >
               <ItemMentionArtwork
@@ -9453,16 +9830,16 @@ function GiftGroup({
                 name={item.name}
                 item={item.id ? { ...item, id: item.id } : undefined}
               />
-              <strong>{item.name}</strong>
+              <strong>{item.displayName || item.name}</strong>
               <span>
-                {item.count}× · {quality[item.quality] || "normal"}
+                {item.count}× · {t(`quality.${quality[item.quality] || "normal"}`)}
               </span>
-              <small>{item.sources.join(" · ")}</small>
+              <small>{item.sources.map((source) => localizedStorageSource(source, t)).join(" · ")}</small>
             </div>
           ))}
         </div>
       ) : (
-        <p>You do not have any available.</p>
+        <p>{t("web.giftGroup.youDoNotHaveAnyAvailable")}</p>
       )}
     </div>
   );
@@ -9477,6 +9854,7 @@ function LiveWorldMap({
   season: string;
   compact?: boolean;
 }) {
+  const { t } = useI18n();
   const region = worldMapRegion(live.locationId);
   const crop = worldMapCrop(region);
   const cropStyle = {
@@ -9492,15 +9870,14 @@ function LiveWorldMap({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`/assets/maps/world-${season}.png`}
-          alt={`Map focused on ${live.location || live.locationId || "the current area"}`}
+          alt={t("map.focusedOn", { location: live.location || live.locationId || t("map.currentArea") })}
         />
         <span className={`world-pin location-${region}`}>
           <i />
           <b>{live.location || live.locationId}</b>
         </span>
       </div>
-      <small>
-        LIVE area · tile {live.tileX}, {live.tileY} in {live.locationId}
+      <small>{t("web.liveWorldMap.liveAreaTile")}{live.tileX}, {live.tileY}{t("web.liveWorldMap.in")}{live.locationId}
       </small>
     </div>
   );
@@ -9612,14 +9989,15 @@ function GrowthView({
   previous: Snapshot | null;
   live: LiveState;
 }) {
+  const { t, text, locale } = useI18n();
   const growthSectionOptions = [
-    { id: "metrics", label: "Key metrics" },
-    { id: "milestones", label: "Farm milestones" },
-    { id: "evaluation", label: "Grandpa's Evaluation" },
-    { id: "economy", label: "Balance and total earnings" },
-    { id: "cash-flow", label: "Income and spending" },
-    { id: "activity", label: "Skills and activity" },
-    { id: "snapshots", label: "Daily snapshots" },
+    { id: "metrics", label: t("growth.section.metrics") },
+    { id: "milestones", label: t("growth.section.milestones") },
+    { id: "evaluation", label: t("growth.section.evaluation") },
+    { id: "economy", label: t("growth.section.economy") },
+    { id: "cash-flow", label: t("growth.section.cashFlow") },
+    { id: "activity", label: t("growth.section.activity") },
+    { id: "snapshots", label: t("growth.section.snapshots") },
   ] as const;
   const [visibleSections, setSectionVisible, showAllSections, sectionOrder, moveSection] =
     useSectionVisibility(
@@ -9721,9 +10099,11 @@ function GrowthView({
   );
   const bundleTarget = current.planningBrief.communityCenter.total;
   const museumCompleteLive = museumCount >= 95;
-  const grandpaMilestones = current.grandpa.milestones.map((item) =>
-    item.id === "museum" && museumCompleteLive ? { ...item, done: true } : item,
-  );
+  const grandpaMilestones = current.grandpa.milestones.map((item) => ({
+    ...(item.id === "museum" && museumCompleteLive ? { ...item, done: true } : item),
+    label: t(`growth.milestone.${item.id}.label`),
+    how: t(`growth.milestone.${item.id}.how`),
+  }));
   const achievedMilestonePoints = grandpaMilestones
     .filter((item) => item.done)
     .reduce((sum, item) => sum + item.points, 0);
@@ -9780,41 +10160,41 @@ function GrowthView({
   const milestoneForecasts = grandpaMilestones.map((item) => {
     let projected = item.done;
     let basis = item.done
-      ? "Already completed in the latest available game data."
-      : "There is not enough measurable progress to forecast this objective reliably.";
+      ? t("growth.forecast.completed")
+      : t("growth.forecast.insufficient");
     if (!item.done && item.id === "museum") {
       projected = projectAtEvaluation(museumCount) >= 95;
-      basis = `${museumCount}/95 donations now; your overall donation pace projects about ${Math.min(95, Math.round(projectAtEvaluation(museumCount)))}/95 by the evaluation.`;
+      basis = t("growth.forecast.museum", { current: museumCount, projected: Math.min(95, Math.round(projectAtEvaluation(museumCount))) });
     }
     if (!item.done && item.id === "angler") {
       projected = projectAtEvaluation(fishCount) >= fishTarget;
-      basis = `${fishCount}/${fishTarget} required species caught; your overall pace projects about ${Math.min(fishTarget, Math.round(projectAtEvaluation(fishCount)))}/${fishTarget}.`;
+      basis = t("growth.forecast.fishing", { current: fishCount, target: fishTarget, projected: Math.min(fishTarget, Math.round(projectAtEvaluation(fishCount))) });
     }
     if (!item.done && item.id === "friends5") {
       projected = projectedFriendsAtEight >= 5;
-      basis = `${current.grandpa.friendsAtEightHearts}/5 friends now; recent friendship progress projects ${projectedFriendsAtEight} at eight hearts.`;
+      basis = t("growth.forecast.friends", { current: current.grandpa.friendsAtEightHearts, target: 5, projected: projectedFriendsAtEight });
     }
     if (!item.done && item.id === "friends10") {
       projected = projectedFriendsAtEight >= 10;
-      basis = `${current.grandpa.friendsAtEightHearts}/10 friends now; recent friendship progress projects ${projectedFriendsAtEight} at eight hearts.`;
+      basis = t("growth.forecast.friends", { current: current.grandpa.friendsAtEightHearts, target: 10, projected: projectedFriendsAtEight });
     }
     if (!item.done && item.id === "pet") {
       projected = projectedPetFriendship >= 999;
-      basis = `${current.grandpa.petFriendship}/999 pet friendship now; recent progress projects about ${Math.round(projectedPetFriendship)}/999.`;
+      basis = t("growth.forecast.pet", { current: current.grandpa.petFriendship, projected: Math.round(projectedPetFriendship) });
     }
     if (!item.done && item.id === "community") {
       projected =
         bundleTarget > 0 &&
         projectAtEvaluation(completedBundles) >= bundleTarget;
-      basis = `${completedBundles}/${bundleTarget} bundles complete; your overall pace projects about ${Math.min(bundleTarget, Math.round(projectAtEvaluation(completedBundles)))}/${bundleTarget}. The ceremony must also be attended.`;
+      basis = t("growth.forecast.community", { current: completedBundles, target: bundleTarget, projected: Math.min(bundleTarget, Math.round(projectAtEvaluation(completedBundles))) });
     }
     if (!item.done && item.id === "skull") {
       projected = projectAtEvaluation(current.progress.deepestMineLevel) >= 120;
-      basis = `Mine floor ${current.progress.deepestMineLevel}/120; your overall descent pace projects floor ${Math.min(120, Math.round(projectAtEvaluation(current.progress.deepestMineLevel)))}.`;
+      basis = t("growth.forecast.skull", { current: current.progress.deepestMineLevel, projected: Math.min(120, Math.round(projectAtEvaluation(current.progress.deepestMineLevel))) });
     }
     if (!item.done && item.id === "rusty") {
       projected = projectAtEvaluation(museumCount) >= 60;
-      basis = `${museumCount}/60 museum donations needed for the key; your pace projects about ${Math.min(60, Math.round(projectAtEvaluation(museumCount)))}/60.`;
+      basis = t("growth.forecast.rusty", { current: museumCount, projected: Math.min(60, Math.round(projectAtEvaluation(museumCount))) });
     }
     return {
       ...item,
@@ -9853,10 +10233,10 @@ function GrowthView({
     nextMoneyThreshold
       ? {
           id: "money",
-          label: `${nextMoneyThreshold.toLocaleString("en-US")}g total earnings`,
-          remaining: `${(nextMoneyThreshold - current.totalMoneyEarned).toLocaleString("en-US")}g remaining`,
+          label: t("growth.point.earnings", { amount: nextMoneyThreshold.toLocaleString(locale) }),
+          remaining: t("growth.point.moneyRemaining", { amount: (nextMoneyThreshold - current.totalMoneyEarned).toLocaleString(locale) }),
           reward: nextMoneyThreshold === 1000000 ? 2 : 1,
-          how: "This counts all gold earned during the game, even after spending it. Sell crops, fish, minerals, or processed goods; it does not need to remain in your balance.",
+          how: t("growth.point.earningsHow"),
           estimate:
             (nextMoneyThreshold - current.totalMoneyEarned) /
             Math.max(1, earningRate),
@@ -9865,10 +10245,10 @@ function GrowthView({
     nextSkillThreshold
       ? {
           id: "skills",
-          label: `${nextSkillThreshold} combined skill levels`,
-          remaining: `${nextSkillThreshold - current.grandpa.skillTotal} levels remaining across Farming, Mining, Foraging, Fishing, and Combat`,
+          label: t("growth.point.skillLevels", { count: nextSkillThreshold }),
+          remaining: t("growth.point.skillRemaining", { count: nextSkillThreshold - current.grandpa.skillTotal }),
           reward: 1,
-          how: "Level the skills that are already closest to their next level; all five count equally toward this total.",
+          how: t("growth.point.skillsHow"),
           estimate:
             (nextSkillThreshold - current.grandpa.skillTotal) /
             Math.max(0.05, skillRate),
@@ -9877,20 +10257,20 @@ function GrowthView({
     !current.grandpa.milestones.find((item) => item.id === "pet")?.done
       ? {
           id: "pet",
-          label: "Maximum friendship with your pet",
-          remaining: `${Math.max(0, 999 - current.grandpa.petFriendship)} friendship points remaining`,
+          label: t("growth.point.petFriendship"),
+          remaining: t("growth.point.friendshipRemaining", { count: Math.max(0, 999 - current.grandpa.petFriendship) }),
           reward: 1,
-          how: "Pet it every day and keep its water bowl filled. This is slow but reliable progress that costs no gold.",
+          how: t("growth.point.petHow"),
           estimate: Math.max(0, 999 - current.grandpa.petFriendship) / 18,
         }
       : null,
     !current.grandpa.milestones.find((item) => item.id === "skull")?.done
       ? {
           id: "skull",
-          label: "Obtain the Skull Key",
-          remaining: `${Math.max(0, 120 - current.progress.deepestMineLevel)} mine floors remaining`,
+          label: t("growth.point.skullKey"),
+          remaining: t("growth.point.floorsRemaining", { count: Math.max(0, 120 - current.progress.deepestMineLevel) }),
           reward: 1,
-          how: "Reach floor 120 of The Mines. On good-luck days, bring food and craft staircases if a floor stalls your progress.",
+          how: t("growth.point.skullHow"),
           estimate:
             Math.max(0, 120 - current.progress.deepestMineLevel) /
             Math.max(
@@ -9905,13 +10285,13 @@ function GrowthView({
   const nextPoint = measurablePoints[0];
   const earnedSources = [
     current.grandpa.earningsPoints
-      ? `${current.grandpa.earningsPoints} from earnings`
+      ? t("growth.score.fromEarnings", { count: current.grandpa.earningsPoints })
       : null,
     current.grandpa.skillPoints
-      ? `${current.grandpa.skillPoints} from skills`
+      ? t("growth.score.fromSkills", { count: current.grandpa.skillPoints })
       : null,
     achievedMilestonePoints
-      ? `${achievedMilestonePoints} from milestones`
+      ? t("growth.score.fromMilestones", { count: achievedMilestonePoints })
       : null,
   ].filter(Boolean);
   const currentActualScore =
@@ -9928,7 +10308,7 @@ function GrowthView({
     ? [
         current.grandpa.earningsPoints > previousSnapshot.grandpa.earningsPoints
           ? {
-              label: "Earnings threshold",
+              label: t("growth.score.earningsThreshold"),
               points:
                 current.grandpa.earningsPoints -
                 previousSnapshot.grandpa.earningsPoints,
@@ -9936,7 +10316,7 @@ function GrowthView({
           : null,
         current.grandpa.skillPoints > previousSnapshot.grandpa.skillPoints
           ? {
-              label: "Combined skill threshold",
+              label: t("growth.score.skillThreshold"),
               points:
                 current.grandpa.skillPoints -
                 previousSnapshot.grandpa.skillPoints,
@@ -9965,20 +10345,17 @@ function GrowthView({
     <section className="growth-page">
       <div className="growth-heading">
         <div>
-          <p className="eyebrow">Local daily history</p>
-          <h1>{current.farmName} growth</h1>
-          <p>
-            Every time Stardew saves a new day, a snapshot of your economy and
-            progress is preserved.
-          </p>
+          <p className="eyebrow">{t("growth.localHistory")}</p>
+          <h1>{t("growth.title", { farm: current.farmName })}</h1>
+          <p>{t("growth.description")}</p>
         </div>
         <div className="page-heading-actions">
           <div className="history-count">
             <strong>{entries.length}</strong>
-            <span>days recorded</span>
+            <span>{t("growth.daysRecorded")}</span>
           </div>
           <SectionVisibilityMenu
-            label="Customize Growth sections"
+            label={t("growth.customizeSections")}
             options={growthSectionOptions}
             visible={visibleSections}
             order={sectionOrder}
@@ -9990,96 +10367,87 @@ function GrowthView({
       </div>
       {visibleSections.metrics && <div className="metric-grid" style={{ order: sectionOrder.indexOf("metrics") + 1 }}>
         <Metric
-          label="Current balance"
-          value={`${current.money.toLocaleString("en-US")}g`}
+          label={t("growth.metric.balance")}
+          value={`${current.money.toLocaleString(locale)}g`}
           delta={balanceDelta}
         />
         <Metric
-          label="Total earnings"
-          value={`${current.totalMoneyEarned.toLocaleString("en-US")}g`}
+          label={t("web.economyChart.totalEarnings")}
+          value={`${current.totalMoneyEarned.toLocaleString(locale)}g`}
         />
         <Metric
-          label="Latest-day income"
-          value={`${(latest?.income || 0).toLocaleString("en-US")}g`}
+          label={t("growth.metric.latestIncome")}
+          value={`${(latest?.income || 0).toLocaleString(locale)}g`}
         />
         <Metric
-          label="Inferred latest-day spending"
-          value={`${(latest?.spending || 0).toLocaleString("en-US")}g`}
+          label={t("growth.metric.latestSpending")}
+          value={`${(latest?.spending || 0).toLocaleString(locale)}g`}
         />
-        <Metric label="Skill levels" value={`${skillTotal}/50`} />
+        <Metric label={t("growth.metric.skillLevels")} value={`${skillTotal}/50`} />
         <Metric
-          label="Deepest mine floor"
-          value={`Level ${current.progress.deepestMineLevel}`}
+          label={t("growth.metric.deepestMine")}
+          value={t("growth.metric.level", { level: current.progress.deepestMineLevel })}
         />
       </div>}
       {visibleSections.milestones && <details className="history-timeline" style={{ order: sectionOrder.indexOf("milestones") + 1 }}>
         <summary>
           <div>
-            <p className="eyebrow">Automatic history annotations</p>
-            <h2>Farm milestones</h2>
-            <p>Detected from changes between consecutive local snapshots.</p>
+            <p className="eyebrow">{t("web.growth.automaticHistoryAnnotations")}</p>
+            <h2>{t("web.growth.farmMilestones")}</h2>
+            <p>{t("web.growth.detectedFromChangesBetweenConsecutiveLocalSnapshots")}</p>
           </div>
-          <span>{annotatedEntries.length} recorded days <b aria-hidden="true">⌄</b></span>
+          <span>{annotatedEntries.length}{t("web.growth.recordedDays")}<b aria-hidden="true">⌄</b></span>
         </summary>
         <div className="history-timeline-content">
           {annotatedEntries.length ? (
             <div className="history-event-list">
               {annotatedEntries.map((entry) => (
                 <article key={entry.dateKey}>
-                  <time>{formatGameDate(entry)}</time>
-                  <div>{entry.annotations!.map((annotation) => <span key={annotation}>{annotation}</span>)}</div>
+                  <time>{formatGameDate(entry, t)}</time>
+                  <div>{entry.annotations!.map((annotation, index) => (
+                    <span key={`${entry.dateKey}-${index}`}>{localizedHistoryAnnotation(annotation, t, text)}</span>
+                  ))}</div>
                 </article>
               ))}
             </div>
-          ) : <p className="empty-daily">New milestones will appear after the next saved change.</p>}
+          ) : <p className="empty-daily">{t("web.growth.newMilestonesWillAppearAfterTheNextSavedChange")}</p>}
         </div>
       </details>}
       {visibleSections.evaluation && <div className="growth-evaluation-group" style={{ order: sectionOrder.indexOf("evaluation") + 1 }}>
       <article className="grandpa-card">
         <div className="grandpa-summary">
-          <p className="eyebrow">Forecast for Spring 1, Year 3</p>
-          <h2>{"Grandpa's Evaluation"}</h2>
+          <p className="eyebrow">{t("web.growth.forecastForSpring1Year3")}</p>
+          <h2>{t("growth.section.evaluation")}</h2>
           <div className="grandpa-number">
             <strong>{daysToEvaluation}</strong>
-            <span>in-game days remaining</span>
+            <span>{t("web.growth.inGameDaysRemaining")}</span>
           </div>
           <div
             className="grandpa-shrine"
-            aria-label={`${projectedCandles} projected candles`}
+            aria-label={t("growth.projectedCandles", { count: projectedCandles })}
           >
             <GrandpaShrineArtwork candles={projectedCandles} />
           </div>
-          <p>
-            Likely scenario: <b>{projectedScore} measurable points</b>,
-            equivalent to <b>{projectedCandles} candles</b>. The highest
-            evaluation starts at 12 points.
-          </p>
-          <small>
-            ESTIMATE · Combines projected earnings and skills with milestones
-            marked Projected below. Objectives without a reliable measurable
-            pace are not assumed.
-          </small>
+          <p>{t("web.growth.likelyScenario")}<b>{projectedScore}{t("web.growth.measurablePoints")}</b>{t("web.growth.equivalentTo")}<b>{projectedCandles}{t("web.home.candles")}</b>{t("web.growth.theHighestEvaluationStartsAt12Points")}</p>
+          <small>{t("web.growth.estimateCombinesProjectedEarningsAndSkillsWithMilestonesMarked")}</small>
         </div>
         <div className="forecast-numbers">
           <div>
-            <span>Projected earnings</span>
-            <strong>{projectedEarnings.toLocaleString("en-US")}g</strong>
+            <span>{t("web.growth.projectedEarnings")}</span>
+            <strong>{projectedEarnings.toLocaleString(locale)}g</strong>
             <small>
-              {projectedLow.toLocaleString("en-US")}–
-              {projectedHigh.toLocaleString("en-US")}g · low/high scenario
-            </small>
+              {projectedLow.toLocaleString(locale)}–
+              {projectedHigh.toLocaleString(locale)}{t("web.growth.gLowHighScenario")}</small>
           </div>
           <div>
-            <span>Projected skills</span>
+            <span>{t("web.growth.projectedSkills")}</span>
             <strong>{projectedSkillTotal}/50</strong>
-            <small>{projectedSkillPoints}/2 skill points</small>
+            <small>{projectedSkillPoints}{t("web.growth.2SkillPoints")}</small>
           </div>
           <div>
-            <span>Confirmed score now</span>
+            <span>{t("web.growth.confirmedScoreNow")}</span>
             <strong>{currentActualScore}/21</strong>
-            <small>
-              Currently equals {actualCandles} candle
-              {actualCandles === 1 ? "" : "s"}
+            <small>{t("web.growth.currentlyEquals")}{actualCandles}{t("web.growth.candle")}{actualCandles === 1 ? "" : "s"}
             </small>
           </div>
         </div>
@@ -10097,26 +10465,26 @@ function GrowthView({
                 {item.label}
                 <small>
                   {item.forecast === "achieved"
-                    ? "Achieved"
+                    ? t("growth.status.achieved")
                     : item.forecast === "projected"
-                      ? "Projected"
-                      : "Not currently projected"}
+                      ? t("growth.status.projected")
+                      : t("growth.status.notProjected")}
                 </small>
               </span>
               <span className="milestone-score-tip">
                 <button
                   type="button"
-                  aria-label={`Forecast details for ${item.label}`}
+                  aria-label={t("growth.forecastDetails", { name: item.label })}
                 >
                   +{item.points}
                 </button>
                 <span role="tooltip">
                   <b>
                     {item.forecast === "achieved"
-                      ? "Achieved"
+                      ? t("growth.status.achieved")
                       : item.forecast === "projected"
-                        ? "Projected at your current pace"
-                        : "Not currently projected"}
+                        ? t("growth.status.projectedPace")
+                        : t("growth.status.notProjected")}
                   </b>
                   <br />
                   {item.basis}
@@ -10133,26 +10501,22 @@ function GrowthView({
         <div className="candle-explanation">
           <span className="candle-icon">+{pointsEarnedToday}</span>
           <div>
-            <p className="eyebrow">Your score today</p>
+            <p className="eyebrow">{t("web.growth.yourScoreToday")}</p>
             <h2>
               {pointsEarnedToday
-                ? `${pointsEarnedToday} new point${pointsEarnedToday === 1 ? "" : "s"} confirmed`
-                : "No new evaluation points yet"}
+                ? t("growth.score.newPoints", { count: pointsEarnedToday })
+                : t("growth.score.noNewPoints")}
             </h2>
             <p>
               {previousSnapshot ? (
-                <>
-                  Compared with <b>{formatGameDate(previousSnapshot)}</b>, your
-                  confirmed total is <b>{currentActualScore}/21</b>
+                <>{t("web.growth.comparedWith")}<b>{formatGameDate(previousSnapshot, t)}</b>{t("web.growth.yourConfirmedTotalIs")}<b>{currentActualScore}/21</b>
                   {earnedSources.length ? (
                     <> ({earnedSources.join(" · ")})</>
                   ) : null}
                   .
                 </>
               ) : (
-                <>
-                  A previous daily snapshot is not available for comparison.
-                  Your confirmed total is <b>{currentActualScore}/21</b>.
+                <>{t("web.growth.aPreviousDailySnapshotIsNotAvailableForComparison")}<b>{currentActualScore}/21</b>.
                 </>
               )}
             </p>
@@ -10170,70 +10534,58 @@ function GrowthView({
         {nextPoint && (
           <div className="next-grandpa-point">
             <div>
-              <p className="eyebrow">Nearest next point</p>
+              <p className="eyebrow">{t("web.growth.nearestNextPoint")}</p>
               <h3>{nextPoint.label}</h3>
               <strong>{nextPoint.remaining}</strong>
             </div>
             <span>
-              +{nextPoint.reward} point{nextPoint.reward === 1 ? "" : "s"}
+              +{nextPoint.reward}{t("web.growth.point")}{nextPoint.reward === 1 ? "" : "s"}
             </span>
             <p>{nextPoint.how}</p>
-            <small>
-              Proximity is estimated from your current earnings, skills, mine,
-              and pet pace; it is not a deadline.
-            </small>
+            <small>{t("web.growth.proximityIsEstimatedFromYourCurrentEarningsSkillsMine")}</small>
           </div>
         )}
         <div className="score-breakdown">
           <div>
-            <span>Money</span>
-            <strong>{current.grandpa.earningsPoints}/7 pt</strong>
+            <span>{t("web.home.money")}</span>
+            <strong>{current.grandpa.earningsPoints}{t("web.growth.7Pt")}</strong>
             <small>
               {nextMoneyThreshold
-                ? `Next threshold: ${nextMoneyThreshold.toLocaleString("en-US")}g.`
-                : "All earnings points reached."}
+                ? t("growth.score.nextMoneyThreshold", { amount: nextMoneyThreshold.toLocaleString(locale) })
+                : t("growth.score.allEarningsReached")}
             </small>
           </div>
           <div>
-            <span>Skills</span>
-            <strong>{current.grandpa.skillPoints}/2 pt</strong>
+            <span>{t("web.growth.skills")}</span>
+            <strong>{current.grandpa.skillPoints}{t("web.growth.2Pt")}</strong>
             <small>
               {nextSkillThreshold
-                ? `Next threshold: ${nextSkillThreshold} combined levels.`
-                : "Both skill points reached."}
+                ? t("growth.score.nextSkillThreshold", { count: nextSkillThreshold })
+                : t("growth.score.allSkillsReached")}
             </small>
           </div>
           <div>
-            <span>Other milestones</span>
-            <strong>{achievedMilestonePoints}/12 pt</strong>
-            <small>
-              Museum, fishing, shipping, friendships, pet, keys, and Community
-              Center.
-            </small>
+            <span>{t("web.growth.otherMilestones")}</span>
+            <strong>{achievedMilestonePoints}{t("web.growth.12Pt")}</strong>
+            <small>{t("web.growth.museumFishingShippingFriendshipsPetKeysAndCommunityCenter")}</small>
           </div>
         </div>
         <p className="candle-thresholds">
-          <b>Reference:</b> 0–3 points = 1 candle · 4–7 = 2 · 8–11 = 3 · 12 or
-          more = 4.
-        </p>
+          <b>{t("web.growth.reference")}</b>{t("web.growth.03Points1Candle4728")}</p>
       </article>
       </div>}
       <div className="growth-grid">
         {visibleSections.economy && <article className="chart-card wide" style={{ order: sectionOrder.indexOf("economy") + 1 }}>
           <div className="card-title">
             <div>
-              <p className="eyebrow">Economy</p>
-              <h2>Balance and total earnings</h2>
+              <p className="eyebrow">{t("web.growth.economy")}</p>
+              <h2>{t("web.growth.balanceAndTotalEarnings")}</h2>
             </div>
             <div className="chart-key">
               <span>
-                <i className="balance-key" />
-                Balance
-              </span>
+                <i className="balance-key" />{t("web.growth.balance")}</span>
               <span>
-                <i className="earned-key" />
-                Earnings
-              </span>
+                <i className="earned-key" />{t("web.growth.earnings")}</span>
             </div>
           </div>
           <EconomyChart entries={entries} />
@@ -10241,8 +10593,8 @@ function GrowthView({
         {visibleSections["cash-flow"] && <article className="chart-card" style={{ order: sectionOrder.indexOf("cash-flow") + 1 }}>
           <div className="card-title">
             <div>
-              <p className="eyebrow">Daily cash flow</p>
-              <h2>Income and spending</h2>
+              <p className="eyebrow">{t("web.growth.dailyCashFlow")}</p>
+              <h2>{t("web.growth.incomeAndSpending")}</h2>
             </div>
           </div>
           <div className="flow-list">
@@ -10262,66 +10614,59 @@ function GrowthView({
                   />
                 </div>
                 <strong>
-                  {entry.income.toLocaleString("en-US")} /{" "}
-                  {entry.spending.toLocaleString("en-US")}g
+                  {entry.income.toLocaleString(locale)} /{" "}
+                  {entry.spending.toLocaleString(locale)}g
                 </strong>
               </div>
             ))}
           </div>
-          <p className="chart-note">
-            Green: income. Orange: spending inferred from income and the balance
-            change.
-          </p>
+          <p className="chart-note">{t("web.growth.greenIncomeOrangeSpendingInferredFromIncomeAndThe")}</p>
         </article>}
         {visibleSections.activity && <article className="chart-card" style={{ order: sectionOrder.indexOf("activity") + 1 }}>
           <div className="card-title">
             <div>
-              <p className="eyebrow">Progress</p>
-              <h2>Skills and activity</h2>
+              <p className="eyebrow">{t("nav.progress")}</p>
+              <h2>{t("web.growth.skillsAndActivity")}</h2>
             </div>
           </div>
           <div className="skills">
-            <Skill label="Farming" value={current.progress.farming} />
-            <Skill label="Mining" value={current.progress.mining} />
-            <Skill label="Foraging" value={current.progress.foraging} />
-            <Skill label="Fishing" value={current.progress.fishing} />
-            <Skill label="Combat" value={current.progress.combat} />
+            <Skill label={t("skill.farming")} value={current.progress.farming} />
+            <Skill label={t("skill.mining")} value={current.progress.mining} />
+            <Skill label={t("skill.foraging")} value={current.progress.foraging} />
+            <Skill label={t("skill.fishing")} value={current.progress.fishing} />
+            <Skill label={t("skill.combat")} value={current.progress.combat} />
           </div>
           <div className="activity-grid">
             <span>
-              <b>{current.progress.itemsShipped}</b> items shipped
-            </span>
+              <b>{current.progress.itemsShipped}</b>{t("web.growth.itemsShipped")}</span>
             <span>
-              <b>{current.progress.cropsShipped}</b> crops shipped
-            </span>
+              <b>{current.progress.cropsShipped}</b>{t("web.growth.cropsShipped")}</span>
             <span>
-              <b>{current.progress.fishCaught}</b> fish
-            </span>
+              <b>{current.progress.fishCaught}</b>{t("fishing.fish")}</span>
             <span>
-              <b>{current.progress.monstersKilled}</b> monsters
-            </span>
+              <b>{current.progress.monstersKilled}</b>{t("web.growth.monsters")}</span>
           </div>
         </article>}
         {visibleSections.snapshots && <article className="chart-card wide" style={{ order: sectionOrder.indexOf("snapshots") + 1 }}>
           <div className="card-title">
             <div>
-              <p className="eyebrow">Snapshots</p>
-              <h2>Daily summary</h2>
+              <p className="eyebrow">{t("web.growth.snapshots")}</p>
+              <h2>{t("web.growth.dailySummary")}</h2>
             </div>
           </div>
           <div className="history-table">
             <div className="history-row head">
-              <span>Day</span>
-              <span>Balance</span>
-              <span>Income</span>
-              <span>Inferred spending</span>
-              <span>Buildings</span>
-              <span>Crops</span>
-              <span>Mine</span>
+              <span>{t("web.growth.day")}</span>
+              <span>{t("web.growth.balance")}</span>
+              <span>{t("web.growth.income")}</span>
+              <span>{t("web.growth.inferredSpending")}</span>
+              <span>{t("planning.buildings")}</span>
+              <span>{t("planning.crops")}</span>
+              <span>{t("web.growth.mine")}</span>
             </div>
             {[...entries].reverse().map((entry) => (
               <div className="history-row" key={entry.dateKey}>
-                <strong>{formatGameDate(entry)}</strong>
+                <strong>{formatGameDate(entry, t)}</strong>
                 <span>{entry.money.toLocaleString("en-US")}g</span>
                 <span className="positive">
                   +{entry.income.toLocaleString("en-US")}g
@@ -10337,13 +10682,7 @@ function GrowthView({
           </div>
         </article>}
       </div>
-      <p className="history-help">
-        History starts with the saves Stardew still retains and grows
-        automatically. “Inferred spending” = daily income minus the balance
-        change. Stardew&apos;s save does not retain a transaction ledger, so the
-        total is reliable but historical categories such as purchases, upgrades,
-        and construction cannot be separated.
-      </p>
+      <p className="history-help">{t("web.growth.historyStartsWithTheSavesStardewStillRetainsAnd")}</p>
     </section>
   );
 }
@@ -10355,11 +10694,40 @@ function AchievementsView({
   current: Snapshot;
   live: LiveState;
 }) {
+  const { t } = useI18n();
+  const customAchievementIds = new Set([
+    "the-bottom", "singular-talent", "five-ways", "local-legend", "joja",
+    "full-house", "stardrops", "protector", "prairie-king", "fector",
+  ]);
+  const achievementName = (item: Achievement) =>
+    customAchievementIds.has(item.id) ? t(`achievement.${item.id}.name`) : item.name;
+  const achievementRequirement = (item: Achievement) =>
+    customAchievementIds.has(item.id) ? t(`achievement.${item.id}.requirement`) : item.requirement;
+  const achievementCategory = (category: string) =>
+    t(`achievement.category.${category.toLowerCase()}`);
+  const achievementUnit = (unit: string) =>
+    unit ? t(`achievement.unit.${unit.replace(/\s+/g, "-").toLowerCase()}`) : "";
+  const achievementTiming = (timing?: string | null) => {
+    if (!timing) return "";
+    if (timing === "Exclusive route") return t("achievement.timing.exclusive");
+    const match = /^(Summer|Fall) (\d+) · annual$/.exec(timing);
+    return match
+      ? t("achievement.timing.annual", { season: t(`season.${match[1].toLowerCase()}`), day: match[2] })
+      : timing;
+  };
+  const gameDisplayName = (name: string, id?: string) => {
+    return resolveGameDisplayName(
+      current.localizedNamesByQualifiedId || {},
+      current.localizedObjectNamesByEnglish || {},
+      name,
+      id,
+    );
+  };
   const achievementSectionOptions = [
-    { id: "overview", label: "Achievement overview" },
-    { id: "collections", label: "Long-term collections" },
-    { id: "museum", label: "Museum guidance" },
-    { id: "achievements", label: "Achievement cards" },
+    { id: "overview", label: t("achievement.section.overview") },
+    { id: "collections", label: t("achievement.section.collections") },
+    { id: "museum", label: t("achievement.section.museum") },
+    { id: "achievements", label: t("achievement.section.cards") },
   ] as const;
   const [visibleSections, setSectionVisible, showAllSections, sectionOrder, moveSection] =
     useSectionVisibility(
@@ -10477,67 +10845,67 @@ function AchievementsView({
   const collectionCards = [
     {
       id: "achievements",
-      label: "Achievements",
+      label: t("collection.achievements.label"),
       current: achievements.completed,
       total: achievements.total,
       available: achievements.items.filter((item) => !item.done && item.nextStep).length,
-      detail: "Steam and inferred in-game milestones",
+      detail: t("collection.achievements.detail"),
     },
     {
       id: "museum",
-      label: "Museum",
+      label: t("collection.museum.label"),
       current: donatedMuseum.size,
       total: 95,
       available: availableMuseumItems,
-      detail: "Artifacts and minerals donated",
+      detail: t("collection.museum.detail"),
     },
     {
       id: "fish",
-      label: "Fish",
+      label: t("collection.fish.label"),
       current: caughtFish.size,
       total: current.fishingBrief.fish.length,
       available: fishAvailableNow,
-      detail: "Species caught personally",
+      detail: t("collection.fish.detail"),
     },
     {
       id: "bundles",
-      label: "Community Center",
+      label: t("collection.bundles.label"),
       current: completedBundles,
       total: bundleProgress.length,
       available: readyBundleItems,
-      detail: "Bundles completed",
+      detail: t("collection.bundles.detail"),
     },
     {
       id: "shipping",
-      label: "Shipping",
+      label: t("collection.shipping.label"),
       current: achievementById.get("full-shipment")?.current || 0,
       total: achievementById.get("full-shipment")?.target || null,
       available: 0,
-      detail: "Different item types shipped",
+      detail: t("collection.shipping.detail"),
     },
     {
       id: "cooking",
-      label: "Cooking",
+      label: t("collection.cooking.label"),
       current: achievementById.get("gourmet")?.current || 0,
       total: achievementById.get("gourmet")?.target || null,
       available: 0,
-      detail: "Different recipes cooked",
+      detail: t("collection.cooking.detail"),
     },
     {
       id: "crafting",
-      label: "Crafting",
+      label: t("collection.crafting.label"),
       current: achievementById.get("craft-master")?.current || 0,
       total: achievementById.get("craft-master")?.target || null,
       available: 0,
-      detail: "Different items crafted",
+      detail: t("collection.crafting.detail"),
     },
     {
       id: "stardrops",
-      label: "Stardrops",
+      label: t("collection.stardrops.label"),
       current: achievementById.get("stardrops")?.current || 0,
       total: 7,
       available: 0,
-      detail: "Permanent energy upgrades",
+      detail: t("collection.stardrops.detail"),
     },
   ];
   type CollectionChecklistEntry = {
@@ -10547,7 +10915,7 @@ function AchievementsView({
     item?: ItemArtwork;
   };
   const museumNames = new Map(
-    current.museumBrief.sources.flatMap((source) => source.items || []).map((item) => [item.id, item.name]),
+    current.museumBrief.sources.flatMap((source) => source.items || []).map((item) => [item.id, item.displayName || gameDisplayName(item.name, item.id)]),
   );
   const missingMuseum: CollectionChecklistEntry[] = [
     ...current.museumBrief.artifactIds,
@@ -10556,15 +10924,15 @@ function AchievementsView({
     .filter((id) => !donatedMuseum.has(id))
     .map((id) => ({
       key: `museum-${id}`,
-      name: museumNames.get(id) || `Museum item ${id}`,
-      detail: "Not yet donated",
+      name: museumNames.get(id) || t("collection.museum.item", { id }),
+      detail: t("collection.museum.notDonated"),
       item: { id, name: museumNames.get(id) || `Museum item ${id}`, spriteKind: "object", spriteIndex: id },
     }));
   const missingFish: CollectionChecklistEntry[] = current.fishingBrief.fish
     .filter((fish) => !caughtFish.has(fish.id))
     .map((fish) => ({
       key: `fish-${fish.id}`,
-      name: fish.name,
+      name: fish.displayName || gameDisplayName(fish.name, fish.id),
       detail: `${fish.seasons.join(" / ")} · ${fish.locations.join(" / ")}`,
       item: { id: fish.id, name: fish.name, spriteKind: "object", spriteIndex: fish.id },
     }));
@@ -10584,8 +10952,12 @@ function AchievementsView({
           };
       return [{
         key: `bundle-${bundle.id}-${requirement.id}-${index}`,
-        name: requirement.name,
-        detail: `${bundle.name} · ${requirement.owned}/${requirement.count} stored${requirement.quality ? ` · quality ${requirement.quality >= 4 ? "iridium" : requirement.quality === 2 ? "gold" : "silver"}` : ""}`,
+        name: requirement.displayName || gameDisplayName(requirement.name, requirement.id),
+        detail: t(requirement.quality ? "community.storedQuality" : "community.stored", {
+          owned: requirement.owned,
+          count: requirement.count,
+          quality: t(`quality.${requirement.quality >= 4 ? "iridium" : requirement.quality === 2 ? "gold" : "silver"}`),
+        }),
         item,
       }];
     });
@@ -10595,10 +10967,10 @@ function AchievementsView({
       .filter((item) => !item.complete)
       .map((item) => ({
         key: `${kind}-${item.name}`,
-        name: item.name,
+        name: item.displayName || gameDisplayName(item.name, item.id),
         detail: item.learned
-          ? kind === "cooking" ? "Recipe learned · not cooked yet" : "Recipe learned · not crafted yet"
-          : "Recipe not learned yet",
+          ? t(kind === "cooking" ? "collection.recipe.notCooked" : "collection.recipe.notCrafted")
+          : t("collection.recipe.notLearned"),
         item,
       }));
   const shippingCatalog = live.active && live.collections?.shipping?.length
@@ -10608,56 +10980,48 @@ function AchievementsView({
     .filter((item) => !item.complete)
     .map((item) => ({
       key: `shipping-${item.id}`,
-      name: item.name,
-      detail: "Not shipped yet",
+      name: item.displayName || gameDisplayName(item.name, item.id),
+      detail: t("collection.shipping.notShipped"),
       item,
     }));
-  const stardropSources = [
-    "Stardew Valley Fair",
-    "Floor 100 of The Mines",
-    "Spouse or roommate friendship",
-    "Old Master Cannoli",
-    "Willy's Master Angler letter",
-    "Museum collection reward",
-    "Krobus's shop",
-  ];
+  const stardropSources = Array.from({ length: 7 }, (_, index) => t(`collection.stardrops.source${index + 1}`));
   const collectionChecklists: Record<string, { items: CollectionChecklistEntry[]; note: string }> = {
     achievements: {
       items: achievements.items.filter((item) => !item.done).map((item) => ({
         key: `achievement-${item.id}`,
-        name: item.name,
-        detail: item.requirement,
+        name: achievementName(item),
+        detail: achievementRequirement(item),
       })),
-      note: "Achievements that have not been completed on this save.",
+      note: t("collection.achievements.note"),
     },
-    museum: { items: missingMuseum, note: "Every artifact and mineral not yet donated." },
-    fish: { items: missingFish, note: "Species you have not personally caught yet." },
-    bundles: { items: missingBundles, note: "Undonated requirements from incomplete bundles." },
+    museum: { items: missingMuseum, note: t("collection.museum.note") },
+    fish: { items: missingFish, note: t("collection.fish.note") },
+    bundles: { items: missingBundles, note: t("collection.bundles.note") },
     shipping: {
       items: missingShipping,
       note: shippingCatalog?.length
-        ? "Every item ID in the local Full Shipment catalog that has not been shipped on this save."
-        : `${Math.max(0, (achievementById.get("full-shipment")?.target || 154) - (achievementById.get("full-shipment")?.current || 0))} shipping slots remain. Start Stardew through SMAPI once to import the exact local catalog without hardcoding game data.`,
+        ? t("collection.shipping.note")
+        : t("collection.shipping.unavailable", { count: Math.max(0, (achievementById.get("full-shipment")?.target || 154) - (achievementById.get("full-shipment")?.current || 0)) }),
     },
     cooking: {
       items: recipeEntries(current.collectionBrief?.cooking, "cooking"),
       note: current.collectionBrief?.cooking
-        ? "Recipes not yet cooked; learning a recipe alone does not complete it."
-        : "Refresh the local snapshot to build the exact cooking checklist.",
+        ? t("collection.cooking.note")
+        : t("collection.cooking.unavailable"),
     },
     crafting: {
       items: recipeEntries(current.collectionBrief?.crafting, "crafting"),
       note: current.collectionBrief?.crafting
-        ? "Recipes not yet crafted at least once."
-        : "Refresh the local snapshot to build the exact crafting checklist.",
+        ? t("collection.crafting.note")
+        : t("collection.crafting.unavailable"),
     },
     stardrops: {
       items: stardropSources.map((name, index) => ({
         key: `stardrop-${index}`,
         name,
-        detail: "Possible source · Stardew stores the total energy gained, not a reliable per-source checklist.",
+        detail: t("collection.stardrops.sourceDetail"),
       })),
-      note: `${Math.max(0, 7 - (achievementById.get("stardrops")?.current || 0))} Stardrops remain. All seven possible sources are shown because the save does not reliably identify which individual sources were already collected.`,
+      note: t("collection.stardrops.note", { count: Math.max(0, 7 - (achievementById.get("stardrops")?.current || 0)) }),
     },
   };
   const openCollection = collectionCards.find((card) => card.id === openCollectionId);
@@ -10692,7 +11056,7 @@ function AchievementsView({
       (filter === "pending" && !item.done) ||
       (filter === "timed" && Boolean(item.timing));
     const haystack =
-      `${item.name} ${item.requirement} ${item.category}`.toLowerCase();
+      `${achievementName(item)} ${achievementRequirement(item)} ${achievementCategory(item.category)}`.toLowerCase();
     return matchesFilter && haystack.includes(query.trim().toLowerCase());
   });
   const nextEvents = achievements.items
@@ -10704,23 +11068,19 @@ function AchievementsView({
       <div className="achievements-heading">
         <div>
           <p className="eyebrow">
-            {live.active ? "Live collections" : "Current save"} · Steam catalog
-          </p>
-          <h1>Collections and achievements</h1>
-          <p>
-            One completion overview for achievements, museum, fish, bundles,
-            shipping, cooking, crafting, and Stardrops.
-          </p>
+            {live.active ? t("achievements.liveCollections") : t("achievements.currentSave")}{t("web.achievements.steamCatalog")}</p>
+          <h1>{t("achievements.title")}</h1>
+          <p>{t("achievements.description")}</p>
         </div>
         <div className="page-heading-actions">
           <div className="achievement-total">
             <strong>
               {achievements.completed}/{achievements.total}
             </strong>
-            <span>{completion}% complete</span>
+            <span>{t("achievements.complete", { percent: completion })}</span>
           </div>
           <SectionVisibilityMenu
-            label="Customize Collections and Achievements sections"
+            label={t("achievement.customizeSections")}
             options={achievementSectionOptions}
             visible={visibleSections}
             order={sectionOrder}
@@ -10736,41 +11096,38 @@ function AchievementsView({
             <b style={{ width: `${completion}%` }} />
           </span>
           <small>
-            {achievements.total - achievements.completed} achievements remaining
-          </small>
+            {achievements.total - achievements.completed}{t("web.achievements.achievementsRemaining")}</small>
         </div>
         <div className="achievement-note">
-          <b>No calendar-missable achievements.</b> {achievements.note}
+          <b>{t("web.achievements.noCalendarMissableAchievements")}</b> {t("achievement.note")}
         </div>
         {nextEvents[0] && (
           <button
             type="button"
             className="next-event"
             onClick={() => focusAchievement(nextEvents[0].id)}
-            title="Open this achievement"
+            title={t("web.achievements.openThisAchievement")}
           >
-            <span>Next opportunity</span>
-            <strong>{nextEvents[0].name}</strong>
+            <span>{t("web.achievements.nextOpportunity")}</span>
+            <strong>{achievementName(nextEvents[0])}</strong>
             <small>
-              {nextEvents[0].timing} · in {annualEventDay(nextEvents[0].timing)}{" "}
-              days
-            </small>
+              {achievementTiming(nextEvents[0].timing)} · {t("web.achievements.in")} {t("planning.daysCount", { count: annualEventDay(nextEvents[0].timing) || 0 })}</small>
           </button>
         )}
       </div>}
       {visibleSections.collections && <section className="completion-explorer" style={{ order: sectionOrder.indexOf("collections") + 1 }}>
         <div className="completion-explorer-heading">
           <div>
-            <p className="eyebrow">Completion explorer</p>
-            <h2>Every long-term collection in one place</h2>
+            <p className="eyebrow">{t("web.achievements.completionExplorer")}</p>
+            <h2>{t("web.achievements.everyLongTermCollectionInOnePlace")}</h2>
           </div>
-          <nav aria-label="Collection filters">
+          <nav aria-label={t("web.achievements.collectionFilters")}>
             {(
               [
-                ["all", "All"],
-                ["missing", "Missing"],
-                ["complete", "Complete"],
-                ["available", "Available now"],
+                ["all", t("filter.all")],
+                ["missing", t("filter.missing")],
+                ["complete", t("filter.complete")],
+                ["available", t("filter.available")],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -10796,31 +11153,31 @@ function AchievementsView({
                 className={`completion-card ${complete ? "complete" : ""}`}
                 key={card.id}
                 onClick={() => setOpenCollectionId(card.id)}
-                aria-label={`Open missing items for ${card.label}`}
+                aria-label={t("collection.openMissing", { collection: card.label })}
               >
                 <div>
                   <span>{card.label}</span>
                   <strong>
                     {card.current}
-                    {card.total !== null ? `/${card.total}` : " tracked"}
+                    {card.total !== null ? `/${card.total}` : t("collection.tracked")}
                   </strong>
                 </div>
                 {percentage !== null && <i><b style={{ width: `${percentage}%` }} /></i>}
                 <p>{card.detail}</p>
                 <small>
                   {complete
-                    ? "Complete"
+                    ? t("filter.complete")
                     : card.available > 0
-                      ? `${card.available} currently actionable`
-                      : "Still in progress"}
+                      ? t("collection.actionable", { count: card.available })
+                      : t("collection.inProgress")}
                 </small>
-                <em>View missing items →</em>
+                <em>{t("web.achievements.viewMissingItems")}</em>
               </button>
             );
           })}
         </div>
         {!visibleCollectionCards.length && (
-          <p className="empty-daily">No collection matches this filter.</p>
+          <p className="empty-daily">{t("web.achievements.noCollectionMatchesThisFilter")}</p>
         )}
       </section>}
       {openCollection && openChecklist && (
@@ -10829,24 +11186,24 @@ function AchievementsView({
             className="item-locator-dialog collection-detail-dialog"
             role="dialog"
             aria-modal="true"
-            aria-label={`Missing items for ${openCollection.label}`}
+            aria-label={t("collection.missingFor", { collection: openCollection.label })}
             onPointerDown={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               className="help-close"
               onClick={() => setOpenCollectionId(null)}
-              aria-label="Close collection details"
+              aria-label={t("web.achievements.closeCollectionDetails")}
             >
               ×
             </button>
-            <p className="eyebrow">Long-term collection</p>
+            <p className="eyebrow">{t("web.achievements.longTermCollection")}</p>
             <header>
               <div>
                 <h2>{openCollection.label}</h2>
                 <span>
                   {openCollection.current}
-                  {openCollection.total !== null ? `/${openCollection.total}` : " tracked"}
+                  {openCollection.total !== null ? `/${openCollection.total}` : t("collection.tracked")}
                 </span>
               </div>
             </header>
@@ -10873,9 +11230,9 @@ function AchievementsView({
                 ))}
               </div>
             ) : openCollection.total !== null && openCollection.current >= openCollection.total ? (
-              <p className="empty-daily">This collection is complete.</p>
+              <p className="empty-daily">{t("web.achievements.thisCollectionIsComplete")}</p>
             ) : (
-              <p className="empty-daily">The exact missing entries are not available from this save data.</p>
+              <p className="empty-daily">{t("web.achievements.theExactMissingEntriesAreNotAvailableFromThis")}</p>
             )}
           </section>
         </div>
@@ -10883,17 +11240,15 @@ function AchievementsView({
       {visibleSections.museum && <section className="museum-guide" aria-labelledby="museum-guide-title" style={{ order: sectionOrder.indexOf("museum") + 1 }}>
         <div className="museum-guide-heading">
           <div>
-            <p className="eyebrow">Progressive guidance</p>
-            <h2 id="museum-guide-title">Spoiler-free museum</h2>
-            <p>{current.museumBrief.note}</p>
+            <p className="eyebrow">{t("web.achievements.progressiveGuidance")}</p>
+            <h2 id="museum-guide-title">{t("web.achievements.spoilerFreeMuseum")}</h2>
+            <p>{t("museum.note")}</p>
           </div>
           <div className="museum-totals">
             <span>
-              <b>{artifactDonated}/42</b> Artifacts
-            </span>
+              <b>{artifactDonated}/42</b>{t("web.achievements.artifacts")}</span>
             <span>
-              <b>{mineralDonated}/53</b> Minerals
-            </span>
+              <b>{mineralDonated}/53</b>{t("web.achievements.minerals")}</span>
           </div>
         </div>
         <div className="museum-source-grid">
@@ -10909,28 +11264,28 @@ function AchievementsView({
               >
                 <div>
                   <i>{exhausted ? "✓" : source.available ? "·" : "○"}</i>
-                  <h3>{source.label}</h3>
+                  <h3>{t(`museum.source.${source.id}.label`)}</h3>
                 </div>
                 <strong>
-                  {exhausted ? "Nothing new" : `${remaining} possible`}
+                  {exhausted ? t("museum.nothingNew") : t("museum.possible", { count: remaining })}
                 </strong>
                 <p>
                   {exhausted
-                    ? "This method can no longer add a new piece to your museum."
+                    ? t("museum.exhausted")
                     : source.available
-                      ? source.hint
-                      : source.unavailableHint}
+                      ? t(`museum.source.${source.id}.hint`)
+                      : t(`museum.source.${source.id}.unavailable`)}
                 </p>
                 {!exhausted && source.items && (
                   <details className="museum-spoilers">
-                    <summary>Reveal missing pieces · spoilers</summary>
+                    <summary>{t("web.achievements.revealMissingPiecesSpoilers")}</summary>
                     <div>
                       {source.items
                         .filter((item) => !donatedMuseum.has(item.id))
                         .map((item) => (
                           <span key={item.id}>
-                            <SheetArtwork id={item.id} kind="object" label={item.name} />
-                            <b>{item.name}</b>
+                            <SheetArtwork id={item.id} kind="object" label={item.displayName || item.name} />
+                            <b>{item.displayName || item.name}</b>
                           </span>
                         ))}
                     </div>
@@ -10941,20 +11296,17 @@ function AchievementsView({
           })}
         </div>
         <p className="museum-live-note">
-          <b>{live.active ? "Live:" : "Latest save:"}</b> after donating a
-          piece, it immediately disappears from every method that could produce
-          it.
-        </p>
+          <b>{live.active ? t("status.liveColon") : t("status.latestSaveColon")}</b> {t("web.achievements.afterDonatingAPieceItImmediatelyDisappearsFromEvery")}</p>
       </section>}
       {visibleSections.achievements && <div className="achievement-list-section" style={{ order: sectionOrder.indexOf("achievements") + 1 }}>
       <div className="achievement-controls">
         <div className="filter-buttons">
           {(
             [
-              ["pending", "Pending"],
-              ["all", "All"],
-              ["done", "Completed"],
-              ["timed", "Timed"],
+              ["pending", t("filter.pending")],
+              ["all", t("filter.all")],
+              ["done", t("filter.completed")],
+              ["timed", t("filter.timed")],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -10969,8 +11321,8 @@ function AchievementsView({
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search achievements or categories…"
-          aria-label="Search achievements"
+          placeholder={t("web.achievements.searchAchievementsOrCategories")}
+          aria-label={t("web.achievements.searchAchievements")}
         />
       </div>
       <div className="achievement-grid">
@@ -10997,26 +11349,25 @@ function AchievementsView({
               <div className="achievement-card-head">
                 <i>{item.done ? "✓" : "○"}</i>
                 <div>
-                  <span>{item.category}</span>
-                  <h2>{item.name}</h2>
+                  <span>{achievementCategory(item.category)}</span>
+                  <h2>{achievementName(item)}</h2>
                 </div>
-                {item.timing && <em>{item.timing}</em>}
+                {item.timing && <em>{achievementTiming(item.timing)}</em>}
               </div>
-              <p>{item.requirement}</p>
+              <p>{achievementRequirement(item)}</p>
               {hasProgress && (
                 <div className="item-progress">
                   <div>
                     <span>
-                      {item.current!.toLocaleString("en-US")}
+                      {item.current!.toLocaleString()}
                       {hasTarget
-                        ? ` / ${item.target!.toLocaleString("en-US")}`
+                        ? ` / ${item.target!.toLocaleString()}`
                         : ""}{" "}
-                      {item.unit}
+                      {achievementUnit(item.unit)}
                     </span>
                     {remaining !== null && !item.done && (
                       <small>
-                        {remaining.toLocaleString("en-US")} remaining
-                      </small>
+                        {remaining.toLocaleString()} {t("web.achievements.remaining")}</small>
                     )}
                   </div>
                   <i>
@@ -11025,41 +11376,33 @@ function AchievementsView({
                 </div>
               )}
               {days !== null && !item.done && (
-                <div className="timing-alert">
-                  Next opportunity in <b>{days} days</b>.
+                <div className="timing-alert">{t("web.achievements.nextOpportunityIn")}<b>{days}{t("web.planning.days")}</b>.
                 </div>
               )}
               {item.nextStep && (
                 <div className="achievement-guide">
-                  <b>How to complete it</b>
-                  <span>{item.nextStep}</span>
+                  <b>{t("web.achievements.howToCompleteIt")}</b>
+                  <span>{t(`achievement.${item.id}.nextStep`)}</span>
                 </div>
               )}
               {!hasProgress && !item.nextStep && !item.done && (
-                <small className="next-step">
-                  It will be marked automatically when the save records the
-                  achievement.
-                </small>
+                <small className="next-step">{t("web.achievements.itWillBeMarkedAutomaticallyWhenTheSaveRecords")}</small>
               )}
             </article>
           );
         })}
       </div>
       {!visible.length && (
-        <p className="empty-achievements">No achievements match this filter.</p>
+        <p className="empty-achievements">{t("web.achievements.noAchievementsMatchThisFilter")}</p>
       )}
-      <p className="history-help">
-        Standard achievements are read directly from the save. Steam-only
-        achievements outside the in-game menu are inferred when the save
-        contains a reliable signal. This panel reflects the selected save; Steam
-        may retain achievements earned in other saves.
-      </p>
+      <p className="history-help">{t("web.achievements.standardAchievementsAreReadDirectlyFromTheSaveSteam")}</p>
       </div>}
     </section>
   );
 }
 
 function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLCanvasElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const width = 920;
@@ -11196,7 +11539,7 @@ function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
         width={width}
         height={height}
         tabIndex={0}
-        aria-label="Balance and total earnings history. Move the pointer or use the arrow keys for exact values."
+        aria-label={t("web.economyChart.balanceAndTotalEarningsHistoryMoveThePointerOr")}
         onMouseMove={(event) => selectNearest(event.clientX)}
         onMouseLeave={() => setHoverIndex(null)}
         onFocus={() => setHoverIndex((index) => index ?? Math.max(0, entries.length - 1))}
@@ -11216,9 +11559,9 @@ function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
           style={{ left: `${hoverLeft}%` }}
           role="status"
         >
-          <strong>{formatGameDate(hovered)}</strong>
-          <span><i className="balance-key" />Balance <b>{hovered.money.toLocaleString("en-US")}g</b></span>
-          <span><i className="earned-key" />Total earnings <b>{hovered.totalMoneyEarned.toLocaleString("en-US")}g</b></span>
+          <strong>{formatGameDate(hovered, t)}</strong>
+          <span><i className="balance-key" />{t("web.growth.balance")}<b>{hovered.money.toLocaleString("en-US")}g</b></span>
+          <span><i className="earned-key" />{t("web.economyChart.totalEarnings")}<b>{hovered.totalMoneyEarned.toLocaleString("en-US")}g</b></span>
         </div>
       )}
     </div>
@@ -11234,6 +11577,7 @@ function Metric({
   value: string;
   delta?: number;
 }) {
+  const { t } = useI18n();
   return (
     <div className="metric-card">
       <span>{label}</span>
@@ -11241,8 +11585,7 @@ function Metric({
       {delta !== undefined && (
         <small className={delta >= 0 ? "positive" : "negative"}>
           {delta >= 0 ? "+" : "−"}
-          {Math.abs(delta).toLocaleString("en-US")}g since yesterday
-        </small>
+          {Math.abs(delta).toLocaleString("en-US")}{t("web.metric.gSinceYesterday")}</small>
       )}
     </div>
   );

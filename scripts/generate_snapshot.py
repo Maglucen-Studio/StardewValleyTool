@@ -586,6 +586,11 @@ def qualified_item_id(
     return f"({resolved}){item_id}" if resolved else item_id
 
 
+def localized_message(key: str, **variables: object) -> dict:
+    """Return semantic UI data; React owns wording, grammar, and interpolation."""
+    return {"key": key, **({"variables": variables} if variables else {})}
+
+
 def saved_item_qualifier(node: ET.Element, sprite_kind: str) -> str | None:
     item_type = node.attrib.get(XSI_TYPE, "Object")
     if item_type == "Clothing":
@@ -901,6 +906,7 @@ def item_artwork_catalog(root: ET.Element, game_data: dict | None = None) -> dic
                 saved_item_qualifier(node, sprite_details.get("spriteKind", "fallback")),
             ),
             "name": name,
+            "displayName": game_data.get("localizedObjectNamesByEnglish", {}).get(name, name),
             **sprite_details,
         }
         key = " ".join(name.casefold().split())
@@ -908,6 +914,18 @@ def item_artwork_catalog(root: ET.Element, game_data: dict | None = None) -> dic
         if current is None or entry.get("spriteKind") != "fallback":
             catalog[key] = entry
     return catalog
+
+
+def localized_names_by_qualified_id(catalog: dict[str, dict], game_data: dict) -> dict[str, str]:
+    """Resolve vanilla names once by qualified identity; unknown/modded names pass through."""
+    names_by_english = game_data.get("localizedObjectNamesByEnglish", {})
+    result = dict(game_data.get("localizedNamesByQualifiedId", {}))
+    result.update({
+        item["id"]: names_by_english.get(item["name"], item.get("displayName", item["name"]))
+        for item in catalog.values()
+        if item.get("id") and item.get("name")
+    })
+    return result
 
 
 def inventory_items(root: ET.Element, player: ET.Element, locations: ET.Element, game_data: dict | None = None) -> list[dict]:
@@ -931,6 +949,7 @@ def inventory_items(root: ET.Element, player: ET.Element, locations: ET.Element,
                 sprite_details.get("spriteKind", "fallback"),
                 saved_item_qualifier(node, sprite_details.get("spriteKind", "fallback")),
             ), "name": name,
+            "displayName": game_data.get("localizedObjectNamesByEnglish", {}).get(name, name),
             "category": number(node, "category", -999), "quality": number(node, "quality"),
             "count": stack, "source": source,
             **({"sourceDetail": source_detail} if source_detail else {}),
@@ -1257,7 +1276,7 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
     return {
         "communityCenter": community_center_status(root, available, money), "buildings": buildings, "crops": crops,
         "friendships": friendships, "pet": pet, "machines": machines,
-        "inventory": [{key: item[key] for key in ("id", "name", "count", "quality", "sources", "sourceCounts", "sourceDetails", "spriteKind", "spriteIndex", "spriteWidth", "spriteHeight") if key in item} for item in available],
+        "inventory": [{key: item[key] for key in ("id", "name", "displayName", "count", "quality", "sources", "sourceCounts", "sourceDetails", "spriteKind", "spriteIndex", "spriteWidth", "spriteHeight") if key in item} for item in available],
     }
 
 
@@ -1307,7 +1326,8 @@ def gift_options(person: str, available: list[dict], tastes: dict) -> dict:
     return result
 
 
-def quest_status(quest: ET.Element, available: list[dict], player: ET.Element) -> dict:
+def quest_status(quest: ET.Element, available: list[dict], player: ET.Element, game_data: dict | None = None) -> dict:
+    game_data = game_data or {}
     quest_type = quest.attrib.get(XSI_TYPE, "Quest")
     quest_id = number(quest, "id", -1)
     requested_id = qualified_item_id(quest.findtext("item") or quest.findtext("resource") or quest.findtext("fish") or "")
@@ -1317,13 +1337,13 @@ def quest_status(quest: ET.Element, available: list[dict], player: ET.Element) -
     checks_stock = quest_type == "ItemDeliveryQuest"
     if quest_type == "ResourceCollectionQuest":
         required, progress = number(quest, "number"), number(quest, "numberCollected")
-        stock_note = "Collection requests only count items gathered after accepting the quest; existing stock does not count."
+        stock_note = localized_message("quest.stock.resourceCollection")
     elif quest_type == "FishingQuest":
         required, progress = number(quest, "numberToFish"), number(quest, "numberFished")
-        stock_note = "You must catch it after accepting the request; stored fish do not increase the counter."
+        stock_note = localized_message("quest.stock.fishing")
     elif quest_type == "SlayMonsterQuest":
         required, progress = number(quest, "numberToKill"), number(quest, "numberKilled")
-        stock_note = "Progress comes from monsters defeated after accepting the request."
+        stock_note = localized_message("quest.stock.monsters")
     elif quest_type == "SocializeQuest":
         required, progress = number(quest, "total", 1), number(quest, "completed")
     else:
@@ -1337,38 +1357,35 @@ def quest_status(quest: ET.Element, available: list[dict], player: ET.Element) -
     ready = completed or progress >= required
     tips = []
     if quest_id == 7:
-        tips = [
-            "Visit Robin's Carpenter's Shop in the Mountain and choose Construct Farm Buildings.",
-            "A Coop costs 4,000g, 300 Wood, and 100 Stone. Clear a 6×3 footprint before ordering it.",
-            "Construction takes three days; Robin starts working the morning after you order it.",
-        ]
+        tips = [localized_message(f"quest.tip.coop{index}") for index in range(1, 4)]
     elif quest_id == 18:
         deepest = number(player, "deepestMineLevel")
         tips = [
-            f"You have reached mine level {deepest}; the objective completes at level 120.",
-            "Use the elevator every five floors so progress is permanent. Start early and prioritize ladders over clearing each floor.",
-            "Bring food without combat buffs for energy, plus separate buff food if available. A good-luck day improves ladder chances.",
+            localized_message("quest.tip.mine1", level=deepest),
+            localized_message("quest.tip.mine2"),
+            localized_message("quest.tip.mine3"),
         ]
     elif quest_type == "HaveBuildingQuest":
-        tips = ["Visit Robin in the Mountain with the required money and materials, then choose Construct Farm Buildings."]
+        tips = [localized_message("quest.tip.building")]
     elif quest_type == "ItemDeliveryQuest":
-        tips = ["Carry the requested item and speak directly to the requester. Giving it through the normal gift action completes the delivery."]
+        tips = [localized_message("quest.tip.delivery")]
     elif quest_type == "ResourceCollectionQuest":
-        tips = ["Gather the items after accepting the quest; existing chest stock does not advance the counter. Keep the collected items until you read the final objective."]
+        tips = [localized_message("quest.tip.collection")]
     elif quest_type == "FishingQuest":
-        tips = ["Only fish caught after accepting the quest count. Match the fish's season, weather, location, and time window."]
+        tips = [localized_message("quest.tip.fishing")]
     elif quest_type == "SlayMonsterQuest":
-        tips = ["Use the mine floors where that monster commonly appears, then check whether the final step asks you to report back to someone."]
+        tips = [localized_message("quest.tip.monsters")]
     elif quest_type == "SocializeQuest":
-        tips = ["Speak to every required villager once. Festival conversations may not count, so use ordinary town visits."]
+        tips = [localized_message("quest.tip.socialize")]
     else:
-        tips = ["Follow the current objective shown above. The journal updates automatically when the next step becomes available."]
+        tips = [localized_message("quest.tip.generic")]
+    localized_quest = game_data.get("localizedQuestsById", {}).get(str(quest_id), {})
     return {
         "accepted": True,
         "id": quest_id,
-        "title": quest.findtext("_questTitle", quest.findtext("questTitle", "Help Wanted")),
-        "description": quest.findtext("_questDescription", quest.findtext("questDescription", "")),
-        "objective": quest.findtext("_currentObjective", "Complete the request"),
+        "title": localized_quest.get("title") or quest.findtext("_questTitle", quest.findtext("questTitle", "Help Wanted")),
+        "description": localized_quest.get("description") or quest.findtext("_questDescription", quest.findtext("questDescription", "")),
+        "objective": localized_quest.get("objective") or quest.findtext("_currentObjective") or localized_message("quest.completeRequest"),
         "type": quest_type.removesuffix("Quest"),
         "daily": bool_value(quest, "dailyQuest"),
         "requester": quest.findtext("target", quest.findtext("requester")),
@@ -1383,9 +1400,9 @@ def quest_status(quest: ET.Element, available: list[dict], player: ET.Element) -
     }
 
 
-def accepted_quests_status(player: ET.Element, available: list[dict]) -> list[dict]:
+def accepted_quests_status(player: ET.Element, available: list[dict], game_data: dict | None = None) -> list[dict]:
     quests = [
-        quest_status(item, available, player)
+        quest_status(item, available, player, game_data)
         for item in player.findall("questLog/Quest")
         if not bool_value(item, "completed")
         and not bool_value(item, "destroy")
@@ -1443,7 +1460,7 @@ def special_orders_status(root: ET.Element, day_index: int, game_data: dict) -> 
     return orders
 
 
-def daily_quest_status(player: ET.Element, available: list[dict]) -> dict:
+def daily_quest_status(player: ET.Element, available: list[dict], game_data: dict | None = None) -> dict:
     quest = next((
         item for item in player.findall("questLog/Quest")
         if bool_value(item, "dailyQuest")
@@ -1452,11 +1469,11 @@ def daily_quest_status(player: ET.Element, available: list[dict]) -> dict:
         and number(item, "daysLeft") >= 0
     ), None)
     if quest is not None:
-        return quest_status(quest, available, player)
+        return quest_status(quest, available, player, game_data)
     return {
-        "accepted": False, "title": "No Help Wanted accepted",
-        "description": "There is no active daily request in your journal. The board card separately shows any notice available today.",
-        "objective": "Check the Help Wanted board", "type": "None", "requester": None,
+        "accepted": False, "title": localized_message("quest.noneAccepted"),
+        "description": localized_message("quest.noneDescription"),
+        "objective": localized_message("quest.checkBoard"), "type": "None", "requester": None,
         "reward": 0, "daysLeft": 0, "progress": 0, "target": 0,
         "ready": False, "owned": 0, "hasRequestedItems": False, "stock": [], "stockNote": None,
     }
@@ -1485,16 +1502,16 @@ def board_quest_status(save_path: Path, date_key: str, available: list[dict]) ->
     progress = min(required, owned) if checks_stock else int(raw.get("progress") or 0)
     stock_note = None
     if quest_type == "ResourceCollection":
-        stock_note = "Only items gathered after accepting the request count; existing stock does not increase the counter."
+        stock_note = localized_message("quest.stock.resourceCollection")
     elif quest_type == "Fishing":
-        stock_note = "You must catch it after accepting the request."
+        stock_note = localized_message("quest.stock.fishingShort")
     elif quest_type == "SlayMonster":
-        stock_note = "The counter starts after you accept the request."
+        stock_note = localized_message("quest.stock.monstersShort")
     return True, {
         "accepted": False, "available": True,
-        "title": raw.get("title") or "Help Wanted available",
-        "description": raw.get("description") or "A new request is posted on Pierre's board.",
-        "objective": raw.get("objective") or "Accept the notice to begin",
+        "title": raw.get("title") or localized_message("quest.available"),
+        "description": raw.get("description") or localized_message("quest.availableDescription"),
+        "objective": raw.get("objective") or localized_message("quest.acceptToBegin"),
         "type": quest_type, "requester": raw.get("requester"),
         "reward": int(raw.get("reward") or 0), "daysLeft": 0,
         "progress": progress, "target": required, "ready": checks_stock and owned >= required,
@@ -1567,6 +1584,35 @@ def fishing_brief(root: ET.Element, player: ET.Element, season: str, day: int, p
     }
 
 
+def farm_cave_collectibles(farm_cave: ET.Element | None, cave_choice: int) -> dict[str, int]:
+    """Return only the cave reward that can actually be collected right now."""
+    collectibles: dict[str, int] = {}
+    if farm_cave is None or cave_choice not in {1, 2}:
+        return collectibles
+    cave_objects = farm_cave.find("objects")
+    for item in cave_objects if cave_objects is not None else []:
+        obj = item.find("value/Object")
+        if obj is None:
+            continue
+        collectible = None
+        if cave_choice == 1:
+            if not bool_value(obj, "isSpawnedObject"):
+                continue
+            collectible = obj
+        else:
+            if obj.findtext("name") != "Mushroom Box" or not bool_value(obj, "readyForHarvest"):
+                continue
+            held_container = obj.find("heldObject")
+            if held_container is not None:
+                held_object = held_container.find("Object")
+                collectible = held_object if held_object is not None else held_container
+        name = collectible.findtext("name") if collectible is not None else None
+        if not name:
+            continue
+        collectibles[name] = collectibles.get(name, 0) + number(collectible, "stack", 1)
+    return collectibles
+
+
 def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, season: str, day: int, year: int, day_index: int, save_path: Path) -> dict:
     try:
         game_data = json.loads(GAME_DATA.read_text(encoding="utf-8"))
@@ -1578,51 +1624,37 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
         if item.findtext("key/string") == "Default":
             tomorrow_weather = item.findtext("value/LocationWeather/WeatherForTomorrow", tomorrow_weather)
             break
-    weather_labels = {"Sun": "Sunny", "Rain": "Rain", "Storm": "Storm", "Snow": "Snow", "Wind": "Wind", "GreenRain": "Green Rain", "Festival": "Festival"}
-
     try:
         luck = float(root.findtext("dailyLuck", "0") or 0)
     except ValueError:
         luck = 0
-    if luck > .07:
-        luck_label = "The spirits are very happy: excellent luck."
-        luck_advice = "A great day to seek depth, treasure, and rare resources"
-        luck_recommendations = ["Ideal for descending many floors in The Mines or Skull Cavern: ladders and treasure rooms appear more easily.", "A good opportunity to fish for treasure chests, break rocks for geodes and coal, or use the Copper Pan."]
-    elif luck > .02:
-        luck_label = "The spirits are in good humor: favorable luck."
-        luck_advice = "Use the good luck in the mines or while fishing for chests"
-        luck_recommendations = ["Prioritize mining, fishing for chests, or panning if they were already in your plans.", "It also slightly improves wood drops while chopping and a few uncommon rewards."]
-    elif luck < -.07:
-        luck_label = "The spirits are very displeased: very bad luck."
-        luck_advice = "Avoid a major expedition and focus on reliable tasks"
-        luck_recommendations = ["A good day to water, plant, organize chests, talk to villagers, build, or complete requests: those tasks barely depend on luck.", "If you enter the mines, expect more rocks per ladder and bring food; opening geodes today does not worsen their contents."]
-    elif luck < -.02:
-        luck_label = "The spirits are displeased: unfavorable luck."
-        luck_advice = "Farm work is more worthwhile than testing your luck today"
-        luck_recommendations = ["Leave Skull Cavern or an ambitious expedition for another day unless it is urgent.", "Use the day for farm work, socializing, processing items, or opening geodes: their contents do not depend on daily luck."]
-    else:
-        luck_label = "The spirits are neutral: normal luck."
-        luck_advice = "A neutral day: follow your plans without changing priorities"
-        luck_recommendations = ["There is no need to change your plans; any activity is reasonable.", "Luck affects mines, fishing chests, panning, garbage cans, and some drops, but not normal crop quality or geode contents."]
+    luck_tier = "excellent" if luck > .07 else "favorable" if luck > .02 else "veryBad" if luck < -.07 else "unfavorable" if luck < -.02 else "neutral"
+    luck_label = localized_message(f"today.luck.{luck_tier}.label")
+    luck_advice = localized_message(f"today.luck.{luck_tier}.advice")
+    luck_recommendations = [
+        localized_message(f"today.luck.{luck_tier}.recommendation1"),
+        localized_message(f"today.luck.{luck_tier}.recommendation2"),
+    ]
 
     tv = [
-        {"channel": "Weather Report", "title": f"Tomorrow: {weather_labels.get(tomorrow_weather, tomorrow_weather)}", "detail": "This forecast applies to Stardew Valley."},
-        {"channel": "Fortune Teller", "title": luck_label, "detail": f"Recorded daily luck: {luck:+.3f}. {luck_recommendations[0]}"},
+        {"id": "weather", "channel": localized_message("today.tv.weather.channel"), "title": localized_message("today.tv.weather.title", weather=localized_message(f"weather.{tomorrow_weather}")), "detail": localized_message("today.tv.weather.detail")},
+        {"id": "fortune", "channel": localized_message("today.tv.fortune.channel"), "title": luck_label, "detail": localized_message("today.tv.fortune.detail", luck=f"{luck:+.3f}")},
     ]
     tip = game_data.get("tipChannel", {}).get(str(day_index))
     if tip:
-        tv.append({"channel": "Livin' Off The Land", "title": "Tip of the day", "detail": tip})
+        tv.append({"id": "tips", "channel": localized_message("today.tv.tips.channel"), "title": localized_message("today.tv.tips.title"), "detail": tip})
     weekday = (day_index - 1) % 7
     if weekday == 6:
         season_index = {"spring": 0, "summer": 1, "fall": 2, "winter": 3}[season]
         recipe_number = ((year - 1) * 16 + season_index * 4 + (day - 1) // 7) % 32 + 1
         recipe = game_data.get("cookingChannel", {}).get(str(recipe_number), "")
         parts = recipe.split("/", 1)
-        tv.append({"channel": "The Queen of Sauce", "title": parts[0] if parts else "New recipe", "detail": parts[1] if len(parts) > 1 else "A new recipe is airing."})
+        tv.append({"id": "queen", "channel": localized_message("today.tv.queen.channel"), "title": parts[0] if parts else localized_message("today.tv.queen.newRecipe"), "detail": parts[1] if len(parts) > 1 else localized_message("today.tv.queen.newRecipeDetail")})
     elif weekday == 2:
-        tv.append({"channel": "The Queen of Sauce", "title": "Rerun", "detail": "An earlier recipe that you may not know is airing today."})
+        tv.append({"id": "queen", "channel": localized_message("today.tv.queen.channel"), "title": localized_message("today.tv.queen.rerun"), "detail": localized_message("today.tv.queen.rerunDetail")})
 
-    # Proper names are preserved exactly as they appear in the English game.
+    # User-authored and modded names remain untouched unless the local game
+    # provides a qualified vanilla identity for them.
     item_names: dict[str, str] = {}
     location_names = {"Farm": "Farm", "Town": "Town", "Beach": "Beach", "Mountain": "Mountain", "Forest": "Cindersap Forest", "BusStop": "Bus Stop", "Backwoods": "Backwoods", "FarmCave": "Farm Cave"}
     visible_world_locations = set(location_names)
@@ -1673,26 +1705,17 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
             birthday_tomorrow.append((npc_id, character.get("displayName", npc_id)))
     available = inventory_items(root, player, locations, game_data)
     birthdays = []
-    for people, when in ((birthday_today, "Today"), (birthday_tomorrow, "Tomorrow")):
+    for people, when in ((birthday_today, "today"), (birthday_tomorrow, "tomorrow")):
         for person_id, display_name in people:
             if person_id:
                 birthdays.append({"id": person_id, "person": display_name, "when": when, "gifts": gift_options(person_id, available, game_data.get("giftTastes", {}))})
 
     farm_cave = next((location for location in locations if location.findtext("name") == "FarmCave"), None)
-    cave_items: dict[str, int] = {}
-    if farm_cave is not None:
-        cave_objects = farm_cave.find("objects")
-        for item in cave_objects if cave_objects is not None else []:
-            obj = item.find("value/Object")
-            if obj is None:
-                continue
-            original = obj.findtext("name", "Object")
-            translated = item_names.get(original, original)
-            cave_items[translated] = cave_items.get(translated, 0) + number(obj, "stack", 1)
     cave_choice = number(player, "caveChoice")
+    cave_items = farm_cave_collectibles(farm_cave, cave_choice)
     fruit_cave = {
         "unlocked": cave_choice > 0,
-        "type": "Fruit Bats" if cave_choice == 1 else "Mushrooms" if cave_choice == 2 else "Not selected",
+        "type": "fruitBats" if cave_choice == 1 else "mushrooms" if cave_choice == 2 else "notSelected",
         "count": sum(cave_items.values()),
         "items": [{"name": name, "count": count} for name, count in sorted(cave_items.items())],
     }
@@ -1716,12 +1739,11 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
 
     crops = crop_forecast(locations, season, day, year)
 
-    today_birthday = next((birthday for birthday in birthdays if birthday["when"] == "Today"), None)
-    tomorrow_birthday = next((birthday for birthday in birthdays if birthday["when"] == "Tomorrow"), None)
-    birthday_summary = f" · {today_birthday['person']}'s birthday" if today_birthday else f" · {tomorrow_birthday['person']}'s birthday tomorrow" if tomorrow_birthday else ""
+    today_birthday = next((birthday for birthday in birthdays if birthday["when"] == "today"), None)
+    tomorrow_birthday = next((birthday for birthday in birthdays if birthday["when"] == "tomorrow"), None)
     result = {
-        "weatherTomorrow": {"code": tomorrow_weather, "label": weather_labels.get(tomorrow_weather, tomorrow_weather)},
-        "luck": {"value": luck, "label": luck_label, "advice": luck_advice, "recommendations": luck_recommendations, "explanation": "Daily luck ranges from −0.100 to +0.100 and is not a direct percentage. It mainly affects ladders and resources from rocks, Skull Cavern treasure rooms, fishing chests, panning, garbage cans, and some drops. It does not change predetermined geode contents or normal crop quality."},
+        "weatherTomorrow": {"code": tomorrow_weather},
+        "luck": {"value": luck, "tier": luck_tier, "label": luck_label, "advice": luck_advice, "recommendations": luck_recommendations, "explanation": localized_message("today.luck.explanation")},
         "tv": tv,
         "world": world,
         "beach": list(beach_items.values()),
@@ -1729,8 +1751,8 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
         "fruitCave": fruit_cave,
         "toolUpgrade": tool_upgrade,
         "crops": crops,
-        "dailyQuest": daily_quest_status(player, available),
-        "acceptedQuests": accepted_quests_status(player, available),
+        "dailyQuest": daily_quest_status(player, available, game_data),
+        "acceptedQuests": accepted_quests_status(player, available, game_data),
         "specialOrders": special_orders_status(root, day_index, game_data),
         # The town board is introduced on Fall 2, Year 1. Accepted Qi orders
         # still appear above regardless of this flag when that later board exists.
@@ -1738,7 +1760,11 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
         "inventoryItemsChecked": len(available),
         # Beach forage already appears at the relevant stop in Today's route;
         # repeating only its type count in the greeting is noise, not a task.
-        "summary": f"{weather_labels.get(tomorrow_weather, tomorrow_weather)} tomorrow" + birthday_summary,
+        "summary": localized_message(
+            "today.summary.birthdayToday" if today_birthday else "today.summary.birthdayTomorrow" if tomorrow_birthday else "today.summary.weather",
+            weather=localized_message(f"weather.{tomorrow_weather}"),
+            **({"person": (today_birthday or tomorrow_birthday)["person"]} if today_birthday or tomorrow_birthday else {}),
+        ),
     }
     has_board_reading, board_quest = board_quest_status(save_path, f"{year}-{season}-{day:02d}", available)
     if has_board_reading:
@@ -1796,6 +1822,9 @@ def achievement_tracking(root: ET.Element, player: ET.Element, total_earned: int
             current: int | None = None, target: int | None = None, unit: str = "",
             inferred: bool = False, timing: str | None = None, next_step: str | None = None) -> None:
         done = save_id in earned_ids if save_id is not None else inferred
+        localized_achievement = game_data.get("localizedAchievementsById", {}).get(str(save_id), {}) if save_id is not None else {}
+        name = localized_achievement.get("name") or name
+        requirement = localized_achievement.get("requirement") or requirement
         achievements.append({
             "id": key, "name": name, "requirement": requirement, "category": category,
             "done": done, "current": current, "target": target, "unit": unit,
@@ -2113,11 +2142,12 @@ def read_snapshot(save_path: Path) -> dict:
     planning = planning_brief(root, player, locations, season, day, number(player, "money"), all_production_objects, game_data)
     planning["animals"] = farm_animals(locations)
     farmer_avatar = render_farmer_avatar(player, game_data, save_path)
+    artwork_catalog = item_artwork_catalog(root, game_data)
     return {
         "profileId": PROFILE_ID,
         "farmType": number(root, "whichFarm"),
         "farmName": root.findtext("player/farmName", "My Farm"),
-        "farmer": root.findtext("player/name", "Trispona"),
+        "farmer": root.findtext("player/name", ""),
         "farmerAvatar": farmer_avatar,
         "season": season,
         "seasonLabel": season_label,
@@ -2139,7 +2169,9 @@ def read_snapshot(save_path: Path) -> dict:
         "dailyBrief": daily_brief(root, player, locations, season, day, year, (year - 1) * 112 + season_index * 28 + day, save_path),
         "fishingBrief": fishing_brief(root, player, season, day, progress),
         "planningBrief": planning,
-        "itemArtworkCatalog": item_artwork_catalog(root, game_data),
+        "localizedNamesByQualifiedId": localized_names_by_qualified_id(artwork_catalog, game_data),
+        "localizedObjectNamesByEnglish": game_data.get("localizedObjectNamesByEnglish", {}),
+        "itemArtworkCatalog": artwork_catalog,
         "map": {"width": 80, "height": 65, "tileSize": 16, "blocked": []},
         "objects": objects,
         "interiors": interiors,
@@ -2287,34 +2319,34 @@ def update_history(snapshots: list[dict]) -> None:
             for building in entry.get("buildingStates", []):
                 old = previous_buildings.get(building.get("key"))
                 if old is None:
-                    annotations.append(f'{building.get("name", "Building")} added')
+                    annotations.append(localized_message("history.annotation.buildingAdded", building=building.get("name", "Building")))
                 elif building.get("complete") and not old.get("complete"):
-                    annotations.append(f'{building.get("name", "Building")} completed')
+                    annotations.append(localized_message("history.annotation.buildingCompleted", building=building.get("name", "Building")))
             bundle_delta = entry.get("completedBundles", 0) - previous.get("completedBundles", 0)
             if bundle_delta > 0:
-                annotations.append(f'{bundle_delta} bundle{"s" if bundle_delta != 1 else ""} completed')
+                annotations.append(localized_message("history.annotation.bundlesCompleted", count=bundle_delta))
             previous_achievements = set(previous.get("completedAchievements", []))
             annotations.extend(
-                f'Achievement: {name}'
+                localized_message("history.annotation.achievement", achievement=name)
                 for name in entry.get("completedAchievements", [])
                 if name not in previous_achievements
             )
             for tool, level in entry.get("toolLevels", {}).items():
                 if level > previous.get("toolLevels", {}).get(tool, 0):
                     tier = ["Basic", "Copper", "Steel", "Gold", "Iridium"][min(4, level)]
-                    annotations.append(f'{tool} upgraded to {tier}')
+                    annotations.append(localized_message("history.annotation.toolUpgraded", tool=tool, tier=tier))
             if entry["progress"].get("houseUpgradeLevel", 0) > previous["progress"].get("houseUpgradeLevel", 0):
-                annotations.append("Farmhouse upgraded")
+                annotations.append(localized_message("history.annotation.farmhouseUpgraded"))
             for skill in ("farming", "mining", "foraging", "fishing", "combat"):
                 if entry["progress"].get(skill, 0) > previous["progress"].get(skill, 0):
-                    annotations.append(f'{skill.title()} reached level {entry["progress"][skill]}')
+                    annotations.append(localized_message("history.annotation.skillLevel", skill=skill, level=entry["progress"][skill]))
             if entry["progress"].get("deepestMineLevel", 0) > previous["progress"].get("deepestMineLevel", 0):
-                annotations.append(f'Mines reached floor {entry["progress"]["deepestMineLevel"]}')
+                annotations.append(localized_message("history.annotation.mineFloor", floor=entry["progress"]["deepestMineLevel"]))
             old_friends = {item.get("id", item.get("name")): item for item in previous.get("friendships", [])}
             for friend in entry.get("friendships", []):
                 old_points = old_friends.get(friend.get("id", friend.get("name")), {}).get("points", 0)
                 if friend.get("points", 0) // 250 > old_points // 250:
-                    annotations.append(f'{friend.get("name", "Friendship")} reached {friend.get("points", 0) // 250} hearts')
+                    annotations.append(localized_message("history.annotation.friendshipHearts", friend=friend.get("name", "Friendship"), hearts=friend.get("points", 0) // 250))
             entry["annotations"] = annotations[:12]
         previous = entry
     history["farmName"] = farm_name
