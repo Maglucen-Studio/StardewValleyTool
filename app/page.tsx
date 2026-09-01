@@ -3630,11 +3630,11 @@ export default function Home() {
               )}
             </div>
             <details className="help-changelog">
-              <summary>{t("web.home.whatIsNewIn182")}</summary>
+              <summary>{t("web.home.whatIsNewIn190")}</summary>
               <ul>
-                <li>{t("web.home.farmInteriorAndChestPreviewsNowComeFromThe")}</li>
-                <li>{t("web.home.itemNamespacesArePreservedSoObjectsToolsClothingAnd")}</li>
-                <li>{t("web.home.liveDetectionNowRecoversAutomaticallyIfWindowsMissesA")}</li>
+                <li>{t("web.home.companionLocalizationNowFollowsStardewValleysConfiguredLanguage")}</li>
+                <li>{t("web.home.gameOwnedNamesResolveFromYourLocalGameDataAcrossEveryView")}</li>
+                <li>{t("web.home.farmSwitchingAndDesktopFeedbackNowShowLocalizedProgress")}</li>
               </ul>
             </details>
           </section>
