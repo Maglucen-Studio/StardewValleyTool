@@ -21,6 +21,7 @@ export type MessageDescriptor = {
 };
 type LocalizationPayload = {
   mode: AppLanguageMode;
+  gameCode: string;
   language: SupportedAppLanguage;
   locale: string;
   messages: Messages;
@@ -41,6 +42,7 @@ type DesktopLocalization = {
 
 const fallback: LocalizationPayload = {
   mode: "en",
+  gameCode: "en",
   language: "en",
   locale: "en-US",
   messages: english,
@@ -54,12 +56,13 @@ function localizationForLanguage(
   return language === "es"
     ? {
         mode,
+        gameCode: language,
         language: "es",
         locale: "es-ES",
         messages: spanish,
         fallbackMessages: english,
       }
-    : { ...fallback, mode };
+    : { ...fallback, mode, gameCode: language };
 }
 
 function browserLocalization(): LocalizationPayload {
@@ -73,6 +76,7 @@ function isLocalizationPayload(value: unknown): value is LocalizationPayload {
   const candidate = value as Partial<LocalizationPayload>;
   return (
     (candidate.language === "en" || candidate.language === "es") &&
+    typeof candidate.gameCode === "string" &&
     (candidate.mode === "game" || candidate.mode === "en" || candidate.mode === "es") &&
     typeof candidate.locale === "string" &&
     Boolean(candidate.messages) &&

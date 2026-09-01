@@ -1096,7 +1096,11 @@ type DesktopUpdates = {
     messages: Record<string, string>;
     fallbackMessages: Record<string, string>;
   }>;
-  setLanguageMode?: (mode: AppLanguageMode) => Promise<{ ok: boolean; changed?: boolean }>;
+  setLanguageMode?: (mode: AppLanguageMode) => Promise<{
+    ok: boolean;
+    changed?: boolean;
+    restarted?: boolean;
+  }>;
   getUpdateState: () => Promise<UpdateState>;
   checkForUpdates: () => Promise<UpdateState>;
   downloadUpdate: () => Promise<UpdateState>;
@@ -1634,7 +1638,7 @@ function drawBuildingSprite(
 }
 
 export default function Home() {
-  const { t, text, locale, mode: languageMode } = useI18n();
+  const { t, text, locale, language, gameCode, mode: languageMode } = useI18n();
   const appShellRef = useRef<HTMLElement>(null);
   const topbarRef = useRef<HTMLElement>(null);
   const [progressTabsTop, setProgressTabsTop] = useState(82);
@@ -2136,13 +2140,17 @@ export default function Home() {
     if (nextMode === languageMode || switchingLanguage) return;
     const desktop = (window as Window & { stardewDesktop?: DesktopUpdates }).stardewDesktop;
     if (!desktop?.setLanguageMode) return;
-    setSwitchingLanguage(true);
+    const nextLanguage = nextMode === "game"
+      ? (gameCode === "es" ? "es" : "en")
+      : nextMode;
+    const requiresRestart = nextLanguage !== language;
+    if (requiresRestart) setSwitchingLanguage(true);
     try {
       await desktop.setLanguageMode(nextMode);
     } catch (error) {
       setDataLoadError(error instanceof Error ? error.message : t("language.switchFailed"));
     } finally {
-      setSwitchingLanguage(false);
+      if (requiresRestart) setSwitchingLanguage(false);
     }
   };
 
