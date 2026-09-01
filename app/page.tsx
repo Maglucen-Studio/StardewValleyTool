@@ -12,6 +12,7 @@ import {
 } from "react";
 import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
+import { furnitureDestination } from "./furniture-layout.mjs";
 import { useI18n, type MessageDescriptor } from "./i18n";
 
 const APPLICATION_VERSION = packageMetadata.version;
@@ -60,6 +61,7 @@ type Interior = {
   width: number;
   height: number;
   background?: string;
+  foreground?: string;
   objects: FarmObject[];
   furniture: (Tile & {
     name: string;
@@ -67,6 +69,7 @@ type Interior = {
     sourceY?: number;
     sourceWidth?: number;
     sourceHeight?: number;
+    footprintHeight?: number;
   })[];
 };
 type Suggestion = Building & { id: string; kind: string; color: string };
@@ -108,7 +111,7 @@ type Snapshot = {
   interiors: Interior[];
   locationMaps?: Record<
     string,
-    { background: string; width: number; height: number }
+    { background: string; foreground?: string; width: number; height: number }
   >;
   suggestions: Suggestion[];
 };
@@ -4654,6 +4657,10 @@ function InteriorView({
     path: string;
     image: HTMLImageElement;
   } | null>(null);
+  const [foreground, setForeground] = useState<{
+    path: string;
+    image: HTMLImageElement;
+  } | null>(null);
   const size = 32;
 
   useEffect(() => {
@@ -4663,6 +4670,14 @@ function InteriorView({
     image.onload = () => setBackground({ path, image });
     image.src = path;
   }, [interior.background]);
+
+  useEffect(() => {
+    if (!interior.foreground) return;
+    const path = interior.foreground;
+    const image = new Image();
+    image.onload = () => setForeground({ path, image });
+    image.src = path;
+  }, [interior.foreground]);
 
   useEffect(() => {
     const element = canvas.current;
@@ -4751,8 +4766,7 @@ function InteriorView({
         entity.sourceHeight &&
         sprites.furniture
       ) {
-        const width = entity.sourceWidth * 2,
-          height = entity.sourceHeight * 2;
+        const destination = furnitureDestination(entity, size);
         sprite(
           ctx,
           sprites.furniture,
@@ -4762,7 +4776,7 @@ function InteriorView({
             entity.sourceWidth,
             entity.sourceHeight,
           ],
-          [px, py - Math.max(0, height - size), width, height],
+          destination,
         );
       } else {
         ctx.fillStyle = "#9a7048";
@@ -4780,6 +4794,11 @@ function InteriorView({
           py + size / 2,
         );
       }
+    }
+
+    const currentForeground = foreground;
+    if (currentForeground && currentForeground.path === interior.foreground) {
+      ctx.drawImage(currentForeground.image, 0, 0, element.width, element.height);
     }
 
     if (showGrid) {
@@ -4810,6 +4829,7 @@ function InteriorView({
     }
   }, [
     background,
+    foreground,
     interior,
     selected,
     showGrid,
@@ -5276,6 +5296,9 @@ function StorageLocationPreviewCanvas({
   const background = normalizedLocation === "Farm"
     ? current.locationMaps?.Farm?.background
     : interior?.background || extractedLocation?.background;
+  const foreground = normalizedLocation === "Farm"
+    ? undefined
+    : interior?.foreground || extractedLocation?.foreground;
   const mapWidth = normalizedLocation === "Farm"
     ? current.map.width
     : interior?.width || extractedLocation?.width;
@@ -5394,10 +5417,13 @@ function StorageLocationPreviewCanvas({
       }
       if (entity.type === "furniture") {
         const item = entity.item;
-        const px = item.x * TILE;
-        const py = item.y * TILE;
         if (item.sourceWidth && item.sourceHeight && sprites.furniture)
-          sprite(ctx, sprites.furniture, [item.sourceX || 0, item.sourceY || 0, item.sourceWidth, item.sourceHeight], [px, py - Math.max(0, item.sourceHeight - TILE)]);
+          sprite(
+            ctx,
+            sprites.furniture,
+            [item.sourceX || 0, item.sourceY || 0, item.sourceWidth, item.sourceHeight],
+            furnitureDestination(item, TILE),
+          );
         continue;
       }
       const item = entity.item;
@@ -5448,6 +5474,16 @@ function StorageLocationPreviewCanvas({
       aria-hidden="true"
     >
       <canvas ref={canvas} width={frameWidth * TILE} height={frameHeight * TILE} />
+      {foreground ? (
+        <span
+          className="storage-location-preview-foreground"
+          style={{
+            backgroundImage: `url("${foreground}")`,
+            backgroundSize: `${mapWidth * 12}px ${mapHeight * 12}px`,
+            backgroundPosition: `${-startX * 12}px ${-startY * 12}px`,
+          }}
+        />
+      ) : null}
     </span>
   );
 }
