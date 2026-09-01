@@ -337,7 +337,7 @@ function extractedAssetsAreStale(config, requiredAssets) {
   const extracted = readJson(gameData, {});
   if (
     extracted?._localization?.language !== localizationState(config).language ||
-    extracted?._localization?.catalogVersion !== 2
+    extracted?._localization?.catalogVersion !== 5
   )
     return true;
   return (

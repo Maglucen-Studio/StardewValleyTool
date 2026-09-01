@@ -100,6 +100,22 @@ const localizedObjectNamesByEnglish = Object.assign(
 );
 const localizedObjectNames = await unpackLocalized("Strings/Objects.xnb");
 const fish = await unpack("Data/Fish.xnb");
+const localizedAchievementRecords = await unpackLocalized("Data/Achievements.xnb");
+const localizedQuestRecords = await unpackLocalized("Data/Quests.xnb");
+const localizedAchievementsById = Object.fromEntries(
+  Object.entries(localizedAchievementRecords).map(([id, raw]) => {
+    const fields = String(raw).split("^");
+    const name = fields[0].replace(/\s+\([^)]*\)$/, "");
+    const requirement = (fields[1] || "").replace(/(\d)o\b/g, "$1g");
+    return [id, { name, requirement }];
+  }),
+);
+const localizedQuestsById = Object.fromEntries(
+  Object.entries(localizedQuestRecords).map(([id, raw]) => {
+    const fields = String(raw).split("/");
+    return [id, { title: fields[1] || "", description: fields[2] || "", objective: fields[3] || "" }];
+  }),
+);
 const localizedNamesByQualifiedId = Object.fromEntries(
   Object.entries(fish).flatMap(([id, raw]) => {
     const englishName = typeof raw === "string" ? raw.split("/", 1)[0] : "";
@@ -109,7 +125,7 @@ const localizedNamesByQualifiedId = Object.fromEntries(
 );
 
 const gameData = {
-  _localization: { language, locale, xnbSuffix, catalogVersion: 4 },
+  _localization: { language, locale, xnbSuffix, catalogVersion: 5 },
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
   craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),
@@ -122,6 +138,8 @@ const gameData = {
   objectNames: localizedObjectNames,
   localizedObjectNamesByEnglish,
   localizedNamesByQualifiedId,
+  localizedAchievementsById,
+  localizedQuestsById,
   specialOrderStrings: await unpackLocalized("Strings/SpecialOrderStrings.xnb"),
 };
 

@@ -60,8 +60,8 @@ test("planner includes live state, safe save reading, and decision support", asy
     ),
   ]);
   assert.match(page, /PlanningView/);
-  assert.match(page, /Priorities .*real time/);
-  assert.match(page, /Spoiler-free museum/);
+  assert.match(page, /t\("today\.section\.priorities"\)/);
+  assert.match(page, /t\("web\.achievements\.spoilerFreeMuseum"\)/);
   assert.match(page, /farmMap/);
   assert.match(localServer, /readerSave/);
   assert.doesNotMatch(localServer, /AINCRAD_SAVE:\s*saveFile/);
@@ -142,22 +142,22 @@ test("Buildings hides locked spoilers, uses local sprites, and leaves placement 
     ),
     readFile(new URL("../scripts/extract_game_data.mjs", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /Construction projects currently unlocked/);
+  assert.match(page, /t\("web\.planning\.constructionProjectsCurrentlyUnlocked"\)/);
   assert.match(page, /availableBuildings = plan\.buildings\.filter/);
   assert.match(page, /building\.available !== false/);
   assert.match(page, /<BuildingPreview name=\{building\.name\} catalog/);
   assert.match(styles, /\.building-catalog-artwork/);
-  assert.match(page, /Placement proposals remain in Map/);
+  assert.match(page, /t\("web\.planning\.thisTabOnlyShowsProjectsYourFarmerCanCurrently"\)/);
   assert.match(page, /"All", "Robin", "Upgrades", "Wizard", "Community"/);
   assert.match(page, /buildingCategories = \([\s\S]*?availableBuildings\.some/);
   assert.match(page, /\{buildingCategories\.map\(\(category\) => \(/);
   assert.match(page, /effectiveBuildingCategory = buildingCategories\.includes\(buildingCategory\)/);
-  assert.match(page, /Ready to order/);
-  assert.match(page, /Missing materials or requirements/);
-  assert.match(page, /Already completed/);
+  assert.match(page, /t\("building\.group\.ready\.title"\)/);
+  assert.match(page, /t\("building\.group\.missing\.title"\)/);
+  assert.match(page, /t\("building\.group\.completed\.title"\)/);
   assert.match(page, /stardew-tool-building-sort/);
-  assert.match(page, /Alphabetical/);
-  assert.match(page, /Cost: low to high/);
+  assert.match(page, /t\("crops\.sortAlphabetical"\)/);
+  assert.match(page, /t\("web\.planning\.costLowToHigh"\)/);
   for (const project of [
     "Silo",
     "Well",
@@ -195,16 +195,16 @@ test("friendship planning explains gift reactions and quality multipliers", asyn
     new URL("../app/page.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(page, /Friendship points per gift/);
-  assert.match(page, /Loved<\/b><em>\+80/);
-  assert.match(page, /Liked<\/b><em>\+45/);
-  assert.match(page, /Neutral<\/b><em>\+20/);
-  assert.match(page, /Disliked<\/b><em>−20/);
-  assert.match(page, /Hated<\/b><em>−40/);
-  assert.match(page, /Iridium ×1\.50/);
+  assert.match(page, /t\("web\.planning\.friendshipPointsPerGift"\)/);
+  assert.match(page, /t\("web\.planning\.loved"\)/);
+  assert.match(page, /t\("web\.planning\.liked"\)/);
+  assert.match(page, /t\("web\.planning\.neutral"\)/);
+  assert.match(page, /t\("web\.planning\.disliked"\)/);
+  assert.match(page, /t\("web\.planning\.hated"\)/);
+  assert.match(page, /t\("web\.planning\.iridium150"\)/);
   assert.match(
     page,
-    /Birthday gifts apply ×8 before the game rounds the points/,
+    /t\("web\.planning\.qualityDoesNotChangeNeutralDislikedOrHatedGifts"\)/,
   );
 });
 
@@ -218,7 +218,7 @@ test("daily priorities name every ready machine output and bundle delivery", asy
   assert.match(page, /`\$\{count\}× \$\{label\}`/);
   assert.match(
     page,
-    /`\$\{formatBundleRequirement\(item\)\} → \$\{item\.room\} · \$\{item\.bundle\}`/,
+    /formatBundleRequirement\(item, t, locale\).*communityRoomName\(item\.roomId, t\).*communityBundleName\(item\.bundleId/s,
   );
   assert.doesNotMatch(page, /readyMachines\.slice\(0, 3\)/);
 });
@@ -236,13 +236,13 @@ test("proposals are isolated per farm and support an explicit edit workflow", as
     ),
     readFile(new URL("../.gitignore", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /Edit proposals/);
-  assert.match(page, /Undo last proposal change/);
+  assert.match(page, /t\("map\.editProposals"\)/);
+  assert.match(page, /t\("web\.home\.undoLastProposalChange"\)/);
   assert.match(page, /setMovingProposalId/);
   assert.match(page, /localSuggestions\.filter\(\(item\) => item\.id !== proposal\.id\)/);
-  assert.match(page, /Already built elsewhere\?/);
-  assert.match(page, /Completed elsewhere:/);
-  assert.match(page, /Reopen proposal/);
+  assert.match(page, /t\("web\.home\.alreadyBuiltElsewhere"\)/);
+  assert.match(page, /t\("map\.proposal\.completedElsewhere"/);
+  assert.match(page, /t\("web\.home\.reopenProposal"\)/);
   assert.match(preferences, /proposalLinks/);
   assert.match(preferences, /"farms", profileId, "preferences\.json"/);
   assert.match(preferences, /incoming\.suggestions/);
@@ -285,13 +285,13 @@ test("map layers collapse and interiors use an interactive sprite canvas", async
   );
   assert.match(
     page,
-    /if \(!data\) return <main className="loading">Preparing your farm/,
+    /if \(!data\) return <main className="loading">\{t\("web\.home\.preparingYourFarm"\)\}/,
   );
   assert.doesNotMatch(page, /if \(!data \|\| !sprites\)/);
-  assert.match(page, /Farm visuals could not be prepared/);
+  assert.match(page, /t\("web\.home\.farmVisualsCouldNotBePrepared"\)/);
   assert.match(
     page,
-    /Click any interior tile to inspect objects, furniture, and production/,
+    /t\("map\.clickInteriorTile"\)/,
   );
   assert.match(page, /activeView === "map" \? "" : "view-hidden"/);
   assert.match(page, /activeView !== "map" && \(activeView === "fishing"/);
@@ -337,17 +337,17 @@ test("crop planning explains the one-tile simulation and its assumptions", async
     new URL("../app/page.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(page, /Planting guide for today/);
-  assert.match(page, /If you plant one seed on/);
-  assert.match(page, /Latest safe planting day/);
-  assert.match(page, /Base-quality crops sold raw minus the seed cost/);
+  assert.match(page, /t\("web\.planning\.plantingGuideForToday"\)/);
+  assert.match(page, /t\("planning\.plantOnDate"/);
+  assert.match(page, /t\("web\.planning\.latestSafePlantingDay"\)/);
+  assert.match(page, /t\("web\.planning\.baseQualityCropsSoldRawMinusTheSeedCost"\)/);
   assert.match(
     page,
-    /Fertilizer, Speed-Gro, professions, processing, or missed watering/,
+    /t\("web\.planning\.fertilizerSpeedGroProfessionsProcessingOrMissedWatering"\)/,
   );
   assert.match(
     page,
-    /Every possible regrowth before the season ends is included/,
+    /t\("web\.planning\.everyPossibleRegrowthBeforeTheSeasonEndsIsIncluded"\)/,
   );
   assert.match(page, /stardew-tool-planted-crop-sort/);
   assert.match(page, /t\("crops\.sortQuantity"\)/);
@@ -547,7 +547,7 @@ test("update checks always show immediate and final feedback", async () => {
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
   assert.match(page, /status: "checking"/);
-  assert.match(page, /Checking GitHub for a newer version/);
+  assert.match(page, /t\("update\.checking"\)/);
   assert.match(page, /className=\{`update-feedback/);
   assert.match(page, /role="status"/);
   assert.match(page, /status: "error"/);
@@ -667,8 +667,8 @@ test("live mode avoids recursive copies and recovers from missed filesystem even
   assert.match(bridge, /cachedMachines/);
   assert.match(desktop, /liveStateAgeSeconds/);
   assert.match(desktop, /bridgeDllFound/);
-  assert.match(page, /Bridge output/);
-  assert.match(page, /Not created for this save/);
+  assert.match(page, /t\("web\.home\.bridgeOutput"\)/);
+  assert.match(page, /t\("diagnostics\.notCreated"\)/);
 });
 
 test("Today lists every active journal quest with opt-in spoiler guidance", async () => {
@@ -687,8 +687,8 @@ test("Today lists every active journal quest with opt-in spoiler guidance", asyn
   assert.match(generator, /today\.summary\.birthdayToday/);
   assert.match(generator, /quest_id == 7/);
   assert.match(generator, /quest_id == 18/);
-  assert.match(page, /<h2>Accepted quests<\/h2>/);
-  assert.match(page, /Show guidance and possible spoilers/);
+  assert.match(page, /<h2>\{t\("web\.dailyBrief\.acceptedQuests"\)\}<\/h2>/);
+  assert.match(page, /t\("web\.dailyBrief\.showGuidanceAndPossibleSpoilers"\)/);
   assert.match(page, /acceptedQuests\.map/);
   assert.match(styles, /\.accepted-quest-list/);
   assert.match(styles, /\.quest-spoilers/);
@@ -716,7 +716,7 @@ test("Today presents summary, priorities, changes, journal, and route in decisio
   assert.match(page, /world-\$\{season\}\.png/);
   assert.match(page, /function worldMapRegion/);
   assert.match(page, /function worldMapCrop/);
-  assert.match(page, /id: "live-map", label: "Current LIVE map"/);
+  assert.match(page, /id: "live-map", label: t\("today\.section\.liveMap"\)/);
   assert.match(page, /visibleSections\["live-map"\] && live\.active/);
   assert.doesNotMatch(page, /\{live\.active && <LiveWorldMap live=\{live\} season=\{current\.season\} \/>\}/);
   assert.match(page, /island\|volcano/);
@@ -760,8 +760,8 @@ test("Today and both Progress pages persist visible sections and their order", a
   assert.match(page, /stardew-tool-visible-sections-today-v1/);
   assert.match(page, /stardew-tool-visible-sections-growth-v1/);
   assert.match(page, /stardew-tool-visible-sections-achievements-v1/);
-  assert.match(page, /Move \$\{option\.label\} up/);
-  assert.match(page, /Move \$\{option\.label\} down/);
+  assert.match(page, /t\("sections\.moveUp"/);
+  assert.match(page, /t\("sections\.moveDown"/);
   assert.match(page, /window\.localStorage\.setItem\(storageKey, JSON\.stringify\(next\)\)/);
   assert.match(styles, /\.section-visibility-panel/);
   assert.match(styles, /\.section-order-buttons/);
@@ -777,13 +777,13 @@ test("route checks distinguish manual decisions from reversible LIVE completion"
   assert.match(page, /automaticallyCompletedWorld/);
   assert.match(page, /const automaticallyCompletedWorld = useMemo\(\(\) => \{/);
   assert.match(page, /if \(!live\.active \|\| !live\.routeState\) return \[\]/);
-  assert.match(page, /Completed automatically from LIVE/);
-  assert.match(page, /Completed manually/);
+  assert.match(page, /t\("today\.route\.completedLive"\)/);
+  assert.match(page, /t\("today\.route\.completedManual"\)/);
   assert.match(page, /disabled=\{automatic\}/);
   assert.match(page, /currentRouteLocation/);
   assert.match(page, /liveWorldItems\.get\(location\.location\)/);
   assert.match(page, /route-player-marker/);
-  assert.match(page, /You are here/);
+  assert.match(page, /t\("today\.route\.youAreHere", \{ time:/);
   assert.match(page, /name=\{birthday\.id \|\| birthday\.person\}/);
 });
 
@@ -821,7 +821,7 @@ test("Today bundle priorities open the Community Center plan", async () => {
   );
   assert.match(page, /action: "community" as const/);
   assert.match(page, /onClick=\{onOpenCommunityCenter\}/);
-  assert.match(page, /open Plan, Community Center/);
+  assert.match(page, /t\("today\.openCommunity"/);
 });
 
 test("Community Center rooms show local artwork and their completion rewards", async () => {
@@ -851,8 +851,8 @@ test("Community Center rooms show local artwork and their completion rewards", a
   assert.match(page, /function CommunityRoomArtwork/);
   assert.match(page, /assets\/community-rooms/);
   assert.match(page, /room\.completed >= room\.total \? "complete" : "ruined"/);
-  assert.match(page, /Room completion reward/);
-  assert.match(page, /room\.reward \|\| communityRoomRewards\[room\.id\]/);
+  assert.match(page, /t\("community\.completionReward"\)/);
+  assert.match(page, /communityRoomReward\(room\.id, t\)/);
   assert.match(styles, /\.community-room-artwork/);
   assert.match(desktop, /"community-rooms",\s*"Pantry-ruined\.png"/);
   assert.match(desktop, /"community-rooms",\s*"Pantry-complete\.png"/);
@@ -903,17 +903,17 @@ test("Friendship planning includes the pet, available gifts, sorting, and Grandp
   assert.match(page, /const VANILLA_FRIENDSHIP_NPCS = new Set/);
   assert.match(page, /plan\.friendships\.filter\(isVanillaFriend\)/);
   assert.match(page, /savedFriendships\s*\.map/);
-  assert.match(page, /Name A-Z/);
-  assert.match(page, /value="friendship">Friendship/);
+  assert.match(page, /t\("web\.planning\.nameAZ"\)/);
+  assert.match(page, /value="friendship">\{t\("web\.planning\.friendship"\)\}/);
   assert.match(page, /setExpandedFriend\(expanded \? null : friend\.name\)/);
-  assert.match(page, /Loved and available/);
-  assert.match(page, /Year 3, Spring 1 projection/);
+  assert.match(page, /t\("friendship\.lovedAvailable"\)/);
+  assert.match(page, /t\("web\.planning\.year3Spring1Projection"\)/);
   assert.match(page, /friend-card-projection/);
-  assert.match(page, /♥ by Grandpa/);
-  assert.match(page, /No projection yet/);
-  assert.match(page, /Talked today/);
-  assert.match(page, /Gift given today/);
-  assert.match(page, /2 this week/);
+  assert.match(page, /t\("friendship\.projection\.grandpa"/);
+  assert.match(page, /t\("friendship\.projection\.none"\)/);
+  assert.match(page, /t\("friendship\.talked"\)/);
+  assert.match(page, /t\("friendship\.giftToday"\)/);
+  assert.match(page, /t\("web\.planning\.2ThisWeek"\)/);
   assert.match(
     page,
     /<NpcArtwork name=\{friend\.id \|\| friend\.name\} kind="sprite"/,
@@ -1257,7 +1257,7 @@ test("farm proposals may replace natural features but not placed machines", asyn
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /object\.kind === "Litter" \|\| object\.name === "Artifact Spot"/);
   assert.match(page, /\["Tree", "FruitTree"\]\.includes\(feature\.kind\)/);
-  assert.match(page, /The footprint contains a placed object or machine/);
+  assert.match(page, /t\("map\.error\.placedObject"\)/);
   assert.doesNotMatch(page, /Trees or crops must be removed first/);
   assert.doesNotMatch(page, /A large obstacle must be removed first/);
 });
@@ -1278,7 +1278,7 @@ test("proposal editing shows building sprites in the palette and at the cursor",
   assert.match(page, /catalog \? "building-catalog-artwork" : "tool-preview"/);
   assert.match(page, /movingProposalId[\s\S]*drawBuildingSprite\(ctx, sprites/);
   assert.match(page, /onContextMenu=\{openProposalMenu\}/);
-  assert.match(page, /Delete proposal/);
+  assert.match(page, /t\("web\.home\.deleteProposal"\)/);
 });
 
 test("Map side columns are resizable and remember their widths", async () => {
@@ -1317,8 +1317,8 @@ test("feedback links prefill a safe structured GitHub issue", async () => {
   assert.match(page, /## Steps to reproduce/);
   assert.match(page, /## What would you like to improve\?/);
   assert.match(page, /No paths, usernames, or save contents are included/);
-  assert.match(page, /Report a problem/);
-  assert.match(page, /Suggest an improvement/);
+  assert.match(page, /t\("web\.home\.reportAProblem"\)/);
+  assert.match(page, /t\("web\.home\.suggestAnImprovement"\)/);
   assert.doesNotMatch(feedbackBuilder, /profileId/);
   assert.match(desktop, /osVersion: osRelease\(\)/);
   assert.match(desktop, /architecture: process\.arch/);
@@ -1351,7 +1351,7 @@ test("Today uses LIVE quest and farm progress instead of stale save priorities",
   assert.match(page, /live\.farmMap\.terrain\.filter/);
   assert.match(page, /liveReadyBundleDeliveries/);
   assert.match(page, /summarizeReadyLiveMachines/);
-  assert.match(page, /Harvest \$\{readyCrops\}/);
+  assert.match(page, /t\("today\.priority\.harvestCrops", \{ count: readyCrops \}\)/);
   assert.doesNotMatch(
     page,
     /const displayedQuest = brief\.boardQuest \?\? liveDailyQuest/,
@@ -1436,12 +1436,12 @@ test("Production counts functional machines, interiors, live storage, and action
     /entry\["idle"\] \+= 1 if not obj\.get\("ready"\) and not obj\.get\("processing"\)/,
   );
   assert.match(generator, /"readyOutputs"/);
-  assert.match(page, /What to collect and refill/);
+  assert.match(page, /t\("web\.planning\.whatToCollectAndRefill"\)/);
   assert.match(page, /summarizeLiveMachines/);
   assert.match(page, /kind=\{isCrabPot \? "object" : "craftable"\}/);
-  assert.match(page, /Current machines and Crab Pots/);
+  assert.match(page, /t\("web\.planning\.currentMachinesAndCrabPots"\)/);
   assert.match(page, /legacyCraftableSpriteIndex/);
-  assert.match(page, /\{idle\} idle/);
+  assert.match(page, /\{idle\}\{t\("web\.planning\.idle"\)\}/);
   assert.match(page, /savedChestInventory/);
   assert.match(page, /Backpack · LIVE/);
   assert.match(bridge, /pair\.Value is Chest/);
@@ -1466,8 +1466,8 @@ test("Grandpa forecast separates projected milestones from points confirmed toda
     /forecast: item\.done \? \("achieved" as const\) : projected \? \("projected" as const\) : \("not-projected" as const\)/,
   );
   assert.match(page, /forecastMilestonePoints/);
-  assert.match(page, /Projected at your current pace/);
-  assert.match(page, /Compared with <b>\{formatGameDate\(previousSnapshot, t\)\}/);
+  assert.match(page, /t\("growth\.status\.projectedPace"\)/);
+  assert.match(page, /t\("web\.growth\.comparedWith"\)/);
   assert.match(page, /scoreEvents\.map/);
   assert.match(page, /<GrandpaShrineArtwork candles=\{projectedCandles\} \/>/);
   assert.match(page, /Grandpa%20Shrine%20Scene\.png/);
@@ -1488,7 +1488,7 @@ test("Grandpa forecast separates projected milestones from points confirmed toda
 });
 
 test("Farm, Plan, and Progress share storage, goals, history, and completion data", async () => {
-  const [page, styles, preferences, generator, extractor, bridge] = await Promise.all([
+  const [page, styles, preferences, generator, extractor, bridge, desktop] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/api/preferences/route.ts", import.meta.url), "utf8"),
@@ -1498,6 +1498,7 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
       new URL("../bridge/StardewValleyToolBridge/ModEntry.cs", import.meta.url),
       "utf8",
     ),
+    readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
   ]);
   assert.match(page, /\["storage", t\("planning\.storage"\)\]/);
   assert.match(page, /className="storage-dashboard"/);
@@ -1525,7 +1526,13 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 4/);
+  assert.match(extractor, /catalogVersion: 5/);
+  assert.match(desktop, /catalogVersion !== 5/);
+  assert.match(extractor, /Data\/Achievements\.xnb/);
+  assert.match(extractor, /replace\(\/\(\\d\)o\\b\/g, "\$1g"\)/);
+  assert.match(extractor, /Data\/Quests\.xnb/);
+  assert.match(generator, /localizedAchievementsById/);
+  assert.match(generator, /localizedQuestsById/);
   assert.match(extractor, /localizedNamesByQualifiedId/);
   assert.match(generator, /def localized_message\(/);
   assert.match(generator, /today\.luck\.\{luck_tier\}/);
@@ -1554,15 +1561,15 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(page, /\["goals", t\("planning\.goals"\)\]/);
   assert.match(page, /className="goal-planner"/);
   assert.match(page, /\.\.\.constructionTargets,\s*\.\.\.toolTargets,\s*\.\.\.craftingTargets,\s*\.\.\.bundleTargets/s);
-  assert.match(page, /Link a construction, tool, recipe, or bundle/);
+  assert.match(page, /t\("web\.planning\.linkAConstructionToolRecipeOrBundle"\)/);
   assert.match(page, /const commonCraftingGoals = \[/);
   assert.match(page, /function GoalRequirements/);
   assert.match(page, /function ItemMentionArtwork/);
   assert.match(page, /catalog\[itemArtworkKey\(name\)\]/);
   assert.match(page, /<ItemMentionArtwork\s+id=\{requirement\.id\}\s+name=\{requirement\.name\}/);
   assert.match(page, /<ItemMentionArtwork\s+id=\{item\.id\}\s+name=\{item\.name\}/);
-  assert.match(page, /Everything required for this goal/);
-  assert.match(page, /requirementsLabel: `Choose \$\{needed\} of these remaining options`/);
+  assert.match(page, /t\("goal\.everythingRequired"\)/);
+  assert.match(page, /requirementsLabel: t\("goal\.bundle\.choose", \{ count: needed \}\)/);
   assert.match(page, /<GoalRequirements target=\{selectedTarget\}/);
   assert.match(page, /<GoalRequirements target=\{target\} compact/);
   assert.match(styles, /\.goal-requirements ul \{/);
@@ -1571,9 +1578,9 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(preferences, /Array\.isArray\(incoming\.goals\)/);
   assert.doesNotMatch(page, /Compare any two recorded days/);
   assert.match(page, /<details className="history-timeline"/);
-  assert.match(page, /Automatic history annotations/);
+  assert.match(page, /t\("web\.growth\.automaticHistoryAnnotations"\)/);
   assert.match(page, /className="completion-explorer"/);
-  assert.match(page, /Collections & Achievements/);
+  assert.match(page, /t\("web\.home\.collectionsAchievements"\)/);
   assert.match(styles, /\.storage-results \{/);
   assert.match(styles, /\.storage-container-groups \{/);
   assert.match(styles, /\.storage-container-artwork/);
@@ -1597,8 +1604,10 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
 test("game-owned names are localized once for every snapshot-backed view", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /function resolveGameDisplayName\(/);
-  assert.match(page, /englishTemplate\.includes\("\{0\}"\)/);
-  assert.match(page, /normalizedInternalName/);
+  assert.match(page, /const gameNameIndexes = new WeakMap/);
+  assert.match(page, /function gameNameIndex\(/);
+  assert.match(page, /index\.normalized\.get\(normalizedGameName\(candidate\)\)/);
+  assert.doesNotMatch(page, /const localizeEnglishName[^}]+Object\.entries\(byEnglish\)/s);
   assert.match(page, /replace\(\/\\bL\\\.\\s\*\/g, "Large "\)/);
   assert.match(page, /const identityName = qualifiedId \? byId\[qualifiedId\]/);
   assert.match(page, /"\(O\)174": "gameName\.largeEggWhite"/);
@@ -1618,6 +1627,8 @@ test("game-owned names are localized once for every snapshot-backed view", async
   assert.match(page, /material\.displayName \|\| material\.name/);
   assert.match(page, /machine\.displayName \|\| machine\.name/);
   assert.match(page, /snapshot = localizeSnapshotGameNames\(snapshot, t\)/);
+  assert.match(page, /if \(document\.hidden \|\| loadingLatest\) return Promise\.resolve\(\)/);
+  assert.match(page, /\.finally\(\(\) => \{\s*loadingLatest = false;/);
   assert.match(page, /localizeSnapshotGameNames\(\{ \.\.\.snapshot, seasonLabel:/);
   assert.match(page, /live\.routeState\?\.worldTasks/);
   assert.match(page, /item\.displayName \|\| resolveGameDisplayName\(/);
@@ -1719,17 +1730,17 @@ test("development, LIVE help, storage locating, and unlocked weekly orders are d
     readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
   ]);
   assert.match(page, /development-badge/);
-  assert.match(page, /LIVE MAP/);
+  assert.match(page, /t\("shell\.liveMapAt"/);
   assert.match(page, /onMouseEnter=\{openLivePanel\}/);
   assert.match(page, /onMouseLeave=\{closeLivePanelSoon\}/);
-  assert.match(page, /Hover to preview save and LIVE data/);
+  assert.match(page, /t\("web\.home\.hoverToPreviewSaveAndLIVEData"\)/);
   assert.match(styles, /\.live-data-panel \{[^}]*z-index: 90/s);
   assert.match(page, /function ItemLocationDialog/);
   assert.match(page, /document\.addEventListener\("click", locate\)/);
   assert.match(page, /document\.removeEventListener\("click", locate\)/);
   assert.match(page, /closest\("button, a, summary, input, select, textarea, \[role='button'\]"\)/);
   assert.match(page, /closest<HTMLElement>\([\s\S]*?"\[data-storage-item\]"/);
-  assert.match(page, /Click an item card/);
+  assert.match(page, /t\("web\.home\.clickAnItemCardToSeeWhereItIs"\)/);
   assert.match(styles, /\.item-locator-dialog/);
   assert.match(page, /stardew-tool-storage-view/);
   assert.match(page, /stardew-tool-storage-location/);
@@ -1754,7 +1765,7 @@ test("main navigation shortcuts and route item artwork are visible and safe", as
   assert.match(page, /input, select, textarea, \[contenteditable='true'\]/);
   assert.match(page, /\{t\("nav\.today"\)\} <kbd>1<\/kbd>/);
   assert.match(page, /\{t\("nav\.progress"\)\} <kbd>6<\/kbd>/);
-  assert.match(page, /<h3>Quick controls<\/h3>/);
+  assert.match(page, /<h3>\{t\("web\.home\.quickControls"\)\}<\/h3>/);
   assert.match(page, /displayedItems\.map\([\s\S]*?<ItemMentionArtwork name=\{item\.name\}/);
   assert.match(styles, /\.world-items \.item-mention-artwork \{[^}]*width: 28px;[^}]*height: 28px;/s);
   assert.match(styles, /\.world-items \.item-mention-artwork > \.sheet-artwork \{[^}]*left: 50%;[^}]*top: 50%;[^}]*translate\(-50%, -50%\) scale\(0\.75\)/s);
@@ -1768,8 +1779,8 @@ test("Progress exploration is interactive, searchable, and permanently anchored"
     readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
   ]);
   assert.match(page, /event\.key\.toLowerCase\(\) === "f"/);
-  assert.match(page, /Search the companion/);
-  assert.match(page, /Owned item · show its backpack or chest location/);
+  assert.match(page, /t\("web\.home\.searchTheCompanion"\)/);
+  assert.match(page, /t\("search\.ownedItemDetail"\)/);
   assert.match(styles, /\.app-search-dialog/);
   assert.match(page, /className=\{`economy-chart-tooltip/);
   assert.match(page, /onMouseMove=\{\(event\) => selectNearest\(event\.clientX\)\}/);
@@ -1791,8 +1802,8 @@ test("long-term collection cards open exact missing-item checklists", async () =
     readFile(new URL("../bridge/StardewValleyToolBridge/ModEntry.cs", import.meta.url), "utf8"),
   ]);
   assert.match(page, /onClick=\{\(\) => setOpenCollectionId\(card\.id\)\}/);
-  assert.match(page, /aria-label=\{`Open missing items for \$\{card\.label\}`\}/);
-  assert.match(page, /aria-label=\{`Missing items for \$\{openCollection\.label\}`\}/);
+  assert.match(page, /aria-label=\{t\("collection\.openMissing"/);
+  assert.match(page, /aria-label=\{t\("collection\.missingFor"/);
   assert.match(page, /className="collection-checklist"/);
   assert.match(page, /if \(event\.key === "Escape"\) setOpenCollectionId\(null\)/);
   assert.match(page, /missingMuseum/);
@@ -1800,7 +1811,7 @@ test("long-term collection cards open exact missing-item checklists", async () =
   assert.match(page, /missingBundles/);
   assert.match(page, /live\.collections\?\.shipping/);
   assert.match(page, /current\.collectionBrief\?\.shipping/);
-  assert.match(page, /Not shipped yet/);
+  assert.match(page, /t\("collection\.shipping\.notShipped"\)/);
   assert.match(page, /current\.collectionBrief\?\.cooking/);
   assert.match(page, /current\.collectionBrief\?\.crafting/);
   assert.match(styles, /\.completion-card:hover/);
@@ -1822,8 +1833,8 @@ test("daily completion, LIVE alerts, wiki links, and history intelligence share 
     readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
     readFile(new URL("../bridge/StardewValleyToolBridge/ModEntry.cs", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /What can I complete today\?/);
-  assert.match(page, /What changed since my last session\?/);
+  assert.match(page, /t\("web\.dailyBrief\.whatCanICompleteToday"\)/);
+  assert.match(page, /t\("web\.dailyBrief\.whatChangedSinceMyLastSession"\)/);
   assert.match(page, /function deriveLiveAlerts/);
   assert.match(page, /stardew-tool-live-alerts/);
   assert.match(page, /<LiveAlertCenter/);
@@ -1832,7 +1843,7 @@ test("daily completion, LIVE alerts, wiki links, and history intelligence share 
   assert.match(page, /<WikiLink name=\{fish\.name\}/);
   assert.match(page, /<WikiLink name=\{building\.name\}/);
   assert.match(page, /<WikiLink name=\{friend\.name\}/);
-  assert.match(page, /Automatic history annotations/);
+  assert.match(page, /t\("web\.growth\.automaticHistoryAnnotations"\)/);
   assert.match(styles, /\.live-alert-dialog/);
   assert.match(styles, /\.completable-grid/);
   assert.match(styles, /\.history-event-list/);
@@ -1862,7 +1873,7 @@ test("navigation history supports header controls, keyboard shortcuts, and mouse
   assert.match(page, /window\.addEventListener\("mousedown", mouseHistoryShortcut, true\)/);
   assert.match(page, /lastHardwareNavigationRef/);
   assert.match(page, /onNavigateSection=\{\(section\) => navigateTo/);
-  assert.match(page, /mouse Back\/Forward buttons revisit sections and sub-sections/);
+  assert.match(page, /t\("web\.home\.theHeaderArrowsOrYourMouseBackForwardButtons"\)/);
   assert.match(styles, /\.history-navigation button/);
   assert.match(desktop, /webContents\.on\("app-command"/);
   assert.match(desktop, /webContents\.on\("before-input-event"/);

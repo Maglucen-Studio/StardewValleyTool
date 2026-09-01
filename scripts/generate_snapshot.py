@@ -1326,7 +1326,8 @@ def gift_options(person: str, available: list[dict], tastes: dict) -> dict:
     return result
 
 
-def quest_status(quest: ET.Element, available: list[dict], player: ET.Element) -> dict:
+def quest_status(quest: ET.Element, available: list[dict], player: ET.Element, game_data: dict | None = None) -> dict:
+    game_data = game_data or {}
     quest_type = quest.attrib.get(XSI_TYPE, "Quest")
     quest_id = number(quest, "id", -1)
     requested_id = qualified_item_id(quest.findtext("item") or quest.findtext("resource") or quest.findtext("fish") or "")
@@ -1378,12 +1379,13 @@ def quest_status(quest: ET.Element, available: list[dict], player: ET.Element) -
         tips = [localized_message("quest.tip.socialize")]
     else:
         tips = [localized_message("quest.tip.generic")]
+    localized_quest = game_data.get("localizedQuestsById", {}).get(str(quest_id), {})
     return {
         "accepted": True,
         "id": quest_id,
-        "title": quest.findtext("_questTitle", quest.findtext("questTitle", "Help Wanted")),
-        "description": quest.findtext("_questDescription", quest.findtext("questDescription", "")),
-        "objective": quest.findtext("_currentObjective") or localized_message("quest.completeRequest"),
+        "title": localized_quest.get("title") or quest.findtext("_questTitle", quest.findtext("questTitle", "Help Wanted")),
+        "description": localized_quest.get("description") or quest.findtext("_questDescription", quest.findtext("questDescription", "")),
+        "objective": localized_quest.get("objective") or quest.findtext("_currentObjective") or localized_message("quest.completeRequest"),
         "type": quest_type.removesuffix("Quest"),
         "daily": bool_value(quest, "dailyQuest"),
         "requester": quest.findtext("target", quest.findtext("requester")),
@@ -1398,9 +1400,9 @@ def quest_status(quest: ET.Element, available: list[dict], player: ET.Element) -
     }
 
 
-def accepted_quests_status(player: ET.Element, available: list[dict]) -> list[dict]:
+def accepted_quests_status(player: ET.Element, available: list[dict], game_data: dict | None = None) -> list[dict]:
     quests = [
-        quest_status(item, available, player)
+        quest_status(item, available, player, game_data)
         for item in player.findall("questLog/Quest")
         if not bool_value(item, "completed")
         and not bool_value(item, "destroy")
@@ -1458,7 +1460,7 @@ def special_orders_status(root: ET.Element, day_index: int, game_data: dict) -> 
     return orders
 
 
-def daily_quest_status(player: ET.Element, available: list[dict]) -> dict:
+def daily_quest_status(player: ET.Element, available: list[dict], game_data: dict | None = None) -> dict:
     quest = next((
         item for item in player.findall("questLog/Quest")
         if bool_value(item, "dailyQuest")
@@ -1467,7 +1469,7 @@ def daily_quest_status(player: ET.Element, available: list[dict]) -> dict:
         and number(item, "daysLeft") >= 0
     ), None)
     if quest is not None:
-        return quest_status(quest, available, player)
+        return quest_status(quest, available, player, game_data)
     return {
         "accepted": False, "title": localized_message("quest.noneAccepted"),
         "description": localized_message("quest.noneDescription"),
@@ -1749,8 +1751,8 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
         "fruitCave": fruit_cave,
         "toolUpgrade": tool_upgrade,
         "crops": crops,
-        "dailyQuest": daily_quest_status(player, available),
-        "acceptedQuests": accepted_quests_status(player, available),
+        "dailyQuest": daily_quest_status(player, available, game_data),
+        "acceptedQuests": accepted_quests_status(player, available, game_data),
         "specialOrders": special_orders_status(root, day_index, game_data),
         # The town board is introduced on Fall 2, Year 1. Accepted Qi orders
         # still appear above regardless of this flag when that later board exists.
@@ -1820,6 +1822,9 @@ def achievement_tracking(root: ET.Element, player: ET.Element, total_earned: int
             current: int | None = None, target: int | None = None, unit: str = "",
             inferred: bool = False, timing: str | None = None, next_step: str | None = None) -> None:
         done = save_id in earned_ids if save_id is not None else inferred
+        localized_achievement = game_data.get("localizedAchievementsById", {}).get(str(save_id), {}) if save_id is not None else {}
+        name = localized_achievement.get("name") or name
+        requirement = localized_achievement.get("requirement") or requirement
         achievements.append({
             "id": key, "name": name, "requirement": requirement, "category": category,
             "done": done, "current": current, "target": target, "unit": unit,
@@ -2314,34 +2319,34 @@ def update_history(snapshots: list[dict]) -> None:
             for building in entry.get("buildingStates", []):
                 old = previous_buildings.get(building.get("key"))
                 if old is None:
-                    annotations.append(f'{building.get("name", "Building")} added')
+                    annotations.append(localized_message("history.annotation.buildingAdded", building=building.get("name", "Building")))
                 elif building.get("complete") and not old.get("complete"):
-                    annotations.append(f'{building.get("name", "Building")} completed')
+                    annotations.append(localized_message("history.annotation.buildingCompleted", building=building.get("name", "Building")))
             bundle_delta = entry.get("completedBundles", 0) - previous.get("completedBundles", 0)
             if bundle_delta > 0:
-                annotations.append(f'{bundle_delta} bundle{"s" if bundle_delta != 1 else ""} completed')
+                annotations.append(localized_message("history.annotation.bundlesCompleted", count=bundle_delta))
             previous_achievements = set(previous.get("completedAchievements", []))
             annotations.extend(
-                f'Achievement: {name}'
+                localized_message("history.annotation.achievement", achievement=name)
                 for name in entry.get("completedAchievements", [])
                 if name not in previous_achievements
             )
             for tool, level in entry.get("toolLevels", {}).items():
                 if level > previous.get("toolLevels", {}).get(tool, 0):
                     tier = ["Basic", "Copper", "Steel", "Gold", "Iridium"][min(4, level)]
-                    annotations.append(f'{tool} upgraded to {tier}')
+                    annotations.append(localized_message("history.annotation.toolUpgraded", tool=tool, tier=tier))
             if entry["progress"].get("houseUpgradeLevel", 0) > previous["progress"].get("houseUpgradeLevel", 0):
-                annotations.append("Farmhouse upgraded")
+                annotations.append(localized_message("history.annotation.farmhouseUpgraded"))
             for skill in ("farming", "mining", "foraging", "fishing", "combat"):
                 if entry["progress"].get(skill, 0) > previous["progress"].get(skill, 0):
-                    annotations.append(f'{skill.title()} reached level {entry["progress"][skill]}')
+                    annotations.append(localized_message("history.annotation.skillLevel", skill=skill, level=entry["progress"][skill]))
             if entry["progress"].get("deepestMineLevel", 0) > previous["progress"].get("deepestMineLevel", 0):
-                annotations.append(f'Mines reached floor {entry["progress"]["deepestMineLevel"]}')
+                annotations.append(localized_message("history.annotation.mineFloor", floor=entry["progress"]["deepestMineLevel"]))
             old_friends = {item.get("id", item.get("name")): item for item in previous.get("friendships", [])}
             for friend in entry.get("friendships", []):
                 old_points = old_friends.get(friend.get("id", friend.get("name")), {}).get("points", 0)
                 if friend.get("points", 0) // 250 > old_points // 250:
-                    annotations.append(f'{friend.get("name", "Friendship")} reached {friend.get("points", 0) // 250} hearts')
+                    annotations.append(localized_message("history.annotation.friendshipHearts", friend=friend.get("name", "Friendship"), hearts=friend.get("points", 0) // 250))
             entry["annotations"] = annotations[:12]
         previous = entry
     history["farmName"] = farm_name
