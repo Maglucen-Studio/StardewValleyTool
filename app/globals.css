@@ -333,9 +333,9 @@ button {
   flex: 0 0 auto;
 }
 .language-selector-trigger {
-  width: 34px;
-  height: 28px;
-  padding: 3px;
+  width: 38px;
+  height: 30px;
+  padding: 4px;
   display: grid;
   place-items: center;
   color: #f7ecd8;
@@ -354,7 +354,7 @@ button {
   z-index: 90;
   top: calc(100% + 8px);
   right: 0;
-  width: 118px;
+  width: 132px;
   padding: 6px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -364,8 +364,8 @@ button {
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
 }
 .language-selector-menu button {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 34px;
   padding: 4px;
   display: grid;
   place-items: center;
@@ -383,32 +383,23 @@ button {
 }
 .language-mode-icon {
   position: relative;
+  width: 28px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+}
+.language-mode-icon.flag {
+  height: 20px;
   overflow: hidden;
-  width: 22px;
-  height: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.language-mode-icon.flag svg {
+  width: 100%;
+  height: 100%;
   display: block;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-.language-mode-icon.es {
-  background: linear-gradient(to bottom, #aa151b 0 25%, #f1bf00 25% 75%, #aa151b 75% 100%);
-}
-.language-mode-icon.en {
-  background:
-    linear-gradient(33deg, transparent 42%, #fff 42% 48%, #c8102e 48% 54%, #fff 54% 60%, transparent 60%),
-    linear-gradient(-33deg, transparent 42%, #fff 42% 48%, #c8102e 48% 54%, #fff 54% 60%, transparent 60%),
-    linear-gradient(to right, transparent 38%, #fff 38% 62%, transparent 62%),
-    linear-gradient(to bottom, transparent 34%, #fff 34% 66%, transparent 66%),
-    linear-gradient(to right, transparent 44%, #c8102e 44% 56%, transparent 56%),
-    linear-gradient(to bottom, transparent 42%, #c8102e 42% 58%, transparent 58%),
-    #012169;
 }
 .language-mode-icon.game {
-  width: 22px;
-  height: 22px;
-  border: 0;
-  background: #6f914f;
-  box-shadow: inset 0 0 0 2px #263b28, 0 1px 2px rgba(0, 0, 0, 0.4);
   image-rendering: pixelated;
 }
 .language-mode-icon.game::after {
@@ -417,14 +408,19 @@ button {
   inset: 0;
   display: grid;
   place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: auto;
   color: #f1cf72;
-  font: 700 12px/1 Arial, sans-serif;
+  background: #49683f;
+  border: 1px solid #78916d;
+  font: 700 12px/20px Arial, sans-serif;
 }
 .language-mode-icon.game img {
   position: relative;
   z-index: 1;
-  width: 100%;
-  height: 100%;
+  width: 22px;
+  height: 22px;
   display: block;
   object-fit: contain;
 }
