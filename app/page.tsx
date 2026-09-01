@@ -2120,6 +2120,7 @@ export default function Home() {
       await desktop.setLanguageMode(nextMode);
     } catch (error) {
       setDataLoadError(error instanceof Error ? error.message : t("language.switchFailed"));
+    } finally {
       setSwitchingLanguage(false);
     }
   };

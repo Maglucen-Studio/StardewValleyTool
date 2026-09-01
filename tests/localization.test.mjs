@@ -140,6 +140,12 @@ test("desktop and renderer keep the Companion locale synchronized", async () => 
   assert.match(styles, /\.language-mode-icon\.es/);
   assert.match(styles, /\.language-mode-icon\.en/);
   assert.match(desktop, /app\.getFileIcon\(executable, \{ size: "normal" \}\)/);
+  const liveLanguageHandler = desktop.slice(
+    desktop.indexOf('ipcMain.handle("localization:set-mode"'),
+    desktop.indexOf('ipcMain.handle("display:set-scale"'),
+  );
+  assert.doesNotMatch(liveLanguageHandler, /mainWindow\.loadURL/);
+  assert.match(page, /finally \{\s*setSwitchingLanguage\(false\);\s*\}/);
   assert.match(setup, /id="language-label"/);
   assert.match(setupScript, /element\.hidden = Boolean\(state\.config\)/);
   assert.doesNotMatch(provider, /getLocalization\(\)\.then\(setState\)\.catch\(\(\) => undefined\)/);
