@@ -145,7 +145,10 @@ test("desktop and renderer keep the Companion locale synchronized", async () => 
     desktop.indexOf('ipcMain.handle("display:set-scale"'),
   );
   assert.doesNotMatch(liveLanguageHandler, /mainWindow\.loadURL/);
-  assert.match(page, /finally \{\s*setSwitchingLanguage\(false\);\s*\}/);
+  assert.match(liveLanguageHandler, /currentLanguage\.language === nextLanguage\.language/);
+  assert.match(liveLanguageHandler, /restarted: false/);
+  assert.match(page, /if \(requiresRestart\) setSwitchingLanguage\(true\)/);
+  assert.match(page, /finally \{\s*if \(requiresRestart\) setSwitchingLanguage\(false\);\s*\}/);
   assert.match(setup, /id="language-label"/);
   assert.match(setupScript, /element\.hidden = Boolean\(state\.config\)/);
   assert.doesNotMatch(provider, /getLocalization\(\)\.then\(setState\)\.catch\(\(\) => undefined\)/);

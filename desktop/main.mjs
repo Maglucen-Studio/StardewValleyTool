@@ -1317,7 +1317,9 @@ function installIpc() {
     if (!mode) throw new Error(desktopTranslator()("desktop.error.requestRejected"));
     const current = readConfig() || {};
     if (current.languageMode === mode) return { ok: true, changed: false };
+    const currentLanguage = localizationState(current);
     const config = { ...current, languageMode: mode };
+    const nextLanguage = localizationState(config);
     writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
     publishLocalizationState(config);
     Menu.setApplicationMenu(createApplicationMenu());
@@ -1327,6 +1329,8 @@ function installIpc() {
       createTray();
     }
     setupWindow?.webContents.reload();
+    if (currentLanguage.language === nextLanguage.language)
+      return { ok: true, changed: true, restarted: false };
     if (backend && !backend.killed) {
       backend.kill();
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 500));
@@ -1334,7 +1338,7 @@ function installIpc() {
     await initialize(config, (message) =>
       event.sender.send("setup:progress", message),
     );
-    return { ok: true, changed: true };
+    return { ok: true, changed: true, restarted: true };
   });
   ipcMain.handle("display:set-scale", (event, incomingScale) => {
     requireDashboardSender(event);
