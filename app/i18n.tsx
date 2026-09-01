@@ -29,6 +29,12 @@ type LocalizationContextValue = LocalizationPayload & {
   number: (value: number) => string;
   date: (value: { year: number; season: string; day: number }) => string;
 };
+type DesktopLocalization = {
+  getLocalization?: () => Promise<LocalizationPayload>;
+  onLocalizationChanged?: (
+    callback: (payload: LocalizationPayload) => void,
+  ) => (() => void) | undefined;
+};
 
 const fallback: LocalizationPayload = {
   language: "en",
@@ -36,6 +42,30 @@ const fallback: LocalizationPayload = {
   messages: english,
   fallbackMessages: english,
 };
+
+function browserLocalization(): LocalizationPayload {
+  return navigator.language.toLowerCase().startsWith("es")
+    ? {
+        language: "es",
+        locale: "es-ES",
+        messages: spanish,
+        fallbackMessages: english,
+      }
+    : fallback;
+}
+
+function isLocalizationPayload(value: unknown): value is LocalizationPayload {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<LocalizationPayload>;
+  return (
+    (candidate.language === "en" || candidate.language === "es") &&
+    typeof candidate.locale === "string" &&
+    Boolean(candidate.messages) &&
+    typeof candidate.messages === "object" &&
+    Boolean(candidate.fallbackMessages) &&
+    typeof candidate.fallbackMessages === "object"
+  );
+}
 
 function translateMessage(
   messages: Messages,
@@ -83,22 +113,43 @@ export function LocalizationProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<LocalizationPayload>(fallback);
 
   useEffect(() => {
+    let active = true;
     const desktop = (window as Window & {
-      stardewDesktop?: { getLocalization?: () => Promise<LocalizationPayload> };
+      stardewDesktop?: DesktopLocalization;
     }).stardewDesktop;
-    if (desktop?.getLocalization) {
-      desktop.getLocalization().then(setState).catch(() => undefined);
-      return;
-    }
-    if (navigator.language.toLowerCase().startsWith("es"))
-      queueMicrotask(() =>
-        setState({
-          language: "es",
-          locale: "es-ES",
-          messages: spanish,
-          fallbackMessages: english,
-        }),
-      );
+    const apply = (payload: unknown) => {
+      if (active && isLocalizationPayload(payload)) setState(payload);
+    };
+    const applyBrowserFallback = () => {
+      if (active) setState(browserLocalization());
+    };
+    const refresh = async () => {
+      if (!desktop?.getLocalization) {
+        applyBrowserFallback();
+        return;
+      }
+      try {
+        const payload = await desktop.getLocalization();
+        if (isLocalizationPayload(payload)) apply(payload);
+        else applyBrowserFallback();
+      } catch {
+        applyBrowserFallback();
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+
+    void refresh();
+    const unsubscribe = desktop?.onLocalizationChanged?.(apply);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      active = false;
+      unsubscribe?.();
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
   useEffect(() => {
