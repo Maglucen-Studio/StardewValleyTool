@@ -19,6 +19,8 @@ test("the packaged changelog is structured and matches the application version",
   assert.ok(result.releases.length >= 2);
   assert.match(component, /import changelogMarkdown from "\.\.\/CHANGELOG\.md\?raw"/);
   assert.match(component, /parseChangelog\(changelogMarkdown\)/);
+  assert.match(component, /https:\/\/github\.com\/Maglucen-Studio\/StardewValleyTool\/blob\/main\/CHANGELOG\.md/);
+  assert.match(component, /target="_blank" rel="noreferrer"/);
   assert.match(page, /<ChangelogHistory \/>/);
 });
 

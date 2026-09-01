@@ -914,6 +914,7 @@
   "web.home.desktopDiagnosticsAreUnavailableInThisBrowserSession": "El diagnóstico de escritorio no está disponible en esta sesión del navegador.",
   "web.home.changelog": "Historial de versiones",
   "web.home.changelogIsAvailableOfflineAndReleaseNotesAreWrittenInEnglish": "Disponible sin conexión. Las notas de las versiones están escritas en inglés.",
+  "web.home.viewChangelogOnGitHub": "Ver el changelog en GitHub",
   "web.home.layers": "Capas",
   "web.home.whatToDisplay": "Qué mostrar",
   "web.home.buildingPalette": "Paleta de edificios",
