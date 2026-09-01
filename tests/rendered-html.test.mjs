@@ -1967,3 +1967,24 @@ test("navigation history supports header controls, keyboard shortcuts, and mouse
   assert.match(desktop, /"navigation:history"/);
   assert.match(preload, /onNavigateHistory/);
 });
+
+test("Today checklist persists per farm and resolves eligible tasks from LIVE evidence", async () => {
+  const [page, preferences, styles] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/preferences/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(preferences, /resolve\(directory, "farms", profileId, "preferences\.json"\)/);
+  assert.match(preferences, /mergeTodayTaskDay/);
+  assert.match(preferences, /todayTasks: mergeTodayTaskDay/);
+  assert.match(page, /type TodayTaskStatus = "active" \| "completed" \| "dismissed" \| "postponed"/);
+  assert.match(page, /completionMode\?: "manual" \| "automatic"/);
+  assert.match(page, /"collect-machines": readyMachinesCount === 0/);
+  assert.match(page, /"birthday-gift": Boolean\(birthdayFriend\?\.giftsToday\)/);
+  assert.match(page, /liveCompletedBundleCount > \(task\.baseline/);
+  assert.match(page, /task\.status === "postponed"/);
+  assert.match(page, /today\.checklist\.savedSidecar/);
+  assert.match(page, /today-personal-goals/);
+  assert.match(styles, /\.checklist-actions/);
+  assert.match(styles, /\.checklist-history/);
+});
