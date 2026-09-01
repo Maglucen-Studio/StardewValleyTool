@@ -492,7 +492,10 @@ test("desktop shell is secure, local-first, and distributable", async () => {
   assert.equal(manifest.build.publish[0].repo, "StardewValleyTool");
   assert.match(releaseWorkflow, /tags:\s+- "v\*"/);
   assert.doesNotMatch(releaseWorkflow, /PUBLIC_RELEASE_TOKEN/);
-  assert.match(releaseWorkflow, /attest-build-provenance@43d14bc/);
+  assert.match(
+    releaseWorkflow,
+    /attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a/,
+  );
   assert.match(releaseWorkflow, /SHA256SUMS\.txt/);
   assert.match(releaseWorkflow, /gh release create/);
   assert.match(
@@ -806,7 +809,7 @@ test("Farm Cave tasks ignore placed containers and only expose ready cave reward
   assert.match(generator, /bool_value\(obj, "readyForHarvest"\)/);
   assert.match(
     generator,
-    /if obj\.findtext\("name"\) != "Mushroom Box"[^\n]*:\n\s{16}continue\n\s{12}held_container = obj\.find\("heldObject"\)/,
+    /if obj\.findtext\("name"\) != "Mushroom Box"[^\r\n]*:\r?\n\s{16}continue\r?\n\s{12}held_container = obj\.find\("heldObject"\)/,
   );
   assert.match(generator, /held_container\.find\("Object"\)/);
   assert.match(bridge, /DescribeRouteItems\(location, player\)/);
