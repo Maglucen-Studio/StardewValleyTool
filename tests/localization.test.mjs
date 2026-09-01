@@ -101,3 +101,22 @@ test("semantic daily and fishing messages are available in both catalogs", () =>
   assert.equal(es("gameName.largeEggBrown", { item: "Huevo XXL" }), "Huevo XXL (marrón)");
   assert.match(es("today.brief.caveCollectibles", { count: 2, cave: "murciélagos fruteros" }), /2 objetos/);
 });
+
+test("desktop and renderer keep the Companion locale synchronized", async () => {
+  const [provider, preload, desktop] = await Promise.all([
+    readFile(new URL("../app/i18n.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/preload.cjs", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(preload, /onLocalizationChanged: callback =>/);
+  assert.match(preload, /ipcRenderer\.on\("localization:changed", listener\)/);
+  assert.match(desktop, /function localizationPayload\(config = readConfig\(\) \|\| \{\}\)/);
+  assert.match(desktop, /mainWindow\.webContents\.send\("localization:changed", payload\)/);
+  assert.match(desktop, /writeFileSync\(configPath,[\s\S]*publishLocalizationState\(config\)/);
+  assert.match(provider, /desktop\?\.onLocalizationChanged\?\.\(apply\)/);
+  assert.match(provider, /window\.addEventListener\("focus", refresh\)/);
+  assert.match(provider, /document\.addEventListener\("visibilitychange", handleVisibility\)/);
+  assert.match(provider, /catch \{\s*applyBrowserFallback\(\);\s*\}/);
+  assert.doesNotMatch(provider, /getLocalization\(\)\.then\(setState\)\.catch\(\(\) => undefined\)/);
+});

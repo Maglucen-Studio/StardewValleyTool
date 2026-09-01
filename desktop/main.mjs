@@ -157,6 +157,22 @@ function localizationCatalog(language) {
   return readJson(join(root, "locales", `${language}.json`), {});
 }
 
+function localizationPayload(config = readConfig() || {}) {
+  const state = localizationState(config);
+  return {
+    ...state,
+    messages: localizationCatalog(state.language),
+    fallbackMessages: localizationCatalog("en"),
+  };
+}
+
+function publishLocalizationState(config = readConfig() || {}) {
+  const payload = localizationPayload(config);
+  if (mainWindow && !mainWindow.isDestroyed())
+    mainWindow.webContents.send("localization:changed", payload);
+  return payload;
+}
+
 function desktopTranslator(config = readConfig() || {}) {
   const state = localizationState(config);
   return createTranslator(
@@ -1267,12 +1283,7 @@ function installIpc() {
   });
   ipcMain.handle("localization:get-state", (event) => {
     requireDashboardSender(event);
-    const state = localizationState();
-    return {
-      ...state,
-      messages: localizationCatalog(state.language),
-      fallbackMessages: localizationCatalog("en"),
-    };
+    return localizationPayload();
   });
   ipcMain.handle("display:set-scale", (event, incomingScale) => {
     requireDashboardSender(event);
@@ -1446,6 +1457,7 @@ function installIpc() {
     if (!validConfig(config)) throw new Error(desktopTranslator(config)("setup.invalid"));
     mkdirSync(dirname(configPath), { recursive: true });
     writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    publishLocalizationState(config);
     Menu.setApplicationMenu(createApplicationMenu());
     if (tray) {
       tray.destroy();

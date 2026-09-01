@@ -552,9 +552,88 @@ button {
   margin-top: 15px;
   font: 11px/1.5 Arial, sans-serif;
 }
-.help-changelog summary {
+.help-changelog-heading,
+.help-changelog-heading h3,
+.help-changelog-intro {
+  margin: 0;
+}
+.help-changelog-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+.help-changelog-heading a {
+  color: #466847;
+  font: 700 9px Arial, sans-serif;
+  text-align: right;
+}
+.help-changelog-heading a:hover {
+  color: #8d5018;
+}
+.help-changelog-intro {
+  margin-top: 4px;
+  color: #665a49;
+}
+.help-changelog-releases {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+.help-changelog-release {
+  border: 1px solid #c9bb9a;
+  background: #f8f1e3;
+}
+.help-changelog-release > summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 11px;
   cursor: pointer;
   font-weight: 800;
+  list-style: none;
+}
+.help-changelog-release > summary::-webkit-details-marker {
+  display: none;
+}
+.help-changelog-release > summary::before {
+  content: "▸";
+  color: #8d5018;
+  transition: transform 120ms ease;
+}
+.help-changelog-release[open] > summary::before {
+  transform: rotate(90deg);
+}
+.help-changelog-release > summary time {
+  color: #766852;
+  font-weight: 400;
+}
+.help-changelog-release-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 11px 11px;
+  border-top: 1px solid #ddd0b5;
+}
+.help-changelog-release-body section,
+.help-changelog-release-body h4,
+.help-changelog-release-body ul {
+  margin: 0;
+}
+.help-changelog-release-body section {
+  padding-top: 9px;
+}
+.help-changelog-release-body h4 {
+  color: #8d5018;
+  font: 800 9px Arial, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.help-changelog-release-body ul {
+  padding: 5px 0 0 17px;
+}
+.help-changelog-release-body li + li {
+  margin-top: 4px;
 }
 .help-quick-controls {
   margin-top: 16px;
