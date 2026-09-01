@@ -13,12 +13,13 @@ import english from "../locales/en.json";
 import spanish from "../locales/es.json";
 
 type Messages = Record<string, string>;
+export type SupportedAppLanguage = "en" | "es";
 export type MessageDescriptor = {
   key: string;
   variables?: Record<string, string | number | MessageDescriptor>;
 };
 type LocalizationPayload = {
-  language: "en" | "es";
+  language: SupportedAppLanguage;
   locale: string;
   messages: Messages;
   fallbackMessages: Messages;
@@ -43,8 +44,8 @@ const fallback: LocalizationPayload = {
   fallbackMessages: english,
 };
 
-function browserLocalization(): LocalizationPayload {
-  return navigator.language.toLowerCase().startsWith("es")
+function localizationForLanguage(language: SupportedAppLanguage): LocalizationPayload {
+  return language === "es"
     ? {
         language: "es",
         locale: "es-ES",
@@ -52,6 +53,12 @@ function browserLocalization(): LocalizationPayload {
         fallbackMessages: english,
       }
     : fallback;
+}
+
+function browserLocalization(): LocalizationPayload {
+  return localizationForLanguage(
+    navigator.language.toLowerCase().startsWith("es") ? "es" : "en",
+  );
 }
 
 function isLocalizationPayload(value: unknown): value is LocalizationPayload {
@@ -109,8 +116,16 @@ const LocalizationContext = createContext<LocalizationContextValue>({
   date: value => translateMessage(english, english, "date.game", value),
 });
 
-export function LocalizationProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<LocalizationPayload>(fallback);
+export function LocalizationProvider({
+  children,
+  initialLanguage = "en",
+}: {
+  children: ReactNode;
+  initialLanguage?: SupportedAppLanguage;
+}) {
+  const [state, setState] = useState<LocalizationPayload>(() =>
+    localizationForLanguage(initialLanguage),
+  );
 
   useEffect(() => {
     let active = true;
@@ -129,7 +144,10 @@ export function LocalizationProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const payload = await desktop.getLocalization();
+        const payload = await Promise.race([
+          desktop.getLocalization(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+        ]);
         if (isLocalizationPayload(payload)) apply(payload);
         else applyBrowserFallback();
       } catch {

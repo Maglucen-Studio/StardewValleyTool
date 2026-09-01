@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { LocalizationProvider } from "./i18n";
+import { LocalizationProvider, type SupportedAppLanguage } from "./i18n";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Maglucen · Stardew Valley Companion",
@@ -9,5 +11,13 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" suppressHydrationWarning><body><LocalizationProvider>{children}</LocalizationProvider></body></html>;
+  const initialLanguage: SupportedAppLanguage =
+    process.env.STARDEW_TOOL_LANGUAGE === "es" ? "es" : "en";
+  return (
+    <html lang={initialLanguage} suppressHydrationWarning>
+      <body>
+        <LocalizationProvider initialLanguage={initialLanguage}>{children}</LocalizationProvider>
+      </body>
+    </html>
+  );
 }
