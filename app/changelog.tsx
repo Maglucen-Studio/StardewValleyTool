@@ -17,6 +17,7 @@ type ChangelogRelease = {
 const RELEASE_HEADING = /^##\s+([^\s]+)\s+—\s+(\d{4}-\d{2}-\d{2})\s*$/;
 const SECTION_HEADING = /^###\s+(.+?)\s*$/;
 const LIST_ENTRY = /^-\s+(.+?)\s*$/;
+const GITHUB_CHANGELOG_URL = "https://github.com/Maglucen-Studio/StardewValleyTool/blob/main/CHANGELOG.md";
 
 export function parseChangelog(markdown: string): ChangelogRelease[] {
   const releases: ChangelogRelease[] = [];
@@ -63,7 +64,12 @@ export function ChangelogHistory() {
 
   return (
     <section className="help-changelog" aria-labelledby="help-changelog-title">
-      <h3 id="help-changelog-title">{t("web.home.changelog")}</h3>
+      <div className="help-changelog-heading">
+        <h3 id="help-changelog-title">{t("web.home.changelog")}</h3>
+        <a href={GITHUB_CHANGELOG_URL} target="_blank" rel="noreferrer">
+          {t("web.home.viewChangelogOnGitHub")} <span aria-hidden="true">↗</span>
+        </a>
+      </div>
       <p className="help-changelog-intro">
         {t("web.home.changelogIsAvailableOfflineAndReleaseNotesAreWrittenInEnglish")}
       </p>

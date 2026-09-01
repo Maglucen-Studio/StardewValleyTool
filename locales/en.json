@@ -914,6 +914,7 @@
   "web.home.desktopDiagnosticsAreUnavailableInThisBrowserSession": "Desktop diagnostics are unavailable in this browser session.",
   "web.home.changelog": "Changelog",
   "web.home.changelogIsAvailableOfflineAndReleaseNotesAreWrittenInEnglish": "Available offline. Release notes are written in English.",
+  "web.home.viewChangelogOnGitHub": "View changelog on GitHub",
   "web.home.layers": "Layers",
   "web.home.whatToDisplay": "What to display",
   "web.home.buildingPalette": "Building palette",

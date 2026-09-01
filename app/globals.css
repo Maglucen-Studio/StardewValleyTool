@@ -552,9 +552,24 @@ button {
   margin-top: 15px;
   font: 11px/1.5 Arial, sans-serif;
 }
-.help-changelog > h3,
+.help-changelog-heading,
+.help-changelog-heading h3,
 .help-changelog-intro {
   margin: 0;
+}
+.help-changelog-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+.help-changelog-heading a {
+  color: #466847;
+  font: 700 9px Arial, sans-serif;
+  text-align: right;
+}
+.help-changelog-heading a:hover {
+  color: #8d5018;
 }
 .help-changelog-intro {
   margin-top: 4px;
