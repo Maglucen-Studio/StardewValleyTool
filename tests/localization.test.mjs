@@ -103,8 +103,9 @@ test("semantic daily and fishing messages are available in both catalogs", () =>
 });
 
 test("desktop and renderer keep the Companion locale synchronized", async () => {
-  const [provider, preload, desktop] = await Promise.all([
+  const [provider, layout, preload, desktop] = await Promise.all([
     readFile(new URL("../app/i18n.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../desktop/preload.cjs", import.meta.url), "utf8"),
     readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
   ]);
@@ -117,6 +118,11 @@ test("desktop and renderer keep the Companion locale synchronized", async () => 
   assert.match(provider, /desktop\?\.onLocalizationChanged\?\.\(apply\)/);
   assert.match(provider, /window\.addEventListener\("focus", refresh\)/);
   assert.match(provider, /document\.addEventListener\("visibilitychange", handleVisibility\)/);
+  assert.match(provider, /Promise\.race\(\[/);
+  assert.match(provider, /setTimeout\(\(\) => resolve\(null\), 1500\)/);
   assert.match(provider, /catch \{\s*applyBrowserFallback\(\);\s*\}/);
+  assert.match(layout, /export const dynamic = "force-dynamic"/);
+  assert.match(layout, /process\.env\.STARDEW_TOOL_LANGUAGE === "es"/);
+  assert.match(layout, /<LocalizationProvider initialLanguage=\{initialLanguage\}>/);
   assert.doesNotMatch(provider, /getLocalization\(\)\.then\(setState\)\.catch\(\(\) => undefined\)/);
 });
