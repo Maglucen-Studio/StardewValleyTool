@@ -103,20 +103,56 @@ test("semantic daily and fishing messages are available in both catalogs", () =>
 });
 
 test("desktop and renderer keep the Companion locale synchronized", async () => {
-  const [provider, preload, desktop] = await Promise.all([
+  const [provider, layout, page, styles, preload, desktop, development, setup, setupScript] = await Promise.all([
     readFile(new URL("../app/i18n.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../desktop/preload.cjs", import.meta.url), "utf8"),
     readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/dev-local.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/setup.html", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/setup.js", import.meta.url), "utf8"),
   ]);
 
+  assert.match(preload, /setLanguageMode: mode => ipcRenderer\.invoke\("localization:set-mode"/);
   assert.match(preload, /onLocalizationChanged: callback =>/);
   assert.match(preload, /ipcRenderer\.on\("localization:changed", listener\)/);
   assert.match(desktop, /function localizationPayload\(config = readConfig\(\) \|\| \{\}\)/);
+  assert.match(desktop, /ipcMain\.handle\("localization:set-mode"/);
+  assert.match(desktop, /STARDEW_TOOL_LANGUAGE_MODE: language\.mode/);
   assert.match(desktop, /mainWindow\.webContents\.send\("localization:changed", payload\)/);
   assert.match(desktop, /writeFileSync\(configPath,[\s\S]*publishLocalizationState\(config\)/);
   assert.match(provider, /desktop\?\.onLocalizationChanged\?\.\(apply\)/);
   assert.match(provider, /window\.addEventListener\("focus", refresh\)/);
   assert.match(provider, /document\.addEventListener\("visibilitychange", handleVisibility\)/);
+  assert.match(provider, /Promise\.race\(\[/);
+  assert.match(provider, /setTimeout\(\(\) => resolve\(null\), 1500\)/);
   assert.match(provider, /catch \{\s*applyBrowserFallback\(\);\s*\}/);
+  assert.match(layout, /export const dynamic = "force-dynamic"/);
+  assert.match(layout, /process\.env\.STARDEW_TOOL_LANGUAGE === "es"/);
+  assert.match(layout, /initialMode=\{initialMode\}/);
+  assert.match(development, /STARDEW_TOOL_LANGUAGE_MODE: localization\.mode/);
+  assert.match(page, /className="language-selector"/);
+  assert.match(page, /function LanguageModeIcon/);
+  assert.match(page, /\/assets\/ui\/stardew-valley-icon\.png/);
+  assert.match(styles, /\.language-selector-menu/);
+  assert.match(page, /viewBox="0 0 30 20"/);
+  assert.match(styles, /\.language-mode-icon\.flag/);
+  assert.match(desktop, /app\.getFileIcon\(executable, \{ size: "normal" \}\)/);
+  const liveLanguageHandler = desktop.slice(
+    desktop.indexOf('ipcMain.handle("localization:set-mode"'),
+    desktop.indexOf('ipcMain.handle("display:set-scale"'),
+  );
+  assert.doesNotMatch(liveLanguageHandler, /mainWindow\.loadURL/);
+  assert.doesNotMatch(liveLanguageHandler, /backend\.kill\(\)/);
+  assert.doesNotMatch(liveLanguageHandler, /await initialize\(/);
+  assert.match(liveLanguageHandler, /restarted: false/);
+  assert.match(desktop, /game-localization\.\$\{state\.language\}\.json/);
+  assert.match(provider, /gameCatalog: GameLocalizationCatalog/);
+  assert.match(page, /localizeSnapshotGameNames\(snapshot, t, gameCatalog\)/);
+  assert.doesNotMatch(page, /setSwitchingLanguage/);
+  assert.match(setup, /id="language-label"/);
+  assert.match(setupScript, /element\.hidden = Boolean\(state\.config\)/);
   assert.doesNotMatch(provider, /getLocalization\(\)\.then\(setState\)\.catch\(\(\) => undefined\)/);
 });

@@ -31,13 +31,13 @@
       <label data-i18n="setup.farmSave">Farm / save</label>
       <div class="field"><select id="save-path"></select><button id="browse-save" type="button" data-i18n="common.browse">Browse…</button></div>
       <small data-i18n="setup.saveHelp">The main extensionless save file. It is never modified.</small>
-      <label for="language-mode" data-i18n="setup.language">Companion language</label>
+      <label id="language-label" for="language-mode" data-i18n="setup.language">Companion language</label>
       <select id="language-mode">
         <option value="game">Same as Stardew Valley</option>
         <option value="en" data-i18n="setup.languageEnglish">English</option>
         <option value="es" data-i18n="setup.languageSpanish">Español</option>
       </select>
-      <small data-i18n="setup.languageHelp">Follow Stardew Valley uses the language selected in the game. Game-owned names still come from your local installation.</small>
+      <small id="language-help" data-i18n="setup.languageHelp">Follow Stardew Valley uses the language selected in the game. Game-owned names still come from your local installation.</small>
       <label class="checkbox"><input id="auto-launch" type="checkbox" checked><span><b data-i18n="setup.trackAutomatically">Track automatically</b><small data-i18n="setup.trackAutomaticallyHelp">Start quietly with Windows and update the farm whenever Stardew Valley runs. The dashboard stays closed until you open it.</small></span></label>
       <label class="checkbox"><input id="close-to-tray" type="checkbox" checked><span><b data-i18n="setup.keepTray">Keep running in the system tray</b><small data-i18n="setup.keepTrayHelp">Closing the dashboard hides it while tracking continues. Turn this off to quit the companion completely when you close its window.</small></span></label>
       <label class="checkbox"><input id="follow-active-save" type="checkbox" checked><span><b data-i18n="setup.followFarm">Follow the farm opened in Stardew</b><small data-i18n="setup.followFarmHelp">When another save starts producing fresh LIVE data, switch the dashboard to that farm automatically. Histories and proposals remain separate.</small></span></label>

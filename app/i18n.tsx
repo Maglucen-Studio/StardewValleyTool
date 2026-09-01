@@ -13,15 +13,26 @@ import english from "../locales/en.json";
 import spanish from "../locales/es.json";
 
 type Messages = Record<string, string>;
+export type SupportedAppLanguage = "en" | "es";
+export type AppLanguageMode = "game" | SupportedAppLanguage;
 export type MessageDescriptor = {
   key: string;
   variables?: Record<string, string | number | MessageDescriptor>;
 };
+export type GameLocalizationCatalog = {
+  localizedObjectNamesByEnglish?: Record<string, string>;
+  localizedNamesByQualifiedId?: Record<string, string>;
+  localizedAchievementsById?: Record<string, { name?: string; requirement?: string }>;
+  localizedQuestsById?: Record<string, { title?: string; description?: string; objective?: string }>;
+};
 type LocalizationPayload = {
-  language: "en" | "es";
+  mode: AppLanguageMode;
+  gameCode: string;
+  language: SupportedAppLanguage;
   locale: string;
   messages: Messages;
   fallbackMessages: Messages;
+  gameCatalog: GameLocalizationCatalog;
 };
 type LocalizationContextValue = LocalizationPayload & {
   t: (key: string, variables?: Record<string, string | number>) => string;
@@ -37,21 +48,36 @@ type DesktopLocalization = {
 };
 
 const fallback: LocalizationPayload = {
+  mode: "en",
+  gameCode: "en",
   language: "en",
   locale: "en-US",
   messages: english,
   fallbackMessages: english,
+  gameCatalog: {},
 };
 
-function browserLocalization(): LocalizationPayload {
-  return navigator.language.toLowerCase().startsWith("es")
+function localizationForLanguage(
+  language: SupportedAppLanguage,
+  mode: AppLanguageMode = language,
+): LocalizationPayload {
+  return language === "es"
     ? {
+        mode,
+        gameCode: language,
         language: "es",
         locale: "es-ES",
         messages: spanish,
         fallbackMessages: english,
+        gameCatalog: {},
       }
-    : fallback;
+    : { ...fallback, mode, gameCode: language };
+}
+
+function browserLocalization(): LocalizationPayload {
+  return localizationForLanguage(
+    navigator.language.toLowerCase().startsWith("es") ? "es" : "en",
+  );
 }
 
 function isLocalizationPayload(value: unknown): value is LocalizationPayload {
@@ -59,11 +85,15 @@ function isLocalizationPayload(value: unknown): value is LocalizationPayload {
   const candidate = value as Partial<LocalizationPayload>;
   return (
     (candidate.language === "en" || candidate.language === "es") &&
+    typeof candidate.gameCode === "string" &&
+    (candidate.mode === "game" || candidate.mode === "en" || candidate.mode === "es") &&
     typeof candidate.locale === "string" &&
     Boolean(candidate.messages) &&
     typeof candidate.messages === "object" &&
     Boolean(candidate.fallbackMessages) &&
-    typeof candidate.fallbackMessages === "object"
+    typeof candidate.fallbackMessages === "object" &&
+    Boolean(candidate.gameCatalog) &&
+    typeof candidate.gameCatalog === "object"
   );
 }
 
@@ -109,8 +139,18 @@ const LocalizationContext = createContext<LocalizationContextValue>({
   date: value => translateMessage(english, english, "date.game", value),
 });
 
-export function LocalizationProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<LocalizationPayload>(fallback);
+export function LocalizationProvider({
+  children,
+  initialLanguage = "en",
+  initialMode = initialLanguage,
+}: {
+  children: ReactNode;
+  initialLanguage?: SupportedAppLanguage;
+  initialMode?: AppLanguageMode;
+}) {
+  const [state, setState] = useState<LocalizationPayload>(() =>
+    localizationForLanguage(initialLanguage, initialMode),
+  );
 
   useEffect(() => {
     let active = true;
@@ -129,7 +169,10 @@ export function LocalizationProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const payload = await desktop.getLocalization();
+        const payload = await Promise.race([
+          desktop.getLocalization(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+        ]);
         if (isLocalizationPayload(payload)) apply(payload);
         else applyBrowserFallback();
       } catch {

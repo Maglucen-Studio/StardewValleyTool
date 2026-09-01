@@ -88,6 +88,30 @@ function log(message) {
   );
 }
 
+async function ensureLocalStardewIcon(config) {
+  const executable = [
+    join(config.stardewPath, "Stardew Valley.exe"),
+    join(config.stardewPath, "StardewValley.exe"),
+  ].find((candidate) => existsSync(candidate));
+  if (!executable) return;
+  const destinations = [
+    join(runtimeRoot, "public", "assets", "ui", "stardew-valley-icon.png"),
+    join(workRoot, "dist", "assets", "ui", "stardew-valley-icon.png"),
+  ];
+  if (destinations.every((destination) => existsSync(destination))) return;
+  try {
+    const icon = await app.getFileIcon(executable, { size: "normal" });
+    if (icon.isEmpty()) return;
+    const png = icon.toPNG();
+    for (const destination of destinations) {
+      mkdirSync(dirname(destination), { recursive: true });
+      writeFileSync(destination, png);
+    }
+  } catch (error) {
+    log(`Local Stardew Valley icon unavailable: ${error?.message || error}`);
+  }
+}
+
 function readJson(file, fallback = null) {
   try {
     return JSON.parse(readFileSync(file, "utf8"));
@@ -163,6 +187,10 @@ function localizationPayload(config = readConfig() || {}) {
     ...state,
     messages: localizationCatalog(state.language),
     fallbackMessages: localizationCatalog("en"),
+    gameCatalog: readJson(
+      join(runtimeRoot, "public", "data", `game-localization.${state.language}.json`),
+      {},
+    ),
   };
 }
 
@@ -351,8 +379,7 @@ function extractedAssetsAreStale(config, requiredAssets) {
   if (!existsSync(gameData)) return true;
   const extracted = readJson(gameData, {});
   if (
-    extracted?._localization?.language !== localizationState(config).language ||
-    extracted?._localization?.catalogVersion !== 5
+    extracted?._localization?.catalogVersion !== 6
   )
     return true;
   return (
@@ -584,6 +611,7 @@ function childEnvironment(config) {
     STARDEW_PATH: config.stardewPath,
     STARDEW_SAVE: config.savePath,
     STARDEW_TOOL_PROFILE_ID: profileIdForSave(config.savePath),
+    STARDEW_TOOL_LANGUAGE_MODE: language.mode,
     STARDEW_TOOL_LANGUAGE: language.language,
     STARDEW_TOOL_LOCALE: language.locale,
     STARDEW_TOOL_XNB_SUFFIX: language.xnbSuffix,
@@ -891,6 +919,7 @@ async function initialize(config, progress = () => {}) {
     mkdirSync(runtimeRoot, { recursive: true });
     migrateLegacyFarmPreferences(config);
     ensurePython(config);
+    await ensureLocalStardewIcon(config);
     const requiredAssets = [
       "springobjects.png",
       "Objects_2.png",
@@ -905,6 +934,8 @@ async function initialize(config, progress = () => {}) {
       "Slime Hutch.png",
     ].map((name) => join(runtimeRoot, "public", "assets", "sprites", name));
     requiredAssets.push(
+      join(runtimeRoot, "public", "data", "game-localization.en.json"),
+      join(runtimeRoot, "public", "data", "game-localization.es.json"),
       join(runtimeRoot, "public", "assets", "characters", "Abigail.png"),
       join(runtimeRoot, "public", "assets", "portraits", "Abigail.png"),
       join(runtimeRoot, "public", "assets", "maps", "world-spring.png"),
@@ -1284,6 +1315,24 @@ function installIpc() {
   ipcMain.handle("localization:get-state", (event) => {
     requireDashboardSender(event);
     return localizationPayload();
+  });
+  ipcMain.handle("localization:set-mode", async (event, incomingMode) => {
+    requireDashboardSender(event);
+    const mode = ["game", "en", "es"].includes(incomingMode) ? incomingMode : null;
+    if (!mode) throw new Error(desktopTranslator()("desktop.error.requestRejected"));
+    const current = readConfig() || {};
+    if (current.languageMode === mode) return { ok: true, changed: false };
+    const config = { ...current, languageMode: mode };
+    writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    publishLocalizationState(config);
+    Menu.setApplicationMenu(createApplicationMenu());
+    if (tray) {
+      tray.destroy();
+      tray = null;
+      createTray();
+    }
+    setupWindow?.webContents.reload();
+    return { ok: true, changed: true, restarted: false };
   });
   ipcMain.handle("display:set-scale", (event, incomingScale) => {
     requireDashboardSender(event);

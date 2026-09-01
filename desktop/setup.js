@@ -100,6 +100,11 @@ api.getSetupState().then(state => {
     addSave({ name: translator(state.localization.language)("setup.selectedSave"), path: state.suggestedSave });
   savePath.value = state.suggestedSave;
   languageMode.value = state.config?.languageMode || "game";
+  for (const element of [
+    document.querySelector("#language-label"),
+    languageMode,
+    document.querySelector("#language-help"),
+  ]) element.hidden = Boolean(state.config);
   document.querySelector("#auto-launch").checked = state.config?.autoLaunch !== false;
   document.querySelector("#close-to-tray").checked = state.config?.closeToTray !== false;
   document.querySelector("#follow-active-save").checked = state.config?.autoFollowActiveSave !== false;
