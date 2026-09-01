@@ -2,6 +2,26 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.10.0 — 2026-09-02
+
+### New
+
+- Added a compact language selector to the main header with English, Spanish, and automatic Stardew Valley modes.
+- Added an offline in-app changelog with a direct link to the complete changelog on GitHub.
+- Added a persistent per-farm Today checklist that combines manual decisions with completion detected from LIVE game state.
+
+### Improved
+
+- Language changes now happen live without closing the application, reloading the page, restarting the local service, or reparsing the save.
+- English and Spanish game catalogs are extracted once from the user's local Stardew Valley installation and cached independently from farm logic.
+- The interface now starts consistently in the configured language and keeps desktop menus, dialogs, game-owned names, standard quests, achievements, and historical snapshots synchronized.
+
+### Fixed
+
+- Corrected furniture placement so sprites anchor to their saved collision footprint instead of appearing one tile too high.
+- Restored Stardew Valley foreground-layer occlusion so nearby walls correctly cover furniture placed behind them.
+- Corrected inconsistent language states where the Companion interface remained in English while game-owned item names appeared in Spanish.
+
 ## 1.9.0 — 2026-09-01
 
 ### New
