@@ -1,6 +1,6 @@
 {
   "name": "maglucen-stardew-valley-companion",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Maglucen's local, save-aware companion for Stardew Valley.",
   "author": "maglucen",
   "main": "desktop/main.mjs",
