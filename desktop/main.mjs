@@ -187,6 +187,10 @@ function localizationPayload(config = readConfig() || {}) {
     ...state,
     messages: localizationCatalog(state.language),
     fallbackMessages: localizationCatalog("en"),
+    gameCatalog: readJson(
+      join(runtimeRoot, "public", "data", `game-localization.${state.language}.json`),
+      {},
+    ),
   };
 }
 
@@ -375,8 +379,7 @@ function extractedAssetsAreStale(config, requiredAssets) {
   if (!existsSync(gameData)) return true;
   const extracted = readJson(gameData, {});
   if (
-    extracted?._localization?.language !== localizationState(config).language ||
-    extracted?._localization?.catalogVersion !== 5
+    extracted?._localization?.catalogVersion !== 6
   )
     return true;
   return (
@@ -931,6 +934,8 @@ async function initialize(config, progress = () => {}) {
       "Slime Hutch.png",
     ].map((name) => join(runtimeRoot, "public", "assets", "sprites", name));
     requiredAssets.push(
+      join(runtimeRoot, "public", "data", "game-localization.en.json"),
+      join(runtimeRoot, "public", "data", "game-localization.es.json"),
       join(runtimeRoot, "public", "assets", "characters", "Abigail.png"),
       join(runtimeRoot, "public", "assets", "portraits", "Abigail.png"),
       join(runtimeRoot, "public", "assets", "maps", "world-spring.png"),
@@ -1317,9 +1322,7 @@ function installIpc() {
     if (!mode) throw new Error(desktopTranslator()("desktop.error.requestRejected"));
     const current = readConfig() || {};
     if (current.languageMode === mode) return { ok: true, changed: false };
-    const currentLanguage = localizationState(current);
     const config = { ...current, languageMode: mode };
-    const nextLanguage = localizationState(config);
     writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
     publishLocalizationState(config);
     Menu.setApplicationMenu(createApplicationMenu());
@@ -1329,16 +1332,7 @@ function installIpc() {
       createTray();
     }
     setupWindow?.webContents.reload();
-    if (currentLanguage.language === nextLanguage.language)
-      return { ok: true, changed: true, restarted: false };
-    if (backend && !backend.killed) {
-      backend.kill();
-      await new Promise((resolvePromise) => setTimeout(resolvePromise, 500));
-    }
-    await initialize(config, (message) =>
-      event.sender.send("setup:progress", message),
-    );
-    return { ok: true, changed: true, restarted: true };
+    return { ok: true, changed: true, restarted: false };
   });
   ipcMain.handle("display:set-scale", (event, incomingScale) => {
     requireDashboardSender(event);

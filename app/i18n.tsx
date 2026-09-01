@@ -19,6 +19,12 @@ export type MessageDescriptor = {
   key: string;
   variables?: Record<string, string | number | MessageDescriptor>;
 };
+export type GameLocalizationCatalog = {
+  localizedObjectNamesByEnglish?: Record<string, string>;
+  localizedNamesByQualifiedId?: Record<string, string>;
+  localizedAchievementsById?: Record<string, { name?: string; requirement?: string }>;
+  localizedQuestsById?: Record<string, { title?: string; description?: string; objective?: string }>;
+};
 type LocalizationPayload = {
   mode: AppLanguageMode;
   gameCode: string;
@@ -26,6 +32,7 @@ type LocalizationPayload = {
   locale: string;
   messages: Messages;
   fallbackMessages: Messages;
+  gameCatalog: GameLocalizationCatalog;
 };
 type LocalizationContextValue = LocalizationPayload & {
   t: (key: string, variables?: Record<string, string | number>) => string;
@@ -47,6 +54,7 @@ const fallback: LocalizationPayload = {
   locale: "en-US",
   messages: english,
   fallbackMessages: english,
+  gameCatalog: {},
 };
 
 function localizationForLanguage(
@@ -61,6 +69,7 @@ function localizationForLanguage(
         locale: "es-ES",
         messages: spanish,
         fallbackMessages: english,
+        gameCatalog: {},
       }
     : { ...fallback, mode, gameCode: language };
 }
@@ -82,7 +91,9 @@ function isLocalizationPayload(value: unknown): value is LocalizationPayload {
     Boolean(candidate.messages) &&
     typeof candidate.messages === "object" &&
     Boolean(candidate.fallbackMessages) &&
-    typeof candidate.fallbackMessages === "object"
+    typeof candidate.fallbackMessages === "object" &&
+    Boolean(candidate.gameCatalog) &&
+    typeof candidate.gameCatalog === "object"
   );
 }
 

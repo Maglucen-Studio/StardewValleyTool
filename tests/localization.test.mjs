@@ -145,10 +145,13 @@ test("desktop and renderer keep the Companion locale synchronized", async () => 
     desktop.indexOf('ipcMain.handle("display:set-scale"'),
   );
   assert.doesNotMatch(liveLanguageHandler, /mainWindow\.loadURL/);
-  assert.match(liveLanguageHandler, /currentLanguage\.language === nextLanguage\.language/);
+  assert.doesNotMatch(liveLanguageHandler, /backend\.kill\(\)/);
+  assert.doesNotMatch(liveLanguageHandler, /await initialize\(/);
   assert.match(liveLanguageHandler, /restarted: false/);
-  assert.match(page, /if \(requiresRestart\) setSwitchingLanguage\(true\)/);
-  assert.match(page, /finally \{\s*if \(requiresRestart\) setSwitchingLanguage\(false\);\s*\}/);
+  assert.match(desktop, /game-localization\.\$\{state\.language\}\.json/);
+  assert.match(provider, /gameCatalog: GameLocalizationCatalog/);
+  assert.match(page, /localizeSnapshotGameNames\(snapshot, t, gameCatalog\)/);
+  assert.doesNotMatch(page, /setSwitchingLanguage/);
   assert.match(setup, /id="language-label"/);
   assert.match(setupScript, /element\.hidden = Boolean\(state\.config\)/);
   assert.doesNotMatch(provider, /getLocalization\(\)\.then\(setState\)\.catch\(\(\) => undefined\)/);

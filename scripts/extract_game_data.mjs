@@ -12,9 +12,6 @@ const errors = validateConfig(config, { requireSave: false });
 if (errors.length) throw new Error(errors.join(" "));
 const project = runtimeRoot;
 const { contentRoot, modsRoot } = runtimePaths(config);
-const language = process.env.STARDEW_TOOL_LANGUAGE === "es" ? "es" : "en";
-const locale = process.env.STARDEW_TOOL_LOCALE || (language === "es" ? "es-ES" : "en-US");
-const xnbSuffix = process.env.STARDEW_TOOL_XNB_SUFFIX || "";
 ensureRuntimeDirectories();
 
 async function unpack(relativePath) {
@@ -27,8 +24,8 @@ async function unpack(relativePath) {
   return parsed.content;
 }
 
-async function unpackLocalized(relativePath) {
-  return unpack(localizedXnbPath(contentRoot, relativePath, xnbSuffix));
+async function unpackLocalized(relativePath, suffix = "") {
+  return unpack(localizedXnbPath(contentRoot, relativePath, suffix));
 }
 
 async function unpackTexture(relativePath, destination) {
@@ -51,9 +48,9 @@ async function unpackBinary(relativePath, extension, destination) {
   await writeFile(resolve(project, destination), Buffer.from(await output.data.arrayBuffer()));
 }
 
-async function localizedNamesByEnglish(relativePath, includeKey) {
+async function localizedNamesByEnglish(relativePath, includeKey, suffix) {
   const base = await unpack(relativePath);
-  const localized = await unpackLocalized(relativePath);
+  const localized = await unpackLocalized(relativePath, suffix);
   return Object.fromEntries(
     Object.entries(base).flatMap(([key, english]) =>
       includeKey(key) && typeof english === "string" && localized[key]
@@ -63,9 +60,9 @@ async function localizedNamesByEnglish(relativePath, includeKey) {
   );
 }
 
-async function localizedLegacyRecordNames(relativePath) {
+async function localizedLegacyRecordNames(relativePath, suffix) {
   const base = await unpack(relativePath);
-  const localized = await unpackLocalized(relativePath);
+  const localized = await unpackLocalized(relativePath, suffix);
   return Object.fromEntries(
     Object.entries(base).flatMap(([key, raw]) => {
       const localizedRaw = localized[key];
@@ -88,44 +85,70 @@ const nameCatalogs = [
   ["Strings/Shirts.xnb", key => key.endsWith("_Name")],
   ["Strings/Furniture.xnb", () => true],
 ];
-const localizedObjectNamesByEnglish = Object.assign(
-  {},
-  ...(await Promise.all(
-    nameCatalogs.map(([path, includeKey]) =>
-      localizedNamesByEnglish(path, includeKey),
-    ),
-  )),
-  await localizedLegacyRecordNames("Data/Boots.xnb"),
-  await localizedLegacyRecordNames("Data/hats.xnb"),
-);
-const localizedObjectNames = await unpackLocalized("Strings/Objects.xnb");
 const fish = await unpack("Data/Fish.xnb");
-const localizedAchievementRecords = await unpackLocalized("Data/Achievements.xnb");
-const localizedQuestRecords = await unpackLocalized("Data/Quests.xnb");
-const localizedAchievementsById = Object.fromEntries(
-  Object.entries(localizedAchievementRecords).map(([id, raw]) => {
-    const fields = String(raw).split("^");
-    const name = fields[0].replace(/\s+\([^)]*\)$/, "");
-    const requirement = (fields[1] || "").replace(/(\d)o\b/g, "$1g");
-    return [id, { name, requirement }];
-  }),
+async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, catalogSuffix) {
+  const localizedObjectNamesByEnglish = Object.assign(
+    {},
+    ...(await Promise.all(
+      nameCatalogs.map(([path, includeKey]) =>
+        localizedNamesByEnglish(path, includeKey, catalogSuffix),
+      ),
+    )),
+    await localizedLegacyRecordNames("Data/Boots.xnb", catalogSuffix),
+    await localizedLegacyRecordNames("Data/hats.xnb", catalogSuffix),
+  );
+  const objectNames = await unpackLocalized("Strings/Objects.xnb", catalogSuffix);
+  const localizedAchievementRecords = await unpackLocalized("Data/Achievements.xnb", catalogSuffix);
+  const localizedQuestRecords = await unpackLocalized("Data/Quests.xnb", catalogSuffix);
+  const localizedAchievementsById = Object.fromEntries(
+    Object.entries(localizedAchievementRecords).map(([id, raw]) => {
+      const fields = String(raw).split("^");
+      const name = fields[0].replace(/\s+\([^)]*\)$/, "");
+      const requirement = (fields[1] || "").replace(/(\d)o\b/g, "$1g");
+      return [id, { name, requirement }];
+    }),
+  );
+  const localizedQuestsById = Object.fromEntries(
+    Object.entries(localizedQuestRecords).map(([id, raw]) => {
+      const fields = String(raw).split("/");
+      return [id, { title: fields[1] || "", description: fields[2] || "", objective: fields[3] || "" }];
+    }),
+  );
+  const localizedNamesByQualifiedId = Object.fromEntries(
+    Object.entries(fish).flatMap(([id, raw]) => {
+      const englishName = typeof raw === "string" ? raw.split("/", 1)[0] : "";
+      const localizedName = localizedObjectNamesByEnglish[englishName];
+      return localizedName ? [[`(O)${id}`, localizedName]] : [];
+    }),
+  );
+  return {
+    language: catalogLanguage,
+    locale: catalogLocale,
+    catalogVersion: 6,
+    objectNames,
+    localizedObjectNamesByEnglish,
+    localizedNamesByQualifiedId,
+    localizedAchievementsById,
+    localizedQuestsById,
+    specialOrderStrings: await unpackLocalized("Strings/SpecialOrderStrings.xnb", catalogSuffix),
+  };
+}
+
+const gameLocalizationCatalogs = Object.fromEntries(
+  await Promise.all([
+    ["en", "en-US", ""],
+    ["es", "es-ES", "es-ES"],
+  ].map(async ([catalogLanguage, catalogLocale, catalogSuffix]) => [
+    catalogLanguage,
+    await buildGameLocalizationCatalog(catalogLanguage, catalogLocale, catalogSuffix),
+  ])),
 );
-const localizedQuestsById = Object.fromEntries(
-  Object.entries(localizedQuestRecords).map(([id, raw]) => {
-    const fields = String(raw).split("/");
-    return [id, { title: fields[1] || "", description: fields[2] || "", objective: fields[3] || "" }];
-  }),
-);
-const localizedNamesByQualifiedId = Object.fromEntries(
-  Object.entries(fish).flatMap(([id, raw]) => {
-    const englishName = typeof raw === "string" ? raw.split("/", 1)[0] : "";
-    const localizedName = localizedObjectNamesByEnglish[englishName];
-    return localizedName ? [[`(O)${id}`, localizedName]] : [];
-  }),
-);
+// Snapshot generation always consumes the stable English/base catalog. The
+// renderer selects a cached game catalog independently from the save logic.
+const activeLocalization = gameLocalizationCatalogs.en;
 
 const gameData = {
-  _localization: { language, locale, xnbSuffix, catalogVersion: 5 },
+  _localization: { language: "neutral", catalogVersion: 6 },
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
   craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),
@@ -135,12 +158,12 @@ const gameData = {
   hair: await unpack("Data/HairData.xnb"),
   hats: await unpack("Data/hats.xnb"),
   furniture: await unpack("Data/Furniture.xnb"),
-  objectNames: localizedObjectNames,
-  localizedObjectNamesByEnglish,
-  localizedNamesByQualifiedId,
-  localizedAchievementsById,
-  localizedQuestsById,
-  specialOrderStrings: await unpackLocalized("Strings/SpecialOrderStrings.xnb"),
+  objectNames: activeLocalization.objectNames,
+  localizedObjectNamesByEnglish: activeLocalization.localizedObjectNamesByEnglish,
+  localizedNamesByQualifiedId: activeLocalization.localizedNamesByQualifiedId,
+  localizedAchievementsById: activeLocalization.localizedAchievementsById,
+  localizedQuestsById: activeLocalization.localizedQuestsById,
+  specialOrderStrings: activeLocalization.specialOrderStrings,
 };
 
 const textures = {
@@ -324,6 +347,15 @@ async function discoverModdedNpcs() {
 const moddedNpcs = await discoverModdedNpcs();
 gameData.moddedCharacters = moddedNpcs.metadata;
 Object.assign(gameData.giftTastes, moddedNpcs.giftTastes);
-await writeFile(resolve(project, "assetbuild/game-data.json"), JSON.stringify(gameData), "utf8");
+await Promise.all([
+  writeFile(resolve(project, "assetbuild/game-data.json"), JSON.stringify(gameData), "utf8"),
+  ...Object.entries(gameLocalizationCatalogs).map(([catalogLanguage, catalog]) =>
+    writeFile(
+      resolve(project, `public/data/game-localization.${catalogLanguage}.json`),
+      JSON.stringify(catalog),
+      "utf8",
+    ),
+  ),
+]);
 if (moddedNpcs.artworkCount) console.log(`Imported ${moddedNpcs.artworkCount} modded NPC artwork files.`);
 syncRuntimePublic();
