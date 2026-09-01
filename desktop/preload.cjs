@@ -2,6 +2,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("stardewDesktop", {
+  getLocalization: () => ipcRenderer.invoke("localization:get-state"),
   getUpdateState: () => ipcRenderer.invoke("updates:get-state"),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   downloadUpdate: () => ipcRenderer.invoke("updates:download"),
@@ -38,6 +39,9 @@ contextBridge.exposeInMainWorld("stardewDesktop", {
     autoLaunch: config?.autoLaunch !== false,
     closeToTray: config?.closeToTray !== false,
     autoFollowActiveSave: config?.autoFollowActiveSave !== false,
+    languageMode: ["game", "en", "es"].includes(config?.languageMode)
+      ? config.languageMode
+      : "game",
   }),
   onProgress: callback => {
     const listener = (_event, message) => callback(String(message));

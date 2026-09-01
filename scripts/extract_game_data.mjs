@@ -5,12 +5,16 @@ import JSON5 from "json5";
 import { loadConfig, runtimeRoot, runtimePaths, validateConfig } from "./config.mjs";
 import { ensureRuntimeDirectories, syncRuntimePublic } from "./runtime-files.mjs";
 import { renderCommunityRooms } from "./render-community-rooms.mjs";
+import { localizedXnbPath } from "./localization.mjs";
 
 const config = loadConfig();
 const errors = validateConfig(config, { requireSave: false });
 if (errors.length) throw new Error(errors.join(" "));
 const project = runtimeRoot;
 const { contentRoot, modsRoot } = runtimePaths(config);
+const language = process.env.STARDEW_TOOL_LANGUAGE === "es" ? "es" : "en";
+const locale = process.env.STARDEW_TOOL_LOCALE || (language === "es" ? "es-ES" : "en-US");
+const xnbSuffix = process.env.STARDEW_TOOL_XNB_SUFFIX || "";
 ensureRuntimeDirectories();
 
 async function unpack(relativePath) {
@@ -21,6 +25,10 @@ async function unpack(relativePath) {
   if (!jsonOutput) throw new Error(`Could not extract ${relativePath}`);
   const parsed = JSON.parse(await jsonOutput.data.text());
   return parsed.content;
+}
+
+async function unpackLocalized(relativePath) {
+  return unpack(localizedXnbPath(contentRoot, relativePath, xnbSuffix));
 }
 
 async function unpackTexture(relativePath, destination) {
@@ -43,18 +51,96 @@ async function unpackBinary(relativePath, extension, destination) {
   await writeFile(resolve(project, destination), Buffer.from(await output.data.arrayBuffer()));
 }
 
+async function localizedNamesByEnglish(relativePath, includeKey) {
+  const base = await unpack(relativePath);
+  const localized = await unpackLocalized(relativePath);
+  return Object.fromEntries(
+    Object.entries(base).flatMap(([key, english]) =>
+      includeKey(key) && typeof english === "string" && localized[key]
+        ? [[english, localized[key]]]
+        : [],
+    ),
+  );
+}
+
+async function localizedLegacyRecordNames(relativePath) {
+  const base = await unpack(relativePath);
+  const localized = await unpackLocalized(relativePath);
+  return Object.fromEntries(
+    Object.entries(base).flatMap(([key, raw]) => {
+      const localizedRaw = localized[key];
+      if (typeof raw !== "string" || typeof localizedRaw !== "string") return [];
+      const englishFields = raw.split("/");
+      const localizedFields = localizedRaw.split("/");
+      const englishName = englishFields.at(-1) || englishFields[0];
+      const localizedName = localizedFields.at(-1) || localizedFields[0];
+      return englishName && localizedName ? [[englishName, localizedName]] : [];
+    }),
+  );
+}
+
+const nameCatalogs = [
+  ["Strings/Objects.xnb", key => key.endsWith("_Name")],
+  ["Strings/BigCraftables.xnb", key => key.endsWith("_Name")],
+  ["Strings/Tools.xnb", key => key.endsWith("_Name")],
+  ["Strings/Weapons.xnb", key => key.endsWith("_Name")],
+  ["Strings/Pants.xnb", key => key.endsWith("_Name")],
+  ["Strings/Shirts.xnb", key => key.endsWith("_Name")],
+  ["Strings/Furniture.xnb", () => true],
+];
+const localizedObjectNamesByEnglish = Object.assign(
+  {},
+  ...(await Promise.all(
+    nameCatalogs.map(([path, includeKey]) =>
+      localizedNamesByEnglish(path, includeKey),
+    ),
+  )),
+  await localizedLegacyRecordNames("Data/Boots.xnb"),
+  await localizedLegacyRecordNames("Data/hats.xnb"),
+);
+const localizedObjectNames = await unpackLocalized("Strings/Objects.xnb");
+const fish = await unpack("Data/Fish.xnb");
+const localizedAchievementRecords = await unpackLocalized("Data/Achievements.xnb");
+const localizedQuestRecords = await unpackLocalized("Data/Quests.xnb");
+const localizedAchievementsById = Object.fromEntries(
+  Object.entries(localizedAchievementRecords).map(([id, raw]) => {
+    const fields = String(raw).split("^");
+    const name = fields[0].replace(/\s+\([^)]*\)$/, "");
+    const requirement = (fields[1] || "").replace(/(\d)o\b/g, "$1g");
+    return [id, { name, requirement }];
+  }),
+);
+const localizedQuestsById = Object.fromEntries(
+  Object.entries(localizedQuestRecords).map(([id, raw]) => {
+    const fields = String(raw).split("/");
+    return [id, { title: fields[1] || "", description: fields[2] || "", objective: fields[3] || "" }];
+  }),
+);
+const localizedNamesByQualifiedId = Object.fromEntries(
+  Object.entries(fish).flatMap(([id, raw]) => {
+    const englishName = typeof raw === "string" ? raw.split("/", 1)[0] : "";
+    const localizedName = localizedObjectNamesByEnglish[englishName];
+    return localizedName ? [[`(O)${id}`, localizedName]] : [];
+  }),
+);
+
 const gameData = {
+  _localization: { language, locale, xnbSuffix, catalogVersion: 5 },
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
   craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),
   cookingChannel: await unpack("Data/TV/CookingChannel.xnb"),
   tipChannel: await unpack("Data/TV/TipChannel.xnb"),
-  fish: await unpack("Data/Fish.xnb"),
+  fish,
   hair: await unpack("Data/HairData.xnb"),
   hats: await unpack("Data/hats.xnb"),
   furniture: await unpack("Data/Furniture.xnb"),
-  objectNames: await unpack("Strings/Objects.xnb"),
-  specialOrderStrings: await unpack("Strings/SpecialOrderStrings.xnb"),
+  objectNames: localizedObjectNames,
+  localizedObjectNamesByEnglish,
+  localizedNamesByQualifiedId,
+  localizedAchievementsById,
+  localizedQuestsById,
+  specialOrderStrings: await unpackLocalized("Strings/SpecialOrderStrings.xnb"),
 };
 
 const textures = {

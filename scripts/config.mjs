@@ -20,6 +20,9 @@ export function loadConfig() {
       process.env.STARDEW_PYTHON ||
       savedPython ||
       (existsSync(sourcePython) ? sourcePython : "python"),
+    languageMode: ["game", "en", "es"].includes(file.languageMode)
+      ? file.languageMode
+      : "game",
     port: Number(process.env.PORT || file.port || 3000),
   };
 }

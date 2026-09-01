@@ -14,6 +14,8 @@ namespace StardewValleyToolBridge;
 
 public sealed class ModEntry : Mod
 {
+    private sealed record RouteItem(string name, int count);
+
     private string? lastQuestPayload;
     private string? lastLivePayload;
     private object? cachedFarmMap;
@@ -178,12 +180,7 @@ public sealed class ModEntry : Mod
                     .Select(location => new
                     {
                         location = location.NameOrUniqueName,
-                        items = location.Objects.Pairs
-                            .Where(pair => pair.Value.IsSpawnedObject || pair.Value.Name is "Artifact Spot" or "Seed Spot")
-                            .GroupBy(pair => pair.Value.Name)
-                            .Select(group => new { name = group.Key, count = group.Count() })
-                            .OrderBy(item => item.name)
-                            .ToArray(),
+                        items = DescribeRouteItems(location, player),
                     }).ToArray();
                 cachedFarmMap = DescribeFarmMap(farm);
                 string[] caughtFish = player.fishCaught.Keys.Select(NormalizeId).ToArray();
@@ -237,7 +234,6 @@ public sealed class ModEntry : Mod
                                     spriteIndex = SpriteIndex(item),
                                     spriteWidth = SpriteWidth(item),
                                     spriteHeight = SpriteHeight(item),
-                                    source = $"Chest · {locationKey} ({(int)pair.Key.X}, {(int)pair.Key.Y})",
                                     containerKind = "chest",
                                     containerName = chest.Name,
                                     containerItemId = chest.ItemId,
@@ -525,6 +521,34 @@ public sealed class ModEntry : Mod
 
     private static string PendingCheckpointPath(string directory) => Path.Combine(directory, "pending.checkpoint");
 
+    private static RouteItem[] DescribeRouteItems(GameLocation location, Farmer player)
+    {
+        if (location.NameOrUniqueName == "FarmCave")
+        {
+            if (player.caveChoice.Value == 1)
+                return location.Objects.Pairs
+                    .Where(pair => pair.Value.IsSpawnedObject)
+                    .GroupBy(pair => pair.Value.DisplayName)
+                    .Select(group => new RouteItem(group.Key, group.Sum(pair => pair.Value.Stack)))
+                    .OrderBy(item => item.name)
+                    .ToArray();
+            if (player.caveChoice.Value == 2)
+                return location.Objects.Pairs
+                    .Where(pair => pair.Value.Name == "Mushroom Box" && pair.Value.readyForHarvest.Value && pair.Value.heldObject.Value is not null)
+                    .GroupBy(pair => pair.Value.heldObject.Value!.DisplayName)
+                    .Select(group => new RouteItem(group.Key, group.Sum(pair => pair.Value.heldObject.Value!.Stack)))
+                    .OrderBy(item => item.name)
+                    .ToArray();
+            return Array.Empty<RouteItem>();
+        }
+        return location.Objects.Pairs
+            .Where(pair => pair.Value.IsSpawnedObject || pair.Value.Name is "Artifact Spot" or "Seed Spot")
+            .GroupBy(pair => pair.Value.Name)
+            .Select(group => new RouteItem(group.Key, group.Count()))
+            .OrderBy(item => item.name)
+            .ToArray();
+    }
+
     private static void WriteAtomic(string output, string payload, bool keepBackup = false)
     {
         string temporary = output + ".tmp";
@@ -597,6 +621,7 @@ public sealed class ModEntry : Mod
 
         return new
         {
+            id = quest.id.Value,
             accepted = quest.accepted.Value,
             available = true,
             daily = quest.dailyQuest.Value,
