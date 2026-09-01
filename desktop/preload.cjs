@@ -3,6 +3,11 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("stardewDesktop", {
   getLocalization: () => ipcRenderer.invoke("localization:get-state"),
+  onLocalizationChanged: callback => {
+    const listener = (_event, state) => callback(state);
+    ipcRenderer.on("localization:changed", listener);
+    return () => ipcRenderer.removeListener("localization:changed", listener);
+  },
   getUpdateState: () => ipcRenderer.invoke("updates:get-state"),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   downloadUpdate: () => ipcRenderer.invoke("updates:download"),
