@@ -175,9 +175,8 @@ function configureAutoUpdates() {
   if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_FILE) {
     publishUpdateState({
       status: "unavailable",
-      message: app.isPackaged
-        ? "Install the Setup version to receive automatic updates."
-        : "Updates are disabled during development.",
+      reason: app.isPackaged ? "portable" : "development",
+      message: undefined,
     });
     return;
   }
@@ -187,28 +186,28 @@ function configureAutoUpdates() {
   autoUpdater.on("checking-for-update", () =>
     publishUpdateState({
       status: "checking",
-      message: "Checking for updates…",
+      message: undefined,
     }),
   );
   autoUpdater.on("update-available", (info) =>
     publishUpdateState({
       status: "available",
       version: info.version,
-      message: `Version ${info.version} is available.`,
+      message: undefined,
     }),
   );
   autoUpdater.on("update-not-available", () =>
     publishUpdateState({
       status: "current",
       version: app.getVersion(),
-      message: "You have the latest version.",
+      message: undefined,
     }),
   );
   autoUpdater.on("download-progress", (progress) =>
     publishUpdateState({
       status: "downloading",
       percent: Math.round(progress.percent),
-      message: `Downloading update · ${Math.round(progress.percent)}%`,
+      message: undefined,
     }),
   );
   autoUpdater.on("update-downloaded", (info) =>
@@ -216,14 +215,14 @@ function configureAutoUpdates() {
       status: "downloaded",
       version: info.version,
       percent: 100,
-      message: `Version ${info.version} is ready to install.`,
+      message: undefined,
     }),
   );
   autoUpdater.on("error", (error) => {
     log(`Updater: ${error?.stack || error}`);
     publishUpdateState({
       status: "error",
-      message: "The update could not be completed. Try again later.",
+      message: undefined,
     });
   });
   setTimeout(
@@ -434,15 +433,16 @@ function detectSaves() {
       const modifiedAt = statSync(file).mtimeMs;
       let farmer = "";
       let farmName = entry.name.replace(/_\d+$/, "");
-      let gameDate = "";
+      let gameSeason = "";
+      let gameDay = 0;
+      let gameYear = 0;
       try {
         const saveText = readFileSync(file, "utf8");
         farmer = saveText.match(/<name>([^<]+)<\/name>/)?.[1] || "";
         farmName = saveText.match(/<farmName>([^<]+)<\/farmName>/)?.[1] || farmName;
-        const season = saveText.match(/<currentSeason>([^<]+)<\/currentSeason>/)?.[1];
-        const day = saveText.match(/<dayOfMonth>(\d+)<\/dayOfMonth>/)?.[1];
-        const year = saveText.match(/<year>(\d+)<\/year>/)?.[1];
-        if (season && day && year) gameDate = `Year ${year}, ${season} ${day}`;
+        gameSeason = saveText.match(/<currentSeason>([^<]+)<\/currentSeason>/)?.[1] || "";
+        gameDay = Number(saveText.match(/<dayOfMonth>(\d+)<\/dayOfMonth>/)?.[1] || 0);
+        gameYear = Number(saveText.match(/<year>(\d+)<\/year>/)?.[1] || 0);
       } catch {
         /* A damaged save can still be selected manually. */
       }
@@ -450,7 +450,9 @@ function detectSaves() {
         {
           name: farmName,
           farmer,
-          gameDate,
+          gameSeason,
+          gameDay,
+          gameYear,
           path: file,
           modifiedAt,
           avatar: `/assets/farmers/${profileIdForSave(file)}.png?v=${Math.trunc(modifiedAt)}`,
@@ -493,14 +495,6 @@ function setupState() {
     suggestedSave: validConfig(config) ? config.savePath : saves[0]?.path || "",
     suggestedPlatform: config?.platform || platformForInstall(suggestedInstall),
     platformInstalls,
-    platformGuides: {
-      steam:
-        "Steam usually installs it in C:\\Program Files (x86)\\Steam\\steamapps\\common\\Stardew Valley. Libraries on other drives are detected too.",
-      gog: "GOG commonly uses C:\\Program Files (x86)\\GOG Galaxy\\Games\\Stardew Valley or a GOG Games folder on another drive.",
-      xbox: "The Xbox app commonly uses C:\\XboxGames\\Stardew Valley\\Content. Choose the folder that directly contains Stardew Valley.dll.",
-      other:
-        "Choose the game folder that directly contains Stardew Valley.dll, regardless of where it was installed.",
-    },
     smapiDetected: installs.some((path) =>
       existsSync(join(path, "StardewModdingAPI.dll")),
     ),
@@ -530,7 +524,8 @@ async function switchFarmConfig(savePath, progress = () => {}) {
   if (farmSwitching) return { ok: false, busy: true };
   const previousConfig = readConfig();
   const candidate = { ...previousConfig, savePath: String(savePath || "") };
-  if (!validConfig(candidate)) throw new Error("That Stardew Valley save is not available.");
+  if (!validConfig(candidate))
+    throw new Error(desktopTranslator(previousConfig)("desktop.error.saveUnavailable"));
   if (resolve(candidate.savePath) === resolve(previousConfig.savePath)) return { ok: true };
   farmSwitching = true;
   try {
@@ -600,7 +595,10 @@ function runNodeScript(relativeScript, config, onLine = () => {}) {
       code === 0
         ? resolvePromise()
         : rejectPromise(
-            new Error(`${basename(relativeScript)} exited with code ${code}`),
+            new Error(desktopTranslator(config)("desktop.error.scriptExited", {
+              script: basename(relativeScript),
+              code,
+            })),
           ),
     );
   });
@@ -713,7 +711,7 @@ function prepareStablePackagedRuntime() {
   const pythonSource = join(process.resourcesPath, "python");
   if (!existsSync(unpackedSource) || !existsSync(pythonSource))
     throw new Error(
-      "The portable runtime could not be extracted. Download a fresh copy of the application.",
+      desktopTranslator()("desktop.error.portableRuntimeExtract"),
     );
   mkdirSync(stableRoot, { recursive: true });
   cpSync(unpackedSource, stableRoot, { recursive: true, force: true });
@@ -723,7 +721,7 @@ function prepareStablePackagedRuntime() {
   });
   if (!required.every((path) => existsSync(path)))
     throw new Error(
-      "The portable runtime could not be prepared in the application data folder.",
+      desktopTranslator()("desktop.error.portableRuntimePrepare"),
     );
   return stableRoot;
 }
@@ -737,10 +735,10 @@ function ensurePython(config) {
   if (result.status === 0) return;
   if (app.isPackaged)
     throw new Error(
-      "The portable image component is missing or damaged. Download a fresh copy of the application.",
+      desktopTranslator(config)("desktop.error.imageComponent"),
     );
   throw new Error(
-    "Python 3 with Pillow is required when running from source. Install the development dependencies, then try again.",
+    desktopTranslator(config)("desktop.error.pythonPillow"),
   );
 }
 
@@ -763,9 +761,9 @@ function bridgeSource() {
 
 function installBridge(config) {
   if (!existsSync(join(config.stardewPath, "StardewModdingAPI.dll")))
-    return "SMAPI was not found; live mode remains optional.";
+    return { status: "smapi-missing" };
   const source = bridgeSource();
-  if (!source) return "The optional live bridge is not included in this build.";
+  if (!source) return { status: "bridge-missing" };
   const destination = join(
     config.stardewPath,
     "Mods",
@@ -795,7 +793,7 @@ function installBridge(config) {
     JSON.stringify({ ...manifest, EntryDll: entryDll }, null, 2),
     "utf8",
   );
-  return "Live bridge installed. It will activate the next time SMAPI starts.";
+  return { status: "installed" };
 }
 
 async function plannerReady(port) {
@@ -852,7 +850,9 @@ async function startBackend(config, progress) {
     if (await plannerReady(servicePort(config))) return;
     if (launchedBackend.exitCode !== null || backend !== launchedBackend) {
       throw new Error(
-        `The local service stopped during startup (code ${launchedBackend.exitCode ?? "unknown"}). Check the application log for details.`,
+        t("desktop.error.serviceStopped", {
+          code: launchedBackend.exitCode ?? t("common.unknown"),
+        }),
       );
     }
     if (
@@ -865,7 +865,7 @@ async function startBackend(config, progress) {
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
   }
   throw new Error(
-    "The local service did not start. Check the application log for details.",
+    t("desktop.error.serviceStart"),
   );
 }
 
@@ -1110,7 +1110,7 @@ function showAboutDialog() {
     title: t("menu.about", { product: PRODUCT }),
     message: PRODUCT,
     detail: `${t("common.version", { version: app.getVersion() })}\n\n${t("app.privateDescription")}`,
-    buttons: ["OK"],
+    buttons: [t("common.ok")],
   });
 }
 
@@ -1253,13 +1253,13 @@ function showFatal(error) {
 }
 
 function installIpc() {
-  const requireLocalSender = (event) => {
-    if (!event.senderFrame?.url.startsWith("file://"))
-      throw new Error("Request rejected.");
-  };
-  const requireDashboardSender = (event) => {
-    if (!mainWindow || event.sender !== mainWindow.webContents)
-      throw new Error("Request rejected.");
+    const requireLocalSender = (event) => {
+      if (!event.senderFrame?.url.startsWith("file://"))
+      throw new Error(desktopTranslator()("desktop.error.requestRejected"));
+    };
+    const requireDashboardSender = (event) => {
+      if (!mainWindow || event.sender !== mainWindow.webContents)
+      throw new Error(desktopTranslator()("desktop.error.requestRejected"));
   };
   ipcMain.handle("updates:get-state", (event) => {
     requireDashboardSender(event);
@@ -1290,7 +1290,7 @@ function installIpc() {
     publishUpdateState({
       status: "downloading",
       percent: 0,
-      message: "Starting download…",
+      message: undefined,
     });
     await autoUpdater.downloadUpdate();
     return updateState;
@@ -1380,9 +1380,9 @@ function installIpc() {
     const config = readConfig();
     const profileId = profileIdForSave(config?.savePath);
     const destination = await dialog.showSaveDialog(mainWindow, {
-      title: "Export Companion farm backup",
+      title: desktopTranslator(config)("desktop.export.title"),
       defaultPath: `${profileId}-companion-backup.json`,
-      filters: [{ name: "Companion backup", extensions: ["json"] }],
+      filters: [{ name: desktopTranslator(config)("desktop.export.filter"), extensions: ["json"] }],
     });
     if (destination.canceled || !destination.filePath) return { ok: false, canceled: true };
     const profileRoot = join(runtimeRoot, ".local", "farms", profileId);

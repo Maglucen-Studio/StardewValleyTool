@@ -1055,7 +1055,22 @@ type UpdateState = {
   version?: string;
   percent?: number;
   message?: string;
+  reason?: "development" | "portable";
 };
+
+function localizedUpdateMessage(state: UpdateState, t: Translate) {
+  switch (state.status) {
+    case "unavailable":
+      return t(state.reason === "portable" ? "updates.requiresSetup" : "updates.developmentUnavailable");
+    case "checking": return t("updates.checkingDetail");
+    case "available": return t("updates.availableDetail", { version: state.version || "" });
+    case "current": return t("updates.currentDetail");
+    case "downloading": return t("updates.downloadingDetail", { percent: state.percent || 0 });
+    case "downloaded": return t("updates.downloadedDetail", { version: state.version || "" });
+    case "error": return t("updates.errorDetail");
+    default: return "";
+  }
+}
 type DesktopUpdates = {
   getLocalization?: () => Promise<{
     language: "en" | "es";
@@ -1118,6 +1133,9 @@ type FarmOption = {
   farmer: string;
   avatar?: string;
   gameDate?: string;
+  gameSeason?: string;
+  gameDay?: number;
+  gameYear?: number;
   path: string;
   modifiedAt: number;
   liveUpdatedAt?: number;
@@ -1685,6 +1703,8 @@ export default function Home() {
   const [updateState, setUpdateState] = useState<UpdateState>({
     status: "idle",
   });
+  const updateFeedbackMessage =
+    localizedUpdateMessage(updateState, t) || updateState.message || "";
   const [layersCollapsed, setLayersCollapsed] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -3305,7 +3325,9 @@ export default function Home() {
                         />
                         <span>
                           <b>{farm.name}</b>
-                          <small>{farm.farmer || t("shell.unknownFarmer")}{farm.gameDate ? ` · ${farm.gameDate}` : ""}</small>
+                          <small>{farm.farmer || t("shell.unknownFarmer")}{farm.gameSeason && farm.gameDay && farm.gameYear
+                            ? ` · ${formatGameDate({ year: farm.gameYear, season: farm.gameSeason, day: farm.gameDay }, t)}`
+                            : ""}</small>
                         </span>
                       </span>
                       <i>{recentlyLive ? t("status.live") : active ? "✓" : ""}</i>
@@ -3450,7 +3472,7 @@ export default function Home() {
               updateState.status === "downloading" ||
               updateState.status === "unavailable"
             }
-            title={updateState.message || t("updates.title")}
+            title={updateFeedbackMessage || t("updates.title")}
           >
             {updateState.status === "available"
               ? t("updates.download", { version: updateState.version || "" })
@@ -3466,13 +3488,13 @@ export default function Home() {
                         ? t("common.tryAgain")
                         : t("updates.check")}
           </button>
-          {updateState.status !== "idle" && updateState.message && (
+          {updateState.status !== "idle" && updateFeedbackMessage && (
             <div
               className={`update-feedback ${updateState.status}`}
               role="status"
               aria-live="polite"
             >
-              <span>{updateState.message}</span>
+              <span>{updateFeedbackMessage}</span>
               <button
                 type="button"
                 aria-label={t("updates.dismiss")}

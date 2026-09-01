@@ -540,10 +540,11 @@ test("desktop shell is secure, local-first, and distributable", async () => {
   );
 });
 
-test("update checks always show immediate and final feedback", async () => {
-  const [page, styles, manifest] = await Promise.all([
+test("update checks always show localized immediate and final feedback", async () => {
+  const [page, styles, desktop, manifest] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
   assert.match(page, /status: "checking"/);
@@ -556,6 +557,10 @@ test("update checks always show immediate and final feedback", async () => {
   assert.match(styles, /\.update-feedback\s*\{[^}]*z-index: 1000/s);
   assert.match(page, /aria-label=\{t\("updates\.dismiss"\)\}/);
   assert.match(page, /status === "error" \? 10000 : 6500/);
+  assert.match(page, /function localizedUpdateMessage\(/);
+  assert.match(page, /updates\.developmentUnavailable/);
+  assert.match(desktop, /reason: app\.isPackaged \? "portable" : "development"/);
+  assert.doesNotMatch(desktop, /Updates are disabled during development/);
   assert.deepEqual(JSON.parse(manifest).build.electronLanguages, [
     "en-US",
     "es",
