@@ -13,7 +13,7 @@ import {
 import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
 import { furnitureDestination } from "./furniture-layout.mjs";
-import { useI18n, type MessageDescriptor } from "./i18n";
+import { useI18n, type AppLanguageMode, type MessageDescriptor } from "./i18n";
 
 const APPLICATION_VERSION = packageMetadata.version;
 
@@ -1090,11 +1090,13 @@ function localizedUpdateMessage(state: UpdateState, t: Translate) {
 }
 type DesktopUpdates = {
   getLocalization?: () => Promise<{
+    mode: AppLanguageMode;
     language: "en" | "es";
     locale: string;
     messages: Record<string, string>;
     fallbackMessages: Record<string, string>;
   }>;
+  setLanguageMode?: (mode: AppLanguageMode) => Promise<{ ok: boolean; changed?: boolean }>;
   getUpdateState: () => Promise<UpdateState>;
   checkForUpdates: () => Promise<UpdateState>;
   downloadUpdate: () => Promise<UpdateState>;
@@ -1594,7 +1596,7 @@ function drawBuildingSprite(
 }
 
 export default function Home() {
-  const { t, text, locale } = useI18n();
+  const { t, text, locale, mode: languageMode } = useI18n();
   const appShellRef = useRef<HTMLElement>(null);
   const topbarRef = useRef<HTMLElement>(null);
   const [progressTabsTop, setProgressTabsTop] = useState(82);
@@ -1659,6 +1661,9 @@ export default function Home() {
   const livePanelCloseTimer = useRef<number | null>(null);
   const [showFarmSwitcher, setShowFarmSwitcher] = useState(false);
   const farmSwitcherRef = useRef<HTMLDivElement>(null);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [switchingLanguage, setSwitchingLanguage] = useState(false);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showAppSearch, setShowAppSearch] = useState(false);
   const [appSearchQuery, setAppSearchQuery] = useState("");
@@ -1946,6 +1951,8 @@ export default function Home() {
         setShowDailyBrief(false);
       } else if (showFarmSwitcher) {
         setShowFarmSwitcher(false);
+      } else if (showLanguageMenu) {
+        setShowLanguageMenu(false);
       } else {
         return;
       }
@@ -1953,7 +1960,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", closePopup);
     return () => window.removeEventListener("keydown", closePopup);
-  }, [locatedItemName, showAppSearch, showDailyBrief, showFarmSwitcher, showHelp, showLiveAlerts]);
+  }, [locatedItemName, showAppSearch, showDailyBrief, showFarmSwitcher, showHelp, showLanguageMenu, showLiveAlerts]);
 
   useEffect(() => {
     const openSection = (event: KeyboardEvent) => {
@@ -2068,18 +2075,37 @@ export default function Home() {
   }, [activeView]);
 
   useEffect(() => {
-    const closeFarmSwitcher = (event: PointerEvent) => {
+    const closeHeaderMenus = (event: PointerEvent) => {
       if (
         showFarmSwitcher &&
         !farmSwitcherRef.current?.contains(event.target as Node)
       )
         setShowFarmSwitcher(false);
+      if (
+        showLanguageMenu &&
+        !languageMenuRef.current?.contains(event.target as Node)
+      )
+        setShowLanguageMenu(false);
     };
-    document.addEventListener("pointerdown", closeFarmSwitcher);
+    document.addEventListener("pointerdown", closeHeaderMenus);
     return () => {
-      document.removeEventListener("pointerdown", closeFarmSwitcher);
+      document.removeEventListener("pointerdown", closeHeaderMenus);
     };
-  }, [showFarmSwitcher]);
+  }, [showFarmSwitcher, showLanguageMenu]);
+
+  const switchLanguage = async (nextMode: AppLanguageMode) => {
+    setShowLanguageMenu(false);
+    if (nextMode === languageMode || switchingLanguage) return;
+    const desktop = (window as Window & { stardewDesktop?: DesktopUpdates }).stardewDesktop;
+    if (!desktop?.setLanguageMode) return;
+    setSwitchingLanguage(true);
+    try {
+      await desktop.setLanguageMode(nextMode);
+    } catch (error) {
+      setDataLoadError(error instanceof Error ? error.message : t("language.switchFailed"));
+      setSwitchingLanguage(false);
+    }
+  };
 
   useEffect(() => {
     const scales = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -3274,6 +3300,15 @@ export default function Home() {
           </div>
         </div>
       )}
+      {switchingLanguage && (
+        <div className="farm-switch-feedback" role="status" aria-live="assertive">
+          <span className="farm-switch-spinner" aria-hidden="true" />
+          <div>
+            <strong>{t("language.switching")}</strong>
+            <span>{t("language.switchingDetail")}</span>
+          </div>
+        </div>
+      )}
       <header className="topbar" ref={topbarRef}>
         <div className="brand">
           {/* The selected save's farmer is composed locally from the user's own game assets. */}
@@ -3546,6 +3581,39 @@ export default function Home() {
             <option value={2}>200%</option>
           </select>
         </label>
+        <div className="language-selector" ref={languageMenuRef}>
+          <button
+            type="button"
+            className="language-selector-trigger"
+            aria-label={t("language.current", { language: t(`language.mode.${languageMode}`) })}
+            aria-expanded={showLanguageMenu}
+            aria-haspopup="menu"
+            disabled={switchingLanguage}
+            title={t("language.current", { language: t(`language.mode.${languageMode}`) })}
+            onClick={() => setShowLanguageMenu((open) => !open)}
+          >
+            <span aria-hidden="true">{{ game: "🌱", es: "🇪🇸", en: "🇬🇧" }[languageMode]}</span>
+            <i aria-hidden="true">▾</i>
+          </button>
+          {showLanguageMenu && (
+            <div className="language-selector-menu" role="menu" aria-label={t("language.selector")}>
+              {(["game", "es", "en"] as AppLanguageMode[]).map((option) => (
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={languageMode === option}
+                  className={languageMode === option ? "active" : ""}
+                  key={option}
+                  onClick={() => void switchLanguage(option)}
+                >
+                  <span aria-hidden="true">{{ game: "🌱", es: "🇪🇸", en: "🇬🇧" }[option]}</span>
+                  <b>{t(`language.mode.${option}`)}</b>
+                  <i aria-hidden="true">{languageMode === option ? "✓" : ""}</i>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </header>
       {showAppSearch && (
         <div className="app-search-backdrop" onPointerDown={() => setShowAppSearch(false)}>

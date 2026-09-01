@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("stardewDesktop", {
   getLocalization: () => ipcRenderer.invoke("localization:get-state"),
+  setLanguageMode: mode => ipcRenderer.invoke("localization:set-mode", String(mode || "")),
   onLocalizationChanged: callback => {
     const listener = (_event, state) => callback(state);
     ipcRenderer.on("localization:changed", listener);
