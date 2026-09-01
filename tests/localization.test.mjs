@@ -134,8 +134,12 @@ test("desktop and renderer keep the Companion locale synchronized", async () => 
   assert.match(layout, /initialMode=\{initialMode\}/);
   assert.match(development, /STARDEW_TOOL_LANGUAGE_MODE: localization\.mode/);
   assert.match(page, /className="language-selector"/);
-  assert.match(page, /\{ game: "🌱", es: "🇪🇸", en: "🇬🇧" \}/);
+  assert.match(page, /function LanguageModeIcon/);
+  assert.match(page, /\/assets\/ui\/stardew-valley-icon\.png/);
   assert.match(styles, /\.language-selector-menu/);
+  assert.match(styles, /\.language-mode-icon\.es/);
+  assert.match(styles, /\.language-mode-icon\.en/);
+  assert.match(desktop, /app\.getFileIcon\(executable, \{ size: "normal" \}\)/);
   assert.match(setup, /id="language-label"/);
   assert.match(setupScript, /element\.hidden = Boolean\(state\.config\)/);
   assert.doesNotMatch(provider, /getLocalization\(\)\.then\(setState\)\.catch\(\(\) => undefined\)/);

@@ -333,25 +333,15 @@ button {
   flex: 0 0 auto;
 }
 .language-selector-trigger {
-  width: 42px;
+  width: 34px;
   height: 28px;
-  padding: 0 5px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  padding: 3px;
+  display: grid;
+  place-items: center;
   color: #f7ecd8;
   background: #27362c;
   border: 1px solid #61705e;
   cursor: pointer;
-}
-.language-selector-trigger > span {
-  font-size: 16px;
-  line-height: 1;
-}
-.language-selector-trigger > i {
-  color: #aebba9;
-  font: 8px Arial, sans-serif;
-  font-style: normal;
 }
 .language-selector-trigger:hover,
 .language-selector-trigger:focus-visible,
@@ -364,25 +354,25 @@ button {
   z-index: 90;
   top: calc(100% + 8px);
   right: 0;
-  width: 205px;
+  width: 118px;
   padding: 6px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
   background: #202f26;
   border: 1px solid #62715e;
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
 }
 .language-selector-menu button {
-  width: 100%;
-  min-height: 36px;
-  padding: 6px 8px;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 14px;
-  align-items: center;
-  gap: 7px;
+  place-items: center;
   color: #f7ecd8;
   background: transparent;
   border: 1px solid transparent;
   cursor: pointer;
-  text-align: left;
 }
 .language-selector-menu button:hover,
 .language-selector-menu button:focus-visible,
@@ -391,19 +381,52 @@ button {
   border-color: #6f8b70;
   outline: none;
 }
-.language-selector-menu button > span {
-  font-size: 17px;
-}
-.language-selector-menu button > b {
+.language-mode-icon {
+  position: relative;
   overflow: hidden;
-  font: 700 10px Arial, sans-serif;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 22px;
+  height: 16px;
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
-.language-selector-menu button > i {
-  color: #aee486;
-  font: 800 10px Arial, sans-serif;
-  font-style: normal;
+.language-mode-icon.es {
+  background: linear-gradient(to bottom, #aa151b 0 25%, #f1bf00 25% 75%, #aa151b 75% 100%);
+}
+.language-mode-icon.en {
+  background:
+    linear-gradient(33deg, transparent 42%, #fff 42% 48%, #c8102e 48% 54%, #fff 54% 60%, transparent 60%),
+    linear-gradient(-33deg, transparent 42%, #fff 42% 48%, #c8102e 48% 54%, #fff 54% 60%, transparent 60%),
+    linear-gradient(to right, transparent 38%, #fff 38% 62%, transparent 62%),
+    linear-gradient(to bottom, transparent 34%, #fff 34% 66%, transparent 66%),
+    linear-gradient(to right, transparent 44%, #c8102e 44% 56%, transparent 56%),
+    linear-gradient(to bottom, transparent 42%, #c8102e 42% 58%, transparent 58%),
+    #012169;
+}
+.language-mode-icon.game {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  background: #6f914f;
+  box-shadow: inset 0 0 0 2px #263b28, 0 1px 2px rgba(0, 0, 0, 0.4);
+  image-rendering: pixelated;
+}
+.language-mode-icon.game::after {
+  content: "✦";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #f1cf72;
+  font: 700 12px/1 Arial, sans-serif;
+}
+.language-mode-icon.game img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
 }
 .update-button {
   min-width: 86px;

@@ -88,6 +88,30 @@ function log(message) {
   );
 }
 
+async function ensureLocalStardewIcon(config) {
+  const executable = [
+    join(config.stardewPath, "Stardew Valley.exe"),
+    join(config.stardewPath, "StardewValley.exe"),
+  ].find((candidate) => existsSync(candidate));
+  if (!executable) return;
+  const destinations = [
+    join(runtimeRoot, "public", "assets", "ui", "stardew-valley-icon.png"),
+    join(workRoot, "dist", "assets", "ui", "stardew-valley-icon.png"),
+  ];
+  if (destinations.every((destination) => existsSync(destination))) return;
+  try {
+    const icon = await app.getFileIcon(executable, { size: "normal" });
+    if (icon.isEmpty()) return;
+    const png = icon.toPNG();
+    for (const destination of destinations) {
+      mkdirSync(dirname(destination), { recursive: true });
+      writeFileSync(destination, png);
+    }
+  } catch (error) {
+    log(`Local Stardew Valley icon unavailable: ${error?.message || error}`);
+  }
+}
+
 function readJson(file, fallback = null) {
   try {
     return JSON.parse(readFileSync(file, "utf8"));
@@ -892,6 +916,7 @@ async function initialize(config, progress = () => {}) {
     mkdirSync(runtimeRoot, { recursive: true });
     migrateLegacyFarmPreferences(config);
     ensurePython(config);
+    await ensureLocalStardewIcon(config);
     const requiredAssets = [
       "springobjects.png",
       "Objects_2.png",

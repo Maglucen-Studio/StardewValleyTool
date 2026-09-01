@@ -1116,6 +1116,23 @@ type DesktopUpdates = {
   onNavigateHistory?: (callback: (direction: "back" | "forward") => void) => () => void;
 };
 type AppNavigationTarget = { view: ActiveView; section?: string };
+
+function LanguageModeIcon({ mode }: { mode: AppLanguageMode }) {
+  return (
+    <span className={`language-mode-icon ${mode}`} aria-hidden="true">
+      {mode === "game" && (
+        // The executable icon is extracted at runtime from the user's own installation.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src="/assets/ui/stardew-valley-icon.png"
+          alt=""
+          onError={(event) => { event.currentTarget.style.display = "none"; }}
+        />
+      )}
+    </span>
+  );
+}
+
 type FarmAnimal = {
   id: string;
   name: string;
@@ -3592,8 +3609,7 @@ export default function Home() {
             title={t("language.current", { language: t(`language.mode.${languageMode}`) })}
             onClick={() => setShowLanguageMenu((open) => !open)}
           >
-            <span aria-hidden="true">{{ game: "🌱", es: "🇪🇸", en: "🇬🇧" }[languageMode]}</span>
-            <i aria-hidden="true">▾</i>
+            <LanguageModeIcon mode={languageMode} />
           </button>
           {showLanguageMenu && (
             <div className="language-selector-menu" role="menu" aria-label={t("language.selector")}>
@@ -3601,14 +3617,14 @@ export default function Home() {
                 <button
                   type="button"
                   role="menuitemradio"
+                  aria-label={t(`language.mode.${option}`)}
                   aria-checked={languageMode === option}
                   className={languageMode === option ? "active" : ""}
                   key={option}
+                  title={t(`language.mode.${option}`)}
                   onClick={() => void switchLanguage(option)}
                 >
-                  <span aria-hidden="true">{{ game: "🌱", es: "🇪🇸", en: "🇬🇧" }[option]}</span>
-                  <b>{t(`language.mode.${option}`)}</b>
-                  <i aria-hidden="true">{languageMode === option ? "✓" : ""}</i>
+                  <LanguageModeIcon mode={option} />
                 </button>
               ))}
             </div>
