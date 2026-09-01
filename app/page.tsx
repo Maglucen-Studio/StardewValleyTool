@@ -11,6 +11,7 @@ import {
   type CSSProperties,
 } from "react";
 import packageMetadata from "../package.json";
+import { ChangelogHistory } from "./changelog";
 import { useI18n, type MessageDescriptor } from "./i18n";
 
 const APPLICATION_VERSION = packageMetadata.version;
@@ -3629,14 +3630,7 @@ export default function Home() {
                 <p>{t("web.home.desktopDiagnosticsAreUnavailableInThisBrowserSession")}</p>
               )}
             </div>
-            <details className="help-changelog">
-              <summary>{t("web.home.whatIsNewIn190")}</summary>
-              <ul>
-                <li>{t("web.home.companionLocalizationNowFollowsStardewValleysConfiguredLanguage")}</li>
-                <li>{t("web.home.gameOwnedNamesResolveFromYourLocalGameDataAcrossEveryView")}</li>
-                <li>{t("web.home.farmSwitchingAndDesktopFeedbackNowShowLocalizedProgress")}</li>
-              </ul>
-            </details>
+            <ChangelogHistory />
           </section>
         </div>
       )}
