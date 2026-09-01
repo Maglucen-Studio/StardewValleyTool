@@ -1118,17 +1118,38 @@ type DesktopUpdates = {
 type AppNavigationTarget = { view: ActiveView; section?: string };
 
 function LanguageModeIcon({ mode }: { mode: AppLanguageMode }) {
+  if (mode === "es") {
+    return (
+      <span className="language-mode-icon flag" aria-hidden="true">
+        <svg viewBox="0 0 30 20" focusable="false">
+          <path fill="#aa151b" d="M0 0h30v20H0z" />
+          <path fill="#f1bf00" d="M0 5h30v10H0z" />
+        </svg>
+      </span>
+    );
+  }
+  if (mode === "en") {
+    return (
+      <span className="language-mode-icon flag" aria-hidden="true">
+        <svg viewBox="0 0 30 20" focusable="false">
+          <path fill="#012169" d="M0 0h30v20H0z" />
+          <path stroke="#fff" strokeWidth="4" d="m0 0 30 20M30 0 0 20" />
+          <path stroke="#c8102e" strokeWidth="2" d="m0 0 30 20M30 0 0 20" />
+          <path stroke="#fff" strokeWidth="7" d="M15 0v20M0 10h30" />
+          <path stroke="#c8102e" strokeWidth="4" d="M15 0v20M0 10h30" />
+        </svg>
+      </span>
+    );
+  }
   return (
-    <span className={`language-mode-icon ${mode}`} aria-hidden="true">
-      {mode === "game" && (
-        // The executable icon is extracted at runtime from the user's own installation.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src="/assets/ui/stardew-valley-icon.png"
-          alt=""
-          onError={(event) => { event.currentTarget.style.display = "none"; }}
-        />
-      )}
+    <span className="language-mode-icon game" aria-hidden="true">
+      {/* The executable icon is extracted at runtime from the user's own installation. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/assets/ui/stardew-valley-icon.png"
+        alt=""
+        onError={(event) => { event.currentTarget.style.display = "none"; }}
+      />
     </span>
   );
 }

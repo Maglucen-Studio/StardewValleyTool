@@ -137,8 +137,8 @@ test("desktop and renderer keep the Companion locale synchronized", async () => 
   assert.match(page, /function LanguageModeIcon/);
   assert.match(page, /\/assets\/ui\/stardew-valley-icon\.png/);
   assert.match(styles, /\.language-selector-menu/);
-  assert.match(styles, /\.language-mode-icon\.es/);
-  assert.match(styles, /\.language-mode-icon\.en/);
+  assert.match(page, /viewBox="0 0 30 20"/);
+  assert.match(styles, /\.language-mode-icon\.flag/);
   assert.match(desktop, /app\.getFileIcon\(executable, \{ size: "normal" \}\)/);
   const liveLanguageHandler = desktop.slice(
     desktop.indexOf('ipcMain.handle("localization:set-mode"'),
