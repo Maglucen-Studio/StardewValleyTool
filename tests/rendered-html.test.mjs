@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile as readRawFile } from "node:fs/promises";
 import test from "node:test";
 import { furnitureDestination } from "../app/furniture-layout.mjs";
+import { isForegroundMapLayer } from "../scripts/render-community-rooms.mjs";
 
 async function readFile(path, encoding) {
   const source = await readRawFile(path, encoding);
@@ -81,6 +82,25 @@ test("furniture sprites anchor to the bottom of their saved collision footprint"
   assert.match(generator, /"footprintHeight": footprint_height/);
   assert.match(page, /furnitureDestination\(entity, size\)/);
   assert.match(page, /furnitureDestination\(item, TILE\)/);
+});
+
+test("interior foreground map layers occlude furniture like Stardew Valley", async () => {
+  assert.equal(isForegroundMapLayer("Back"), false);
+  assert.equal(isForegroundMapLayer("Buildings"), false);
+  assert.equal(isForegroundMapLayer("Front"), true);
+  assert.equal(isForegroundMapLayer("Front2"), true);
+  assert.equal(isForegroundMapLayer("AlwaysFront"), true);
+
+  const [renderer, page, styles] = await Promise.all([
+    readRawFile(new URL("../scripts/render-storage-location-maps.mjs", import.meta.url), "utf8"),
+    readRawFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readRawFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(renderer, /renderLocation\(mapName, season, \{ layered: true \}\)/);
+  assert.match(renderer, /interior\.foreground = rendered\.foreground/);
+  assert.match(page, /ctx\.drawImage\(currentForeground\.image/);
+  assert.match(page, /storage-location-preview-foreground/);
+  assert.match(styles, /\.storage-location-preview-foreground/);
 });
 
 test("the localization context interpolates variables before and after desktop hydration", async () => {
@@ -1266,7 +1286,7 @@ test("physical chests can request locally rendered maps for any game location", 
   assert.match(renderer, /snapshot\.planningBrief\?\.inventory/);
   assert.match(renderer, /resolve\(contentRoot, "Maps", `\$\{name\}\.xnb`\)/);
   assert.match(renderer, /seasonalSheetName\(imageSource, season\)/);
-  assert.match(renderer, /await renderMap\(tbinPath, sheets\)/);
+  assert.match(renderer, /await renderMap\(tbinPath, sheets,/);
   assert.match(renderer, /snapshot\.locationMaps = locationMaps/);
   assert.match(renderer, /liveState\.storage \|\| \[\]/);
   assert.match(renderer, /1: "Farm_Fishing"/);
