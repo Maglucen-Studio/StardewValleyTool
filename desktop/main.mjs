@@ -1334,8 +1334,6 @@ function installIpc() {
     await initialize(config, (message) =>
       event.sender.send("setup:progress", message),
     );
-    if (mainWindow && !mainWindow.isDestroyed())
-      await mainWindow.loadURL(`http://${localServiceHost}:${servicePort(config)}/`);
     return { ok: true, changed: true };
   });
   ipcMain.handle("display:set-scale", (event, incomingScale) => {
