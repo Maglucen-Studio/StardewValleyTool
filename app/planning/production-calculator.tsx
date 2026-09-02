@@ -33,6 +33,9 @@ export type ProductionCatalog = {
   crops: ProductionCatalogEntry[];
   fruitTrees: ProductionCatalogEntry[];
   fertilizers?: ProductionFertilizer[];
+  tappedTrees?: Array<{ id: string; treeType: string; seed: { id: string; name: string; price: number }; growthChance: number; fertilizedGrowthChance: number; growsInWinter: boolean; tapItems: Array<{ itemId: string; item: { id: string; name: string; price: number } | null; daysUntilReady: number; condition?: string | null; season?: string | null; hasTimeModifiers?: boolean }> }>;
+  mushroomLogOutputs?: Array<{ id: string; name: string; price: number }>;
+  forestryEquipment?: Array<{ id: string; name: string; opportunityCost: number; materials: Array<{ item: { id: string; name: string; price: number }; quantity: number }> }>;
 };
 
 type CalculatorMode = "budget" | "tiles" | "target";

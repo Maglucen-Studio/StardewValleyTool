@@ -14,6 +14,7 @@ import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
 import { furnitureDestination } from "./furniture-layout.mjs";
 import { ProductionCalculator, type ProductionCatalog } from "./planning/production-calculator";
+import { ForestryCalculator } from "./planning/forestry-calculator";
 import {
   useI18n,
   type AppLanguageMode,
@@ -7583,7 +7584,7 @@ function PlanningView({
 
       {section === "crops" && (
         <div className="crop-planning-sections">
-          {mode === "plan" && <ProductionCalculator
+          {mode === "plan" && <><ProductionCalculator
             catalog={current.productionCatalog}
             currentDate={{ year: current.year, season: current.season as "spring" | "summer" | "fall" | "winter", day: current.day }}
             currentMoney={current.money}
@@ -7592,7 +7593,7 @@ function PlanningView({
             profileId={current.profileId || `${current.farmName}-${current.farmer}`}
             resolveGameName={gameName}
             renderItemArtwork={(id, name) => <ItemMentionArtwork id={id.replace(/^\(O\)/, "")} name={name} locatable={false} />}
-          />}
+          /><ForestryCalculator catalog={current.productionCatalog} resolveGameName={gameName} /></>}
           {mode === "farm" && <section className="planted-section">
             <div className="crop-section-title">
               <div>

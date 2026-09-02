@@ -1604,8 +1604,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 7/);
-  assert.match(desktop, /catalogVersion !== 7/);
+  assert.match(extractor, /catalogVersion: 8/);
+  assert.match(desktop, /catalogVersion !== 8/);
   assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
   assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);

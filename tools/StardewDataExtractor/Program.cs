@@ -76,6 +76,27 @@ static class GameCatalogReader
             ObjectData? data = ObjectFor(qualifiedId);
             return new { id = qualifiedId, name = data?.Name ?? qualifiedId, price = data?.Price ?? 0, category = data?.Category };
         }
+        object[] RecipeMaterials(string name)
+        {
+            string ingredients = craftingRecipes.GetValueOrDefault(name)?.Split('/').FirstOrDefault() ?? "";
+            string[] parts = ingredients.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return Enumerable.Range(0, parts.Length / 2).Select(index =>
+            {
+                string id = QualifyObject(parts[index * 2]);
+                int.TryParse(parts[index * 2 + 1], out int quantity);
+                return (object)new { item = DescribeItem(id), quantity };
+            }).ToArray();
+        }
+        int RecipeOpportunityCost(string name)
+        {
+            string ingredients = craftingRecipes.GetValueOrDefault(name)?.Split('/').FirstOrDefault() ?? "";
+            string[] parts = ingredients.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return Enumerable.Range(0, parts.Length / 2).Sum(index =>
+            {
+                int.TryParse(parts[index * 2 + 1], out int quantity);
+                return (ObjectFor(parts[index * 2])?.Price ?? 0) * quantity;
+            });
+        }
 
         var cropCatalog = crops.Select(pair =>
         {
@@ -202,6 +223,7 @@ static class GameCatalogReader
                     }).ToArray(),
                 }).ToArray(),
             }).ToArray();
+        var mushroomLogOutputs = new[] { "(O)404", "(O)420", "(O)422", "(O)257", "(O)281" }.Select(DescribeItem).ToArray();
 
         var forestryEquipment = bigCraftables
             .Where(pair => pair.Value.Name is "Tapper" or "Heavy Tapper" or "Mushroom Log")
@@ -210,11 +232,12 @@ static class GameCatalogReader
                 id = $"(BC){pair.Key}",
                 pair.Value.Name,
                 pair.Value.Price,
-                recipe = craftingRecipes.GetValueOrDefault(pair.Value.Name),
+                materials = RecipeMaterials(pair.Value.Name),
+                opportunityCost = RecipeOpportunityCost(pair.Value.Name),
             }).ToArray();
 
         return JsonSerializer.Serialize(
-            new { catalogVersion = 3, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, forestryEquipment },
+            new { catalogVersion = 3, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment },
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
         );
     }
