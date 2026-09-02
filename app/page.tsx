@@ -13,6 +13,7 @@ import {
 import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
 import { furnitureDestination } from "./furniture-layout.mjs";
+import { ProductionCalculator, type ProductionCatalog } from "./planning/production-calculator";
 import {
   useI18n,
   type AppLanguageMode,
@@ -98,6 +99,7 @@ type Snapshot = {
   money: number;
   totalMoneyEarned: number;
   progress: Progress;
+  professionIds?: number[];
   grandpa: GrandpaProgress;
   achievements: AchievementTracking;
   collectionBrief?: LongTermCollectionBrief;
@@ -119,6 +121,7 @@ type Snapshot = {
     { background: string; foreground?: string; width: number; height: number }
   >;
   suggestions: Suggestion[];
+  productionCatalog?: ProductionCatalog;
 };
 type LocalizedValue = string | MessageDescriptor;
 type Progress = {
@@ -7580,6 +7583,16 @@ function PlanningView({
 
       {section === "crops" && (
         <div className="crop-planning-sections">
+          {mode === "plan" && <ProductionCalculator
+            catalog={current.productionCatalog}
+            currentDate={{ year: current.year, season: current.season as "spring" | "summer" | "fall" | "winter", day: current.day }}
+            currentMoney={current.money}
+            currentFarmingLevel={current.progress.farming}
+            currentProfessionIds={current.professionIds || []}
+            profileId={current.profileId || `${current.farmName}-${current.farmer}`}
+            resolveGameName={gameName}
+            renderItemArtwork={(id, name) => <ItemMentionArtwork id={id.replace(/^\(O\)/, "")} name={name} locatable={false} />}
+          />}
           {mode === "farm" && <section className="planted-section">
             <div className="crop-section-title">
               <div>
