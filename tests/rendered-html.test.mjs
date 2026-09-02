@@ -2038,6 +2038,11 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(gameReader, /growthPhases = pair\.Value\.DaysInPhase/);
   assert.match(gameReader, /category = data\?\.Category/);
   assert.match(gameReader, /fertilizerCatalog/);
+  assert.match(gameReader, /Data\/WildTrees/);
+  assert.match(gameReader, /Data\/Machines/);
+  assert.match(gameReader, /tappedTreeCatalog/);
+  assert.match(gameReader, /mushroomLogRules/);
+  assert.match(gameReader, /forestryEquipment/);
   assert.match(generator, /"professionIds"/);
   assert.match(gameReader, /source = "local-game"/);
   assert.match(generator, /"productionCatalog": game_data\.get\("productionCatalog"\)/);

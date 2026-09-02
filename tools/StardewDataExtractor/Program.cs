@@ -3,10 +3,13 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using System.Text.Json;
 using Microsoft.Xna.Framework.Content;
+using StardewValley.GameData.BigCraftables;
 using StardewValley.GameData.Crops;
 using StardewValley.GameData.FruitTrees;
+using StardewValley.GameData.Machines;
 using StardewValley.GameData.Objects;
 using StardewValley.GameData.Shops;
+using StardewValley.GameData.WildTrees;
 
 if (args.Length != 1)
     throw new ArgumentException("Expected the local Stardew Valley installation directory.");
@@ -33,6 +36,10 @@ static class GameCatalogReader
         Dictionary<string, ObjectData> objects = content.Load<Dictionary<string, ObjectData>>("Data/Objects");
         Dictionary<string, FruitTreeData> fruitTrees = content.Load<Dictionary<string, FruitTreeData>>("Data/FruitTrees");
         Dictionary<string, ShopData> shops = content.Load<Dictionary<string, ShopData>>("Data/Shops");
+        Dictionary<string, WildTreeData> wildTrees = content.Load<Dictionary<string, WildTreeData>>("Data/WildTrees");
+        Dictionary<string, MachineData> machines = content.Load<Dictionary<string, MachineData>>("Data/Machines");
+        Dictionary<string, BigCraftableData> bigCraftables = content.Load<Dictionary<string, BigCraftableData>>("Data/BigCraftables");
+        Dictionary<string, string> craftingRecipes = content.Load<Dictionary<string, string>>("Data/CraftingRecipes");
 
         static string QualifyObject(string? id) => string.IsNullOrWhiteSpace(id) ? "" : id.StartsWith('(') ? id : $"(O){id}";
         static string Unqualify(string? id)
@@ -148,8 +155,66 @@ static class GameCatalogReader
             };
         }).ToArray();
 
+        var tappedTreeCatalog = wildTrees
+            .Where(pair => pair.Value.TapItems?.Count > 0)
+            .Select(pair => new
+            {
+                id = $"wild-tree:{pair.Key}",
+                treeType = pair.Key,
+                seed = DescribeItem(pair.Value.SeedItemId),
+                growthChance = pair.Value.GrowthChance,
+                fertilizedGrowthChance = pair.Value.FertilizedGrowthChance,
+                growsInWinter = pair.Value.GrowsInWinter,
+                isStumpDuringWinter = pair.Value.IsStumpDuringWinter,
+                tapItems = pair.Value.TapItems.Select(item => new
+                {
+                    id = item.Id,
+                    itemId = QualifyObject(item.ItemId),
+                    randomItemIds = item.RandomItemId?.Select(QualifyObject).ToArray() ?? Array.Empty<string>(),
+                    item = string.IsNullOrWhiteSpace(item.ItemId) ? null : DescribeItem(item.ItemId),
+                    season = item.Season?.ToString().ToLowerInvariant(),
+                    chance = item.Chance,
+                    condition = item.Condition,
+                    previousItemIds = item.PreviousItemId,
+                    daysUntilReady = item.DaysUntilReady,
+                    hasTimeModifiers = item.DaysUntilReadyModifiers?.Count > 0,
+                }).ToArray(),
+            }).ToArray();
+
+        var mushroomLogRules = machines
+            .Where(pair => pair.Key.Contains("MushroomLog", StringComparison.OrdinalIgnoreCase))
+            .Select(pair => new
+            {
+                id = pair.Key,
+                outputRules = pair.Value.OutputRules?.Select(rule => new
+                {
+                    rule.Id,
+                    rule.DaysUntilReady,
+                    rule.MinutesUntilReady,
+                    outputs = rule.OutputItem?.Select(output => new
+                    {
+                        output.ItemId,
+                        output.RandomItemId,
+                        output.OutputMethod,
+                        output.MinStack,
+                        output.MaxStack,
+                        output.Condition,
+                    }).ToArray(),
+                }).ToArray(),
+            }).ToArray();
+
+        var forestryEquipment = bigCraftables
+            .Where(pair => pair.Value.Name is "Tapper" or "Heavy Tapper" or "Mushroom Log")
+            .Select(pair => new
+            {
+                id = $"(BC){pair.Key}",
+                pair.Value.Name,
+                pair.Value.Price,
+                recipe = craftingRecipes.GetValueOrDefault(pair.Value.Name),
+            }).ToArray();
+
         return JsonSerializer.Serialize(
-            new { catalogVersion = 2, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog },
+            new { catalogVersion = 3, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, forestryEquipment },
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
         );
     }
