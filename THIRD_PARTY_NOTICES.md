@@ -12,6 +12,7 @@ Principal runtime components include:
 - xnb — LGPL-3.0-or-later
 - Python — Python Software Foundation License
 - Pillow — HPND License
+- Microsoft .NET runtime — MIT License
 
 Development and packaging also use Vite, TypeScript, ESLint, electron-builder, and their transitive dependencies under their respective licenses.
 

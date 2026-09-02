@@ -28,6 +28,7 @@
 - Renders the matching tile-accurate layout for all eight vanilla farm types, with buildings, crops, machines, and interiors drawn from the user's local game installation.
 - Shows fish by season, weather, time, location, fishing level, collection status, and active quest.
 - Tracks crops, production, friendships, achievements, museum progress, and Community Center bundles.
+- Simulates hypothetical crop and fruit-tree investments from locally extracted game rules without requiring SMAPI.
 - Reads the current game state through the optional included SMAPI bridge for LIVE updates.
 - Processes everything locally and never writes to the Stardew Valley save.
 
@@ -66,7 +67,7 @@ The bridge reports selected live information such as time, location, inventory, 
 - A legitimate PC installation of Stardew Valley 1.6.
 - Optional: SMAPI for LIVE tracking.
 
-No separate installation of Python, Node.js, or a web browser is required.
+No separate installation of Python, Node.js, .NET, or a web browser is required.
 
 ## Updates
 

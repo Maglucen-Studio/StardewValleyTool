@@ -12,7 +12,7 @@
     "dev": "node scripts/dev-local.mjs",
     "build": "npm run verify:changelog && vinext build && node scripts/prepare-built-public.mjs",
     "start": "vinext start",
-    "test": "npm run verify:localization && npm run build && node --test tests/rendered-html.test.mjs tests/localization.test.mjs tests/changelog.test.mjs",
+    "test": "npm run verify:localization && npm run build && node --test tests/rendered-html.test.mjs tests/localization.test.mjs tests/changelog.test.mjs tests/production-engine.test.mjs",
     "verify:changelog": "node scripts/verify-changelog.mjs",
     "verify:localization": "node scripts/verify-localization-ui.mjs",
     "verify:public": "node scripts/verify-public-safety.mjs",
@@ -21,12 +21,13 @@
     "electron:prepare": "node node_modules/electron/install.js",
     "postinstall": "npm run electron:prepare",
     "desktop:bridge": "node scripts/prepare-bridge.mjs",
-    "desktop": "npm run desktop:bridge && npm run build && npm run electron:prepare && electron .",
-    "desktop:dev": "npm run desktop:bridge && node scripts/prepare-portable-python.mjs && npm run electron:prepare && node scripts/desktop-development.mjs",
+    "desktop:game-data": "node scripts/prepare-game-data-extractor.mjs",
+    "desktop": "npm run desktop:bridge && npm run desktop:game-data && npm run build && npm run electron:prepare && electron .",
+    "desktop:dev": "npm run desktop:bridge && npm run desktop:game-data && node scripts/prepare-portable-python.mjs && npm run electron:prepare && node scripts/desktop-development.mjs",
     "desktop:dist": "npm run desktop:installer",
-    "desktop:installer": "npm run desktop:bridge && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win nsis --publish never",
-    "desktop:portable": "npm run desktop:bridge && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win portable",
-    "desktop:dir": "npm run desktop:bridge && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win dir"
+    "desktop:installer": "npm run desktop:bridge && npm run desktop:game-data && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win nsis --publish never",
+    "desktop:portable": "npm run desktop:bridge && npm run desktop:game-data && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win portable",
+    "desktop:dir": "npm run desktop:bridge && npm run desktop:game-data && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win dir"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",

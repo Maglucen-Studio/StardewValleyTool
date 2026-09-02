@@ -1,0 +1,74 @@
+export type StardewSeason = "spring" | "summer" | "fall" | "winter";
+export type StardewDate = { year: number; season: StardewSeason; day: number };
+export type ProductionProducer = {
+  id: string;
+  kind: "crop" | "fruit-tree";
+  name: string;
+  seasons: StardewSeason[];
+  firstOutputDays: number;
+  growthPhases?: number[];
+  repeatDays?: number | null;
+  startupCost: number;
+  outputValue: number;
+  outputValueByScenario?: Partial<Record<"conservative" | "expected" | "optimistic", number>>;
+  yield: { min: number; expected: number; max: number };
+  space?: number;
+  verified: boolean;
+};
+export type ProductionPlan = {
+  producerId: string;
+  mode: "budget" | "tiles" | "target";
+  requestedAmount: number;
+  location: string;
+  replant: boolean;
+  forcePlantToday: boolean;
+  plantingDate: StardewDate | null;
+  plantingDelayDays: number | null;
+  startDate: StardewDate;
+  endDate: StardewDate;
+  durationDays: number;
+  quantity: number;
+  requiredSpace: number;
+  investment: number;
+  recurringCosts: number;
+  totalCosts: number;
+  setupCosts: number;
+  unusedBudget: number;
+  harvestDates: StardewDate[];
+  breakEvenDate: StardewDate | null;
+  scenarios: Record<"conservative" | "expected" | "optimistic", {
+    units: number;
+    grossRevenue: number;
+    netProfit: number;
+    profitPerDay: number;
+    profitPerSpace: number;
+  }>;
+  warnings: string[];
+};
+
+export const STARDEW_SEASONS: readonly StardewSeason[];
+export const DAYS_PER_SEASON: number;
+export const DAYS_PER_YEAR: number;
+export function normalizeStardewDate(date: Partial<StardewDate>): StardewDate;
+export function stardewDateToOrdinal(date: StardewDate): number;
+export function ordinalToStardewDate(value: number): StardewDate;
+export function addStardewDays(date: StardewDate, days: number): StardewDate;
+export function stardewDaysBetween(start: StardewDate, end: StardewDate): number;
+export function resolvePlanningHorizon(input: { startDate: StardewDate; durationDays?: number; endDate?: StardewDate }): {
+  startDate: StardewDate;
+  endDate: StardewDate;
+  durationDays: number;
+  warnings: string[];
+};
+export function calculateProductionPlan(input: {
+  producer: ProductionProducer;
+  mode: "budget" | "tiles" | "target";
+  amount: number;
+  startDate: StardewDate;
+  durationDays?: number;
+  endDate?: StardewDate;
+  location?: "outdoors" | "greenhouse" | "island";
+  replant?: boolean;
+  forcePlantToday?: boolean;
+  setupCostPerProducer?: number;
+}): ProductionPlan;

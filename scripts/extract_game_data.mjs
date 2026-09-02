@@ -1,8 +1,10 @@
+import { spawnSync } from "node:child_process";
 import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { unpackToFiles } from "xnb";
 import JSON5 from "json5";
-import { loadConfig, runtimeRoot, runtimePaths, validateConfig } from "./config.mjs";
+import { loadConfig, projectRoot, runtimeRoot, runtimePaths, validateConfig } from "./config.mjs";
 import { ensureRuntimeDirectories, syncRuntimePublic } from "./runtime-files.mjs";
 import { renderCommunityRooms } from "./render-community-rooms.mjs";
 import { localizedXnbPath } from "./localization.mjs";
@@ -86,6 +88,22 @@ const nameCatalogs = [
   ["Strings/Furniture.xnb", () => true],
 ];
 const fish = await unpack("Data/Fish.xnb");
+function extractProductionCatalog() {
+  const executable = resolve(projectRoot, "desktop", "resources", "game-data-extractor", "StardewDataExtractor.exe");
+  if (!existsSync(executable))
+    throw new Error("The local game data extractor is missing. Run npm run desktop:game-data.");
+  const result = spawnSync(executable, [config.stardewPath], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    windowsHide: true,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0)
+    throw new Error(`The local game data extractor exited with code ${result.status}: ${result.stderr || "unknown error"}`);
+  return JSON.parse(result.stdout);
+}
+const productionCatalog = extractProductionCatalog();
 async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, catalogSuffix) {
   const localizedObjectNamesByEnglish = Object.assign(
     {},
@@ -124,7 +142,7 @@ async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, cata
   return {
     language: catalogLanguage,
     locale: catalogLocale,
-    catalogVersion: 6,
+    catalogVersion: 7,
     objectNames,
     localizedObjectNamesByEnglish,
     localizedNamesByQualifiedId,
@@ -148,13 +166,14 @@ const gameLocalizationCatalogs = Object.fromEntries(
 const activeLocalization = gameLocalizationCatalogs.en;
 
 const gameData = {
-  _localization: { language: "neutral", catalogVersion: 6 },
+  _localization: { language: "neutral", catalogVersion: 7 },
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
   craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),
   cookingChannel: await unpack("Data/TV/CookingChannel.xnb"),
   tipChannel: await unpack("Data/TV/TipChannel.xnb"),
   fish,
+  productionCatalog,
   hair: await unpack("Data/HairData.xnb"),
   hats: await unpack("Data/hats.xnb"),
   furniture: await unpack("Data/Furniture.xnb"),

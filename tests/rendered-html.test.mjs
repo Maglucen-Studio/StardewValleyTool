@@ -1604,8 +1604,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 6/);
-  assert.match(desktop, /catalogVersion !== 6/);
+  assert.match(extractor, /catalogVersion: 7/);
+  assert.match(desktop, /catalogVersion !== 7/);
   assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
   assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);
@@ -1736,7 +1736,7 @@ test("desktop development reloads the interface and restarts Electron runtime ch
     ]);
   assert.equal(
     JSON.parse(packageSource).scripts["desktop:dev"],
-    "npm run desktop:bridge && node scripts/prepare-portable-python.mjs && npm run electron:prepare && node scripts/desktop-development.mjs",
+    "npm run desktop:bridge && npm run desktop:game-data && node scripts/prepare-portable-python.mjs && npm run electron:prepare && node scripts/desktop-development.mjs",
   );
   assert.match(
     desktop,
@@ -1989,4 +1989,56 @@ test("Today checklist persists per farm and resolves eligible tasks from LIVE ev
   assert.match(page, /today-personal-goals/);
   assert.match(styles, /\.checklist-actions/);
   assert.match(styles, /\.checklist-history/);
+});
+
+test("production planner works offline with a catalog derived from the local game", async () => {
+  const [page, calculator, engine, extractor, gameReader, generator] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/planning/production-calculator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/planning/production-engine.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/extract_game_data.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../tools/StardewDataExtractor/Program.cs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /productionCatalog\?: ProductionCatalog/);
+  assert.match(page, /<ProductionCalculator/);
+  assert.match(calculator, /calculateProductionPlan/);
+  assert.match(calculator, /horizonMode === "days"/);
+  assert.match(calculator, /horizonMode === "date"/);
+  assert.match(calculator, /<span>\{t\("planner\.endDay"\)\}<\/span>/);
+  assert.match(calculator, /<span>\{t\("planner\.endYear"\)\}<\/span>/);
+  assert.match(engine, /export function resolvePlanningHorizon/);
+  assert.match(engine, /export function calculateProductionPlan/);
+  assert.match(page, /catalog=\{current\.productionCatalog\}/);
+  assert.doesNotMatch(page, /catalog=\{live\.productionCatalog\}/);
+  assert.match(calculator, /currentFarmingLevel/);
+  assert.match(calculator, /currentProfessionIds/);
+  assert.match(calculator, /qualityPriceMultipliers/);
+  assert.match(calculator, /acceleratedGrowthDays/);
+  assert.match(calculator, /tillerApplies/);
+  assert.match(calculator, /entry\.kind === "crop"[\s\S]*resolveGameName\(entry\.output\.name, entry\.output\.id\)/);
+  assert.match(calculator, /renderItemArtwork\?\.\(entry\.output\.id, outputName\)/);
+  assert.match(calculator, /className="planner-producer-menu"/);
+  assert.match(calculator, /document\.addEventListener\("pointerdown", closeOnOutsideClick\)/);
+  assert.match(calculator, /window\.localStorage\.setItem\(storageKey/);
+  assert.match(calculator, /className="planner-bookmarks"/);
+  assert.match(calculator, /planner-applied-assumptions/);
+  assert.match(calculator, /className="planner-comparison-table"/);
+  assert.match(calculator, /className="planner-comparison-chart"/);
+  assert.match(calculator, /comparisonIds\.length >= 3/);
+  assert.match(calculator, /comparisonRows/);
+  assert.match(calculator, /resetCalculation/);
+  assert.match(calculator, /forcePlantToday/);
+  assert.match(page, /renderItemArtwork=\{.{0,120}<ItemMentionArtwork/);
+  assert.match(extractor, /StardewDataExtractor\.exe/);
+  assert.match(gameReader, /Data\/Crops/);
+  assert.match(gameReader, /Data\/Objects/);
+  assert.match(gameReader, /Data\/FruitTrees/);
+  assert.match(gameReader, /Data\/Shops/);
+  assert.match(gameReader, /growthPhases = pair\.Value\.DaysInPhase/);
+  assert.match(gameReader, /category = data\?\.Category/);
+  assert.match(gameReader, /fertilizerCatalog/);
+  assert.match(generator, /"professionIds"/);
+  assert.match(gameReader, /source = "local-game"/);
+  assert.match(generator, /"productionCatalog": game_data\.get\("productionCatalog"\)/);
 });

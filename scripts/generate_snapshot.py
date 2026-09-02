@@ -2163,6 +2163,7 @@ def read_snapshot(save_path: Path) -> dict:
         "money": number(player, "money"),
         "totalMoneyEarned": total_earned,
         "progress": progress,
+        "professionIds": [int(node.text) for node in player.findall("professions/int") if (node.text or "").isdigit()],
         "grandpa": grandpa_progress(root, player, farm, total_earned, progress),
         "achievements": achievement_tracking(root, player, total_earned, progress, game_data),
         "collectionBrief": long_term_collection_brief(
@@ -2174,6 +2175,7 @@ def read_snapshot(save_path: Path) -> dict:
         "dailyBrief": daily_brief(root, player, locations, season, day, year, (year - 1) * 112 + season_index * 28 + day, save_path),
         "fishingBrief": fishing_brief(root, player, season, day, progress),
         "planningBrief": planning,
+        "productionCatalog": game_data.get("productionCatalog"),
         "localizedNamesByQualifiedId": localized_names_by_qualified_id(artwork_catalog, game_data),
         "localizedObjectNamesByEnglish": game_data.get("localizedObjectNamesByEnglish", {}),
         "itemArtworkCatalog": artwork_catalog,
