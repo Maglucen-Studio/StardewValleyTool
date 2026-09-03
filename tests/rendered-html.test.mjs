@@ -1121,6 +1121,8 @@ test("Farm and Plan remember separate sections while bundle links open Community
   );
   assert.match(page, /<PlanningView key="farm"[^>]*mode="farm"/);
   assert.match(page, /<PlanningView key="plan"[^>]*mode="plan"/);
+  assert.match(page, /\["calculators", t\("planning\.calculators"\)\]/);
+  assert.match(page, /section === "calculators"/);
 });
 
 test("content pages use the app-wide scrollbar while Map keeps its fixed workspace", async () => {
@@ -1604,8 +1606,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 8/);
-  assert.match(desktop, /catalogVersion !== 8/);
+  assert.match(extractor, /catalogVersion: 9/);
+  assert.match(desktop, /catalogVersion !== 9/);
   assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
   assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);
@@ -2017,7 +2019,9 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /acceleratedGrowthDays/);
   assert.match(calculator, /tillerApplies/);
   assert.match(calculator, /entry\.kind === "crop"[\s\S]*resolveGameName\(entry\.output\.name, entry\.output\.id\)/);
-  assert.match(calculator, /renderItemArtwork\?\.\(entry\.output\.id, outputName\)/);
+  assert.match(calculator, /renderItemArtwork\?\.\(entry\.output\.id, outputName, entry\.output\.spriteIndex\)/);
+  assert.match(calculator, /className="planner-result-identity"/);
+  assert.match(calculator, /className="planner-comparison-identity"/);
   assert.match(calculator, /className="planner-producer-menu"/);
   assert.match(calculator, /document\.addEventListener\("pointerdown", closeOnOutsideClick\)/);
   assert.match(calculator, /window\.localStorage\.setItem\(storageKey/);

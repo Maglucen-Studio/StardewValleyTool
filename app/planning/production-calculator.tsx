@@ -12,7 +12,7 @@ import {
 } from "./production-engine.mjs";
 
 export type ProductionCatalogEntry = Omit<ProductionProducer, "outputValue"> & {
-  output: { id: string; name: string; price: number; category?: number };
+  output: { id: string; name: string; price: number; category?: number; spriteIndex?: number };
   growthPhases?: number[];
   yieldRules?: { maxIncreasePerFarmingLevel: number; extraHarvestChance: number };
   clearance?: number;
@@ -33,9 +33,9 @@ export type ProductionCatalog = {
   crops: ProductionCatalogEntry[];
   fruitTrees: ProductionCatalogEntry[];
   fertilizers?: ProductionFertilizer[];
-  tappedTrees?: Array<{ id: string; treeType: string; seed: { id: string; name: string; price: number }; growthChance: number; fertilizedGrowthChance: number; growsInWinter: boolean; tapItems: Array<{ itemId: string; item: { id: string; name: string; price: number } | null; daysUntilReady: number; condition?: string | null; season?: string | null; hasTimeModifiers?: boolean }> }>;
-  mushroomLogOutputs?: Array<{ id: string; name: string; price: number }>;
-  forestryEquipment?: Array<{ id: string; name: string; opportunityCost: number; materials: Array<{ item: { id: string; name: string; price: number }; quantity: number }> }>;
+  tappedTrees?: Array<{ id: string; treeType: string; seed: { id: string; name: string; price: number; spriteIndex?: number }; growthChance: number; fertilizedGrowthChance: number; growsInWinter: boolean; tapItems: Array<{ itemId: string; item: { id: string; name: string; price: number; spriteIndex?: number } | null; daysUntilReady: number; condition?: string | null; season?: string | null; hasTimeModifiers?: boolean }> }>;
+  mushroomLogOutputs?: Array<{ id: string; name: string; price: number; spriteIndex?: number }>;
+  forestryEquipment?: Array<{ id: string; name: string; spriteIndex?: number; opportunityCost: number; materials: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number }; quantity: number }> }>;
 };
 
 type CalculatorMode = "budget" | "tiles" | "target";
@@ -135,7 +135,7 @@ export function ProductionCalculator({
   currentProfessionIds: number[];
   profileId: string;
   resolveGameName: (name: string, id?: string) => string;
-  renderItemArtwork?: (id: string, name: string) => ReactNode;
+  renderItemArtwork?: (id: string, name: string, spriteIndex?: number) => ReactNode;
 }) {
   const { t, number, date, locale } = useI18n();
   const savedHasTiller = currentProfessionIds.includes(1);
@@ -385,7 +385,7 @@ export function ProductionCalculator({
               <input id="planner-producer-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("planner.searchPlaceholder")} />
               <details className="planner-producer-menu" ref={producerMenu}>
                 <summary aria-label={t("planner.chooseProducer")}>
-                  {selected && renderItemArtwork?.(selected.output.id, selectedNamed?.outputName || selected.output.name)}
+                  {selected && renderItemArtwork?.(selected.output.id, selectedNamed?.outputName || selected.output.name, selected.output.spriteIndex)}
                   <span><strong>{selectedNamed?.displayName}</strong>{selected?.kind === "fruit-tree" && <small>{selectedNamed?.outputName}</small>}</span>
                 </summary>
                 <div className="planner-producer-options">
@@ -398,7 +398,7 @@ export function ProductionCalculator({
                         setSelectedId(entry.id);
                         producerMenu.current?.removeAttribute("open");
                       }} key={entry.id}>
-                        {renderItemArtwork?.(entry.output.id, outputName)}
+                        {renderItemArtwork?.(entry.output.id, outputName, entry.output.spriteIndex)}
                         <span><strong>{displayName}</strong>{entry.kind === "fruit-tree" && <small>{outputName}</small>}</span>
                       </button>)}
                     </section>;
@@ -478,18 +478,21 @@ export function ProductionCalculator({
           </div>}
           {result && selected && <div className="planner-results" aria-live="polite">
             <div className="planner-result-head">
-              <div>
-                <p className="eyebrow">{t("planner.result")}</p>
-                <h3>{selectedNamed?.displayName}</h3>
-                <span>{t("planner.range", { start: date(result.startDate), end: date(result.endDate), days: result.durationDays })}</span>
-                <div className="planner-applied-assumptions" aria-label={t("planner.applied.title")}>
-                  {selected.kind === "crop" && <b>{t("planner.applied.farmingLevel", { level: number(farmingLevel) })}</b>}
-                  {tiller && tillerApplies(selected) && <b>{t("planner.applied.tiller")}</b>}
-                  {selected.kind === "crop" && agriculturist && <b>{t("planner.applied.agriculturist")}</b>}
-                  {selected.kind === "crop" && selectedFertilizer && <b>{fertilizerName(selectedFertilizer)} · {fertilizerEffect(selectedFertilizer)}</b>}
-                  <b>{t(`planner.location.${location}`)}</b>
-                  {selected.kind === "crop" && location === "outdoors" && forcePlantToday && <b>{t("planner.applied.forcePlantToday")}</b>}
-                  {selected.kind === "crop" && !selected.repeatDays && <b>{t(replant ? "planner.applied.replantOn" : "planner.applied.replantOff")}</b>}
+              <div className="planner-result-identity">
+                {renderItemArtwork?.(selected.output.id, selectedNamed?.outputName || selected.output.name, selected.output.spriteIndex)}
+                <div>
+                  <p className="eyebrow">{t("planner.result")}</p>
+                  <h3>{selectedNamed?.displayName}</h3>
+                  <span>{t("planner.range", { start: date(result.startDate), end: date(result.endDate), days: result.durationDays })}</span>
+                  <div className="planner-applied-assumptions" aria-label={t("planner.applied.title")}>
+                    {selected.kind === "crop" && <b>{t("planner.applied.farmingLevel", { level: number(farmingLevel) })}</b>}
+                    {tiller && tillerApplies(selected) && <b>{t("planner.applied.tiller")}</b>}
+                    {selected.kind === "crop" && agriculturist && <b>{t("planner.applied.agriculturist")}</b>}
+                    {selected.kind === "crop" && selectedFertilizer && <b>{fertilizerName(selectedFertilizer)} · {fertilizerEffect(selectedFertilizer)}</b>}
+                    <b>{t(`planner.location.${location}`)}</b>
+                    {selected.kind === "crop" && location === "outdoors" && forcePlantToday && <b>{t("planner.applied.forcePlantToday")}</b>}
+                    {selected.kind === "crop" && !selected.repeatDays && <b>{t(replant ? "planner.applied.replantOn" : "planner.applied.replantOff")}</b>}
+                  </div>
                 </div>
               </div>
               <strong>{gold(result.scenarios.expected.netProfit)}<small>{t("planner.netProfit")}</small></strong>
@@ -539,16 +542,16 @@ export function ProductionCalculator({
             {comparisonView === "table" ? <div className="planner-comparison-table"><table>
               <thead><tr><th>{t("planner.compare.calculation")}</th><th>{t("planner.compare.configuration")}</th><th>{t("planner.totalCosts")}</th><th>{t("planner.grossRevenue")}</th><th>{t("planner.netProfit")}</th><th>{t("planner.profitPerDay")}</th></tr></thead>
               <tbody>{comparisonRows.map(({ saved, entry, result: compared, name, current: isCurrent }) => <tr key={saved.id} className={isCurrent ? "current" : undefined}>
-                <th>{isCurrent && <em>{t("planner.compare.current")}</em>}{name}<small>{t("planner.range", { start: date(compared.startDate), end: date(compared.endDate), days: compared.durationDays })}</small></th>
+                <th><div className="planner-comparison-identity">{renderItemArtwork?.(entry.output.id, resolveGameName(entry.output.name, entry.output.id), entry.output.spriteIndex)}<span>{isCurrent && <em>{t("planner.compare.current")}</em>}{name}<small>{t("planner.range", { start: date(compared.startDate), end: date(compared.endDate), days: compared.durationDays })}</small></span></div></th>
                 <td>{entry.kind === "crop" && <span>{t("planner.applied.farmingLevel", { level: number(saved.farmingLevel) })} · </span>}{(saved.tiller ?? savedHasTiller) && tillerApplies(entry) ? `${t("planner.applied.tiller")} · ` : ""}{entry.kind === "crop" && (saved.agriculturist ?? savedHasAgriculturist) ? `${t("planner.applied.agriculturist")} · ` : ""}{entry.kind === "crop" && saved.fertilizerId ? `${fertilizerName(fertilizers.find(({ id }) => id === saved.fertilizerId))} · ${fertilizerEffect(fertilizers.find(({ id }) => id === saved.fertilizerId), saved.farmingLevel)} · ` : ""}{t(`planner.location.${saved.location}`)}{entry.kind === "crop" && saved.location === "outdoors" && (saved.forcePlantToday ?? false) ? ` · ${t("planner.applied.forcePlantToday")}` : ""}{entry.kind === "crop" && !entry.repeatDays ? ` · ${t(saved.replant ? "planner.applied.replantOn" : "planner.applied.replantOff")}` : ""}</td>
                 <td>{gold(compared.totalCosts)}</td><td>{gold(compared.scenarios.expected.grossRevenue)}</td><td className={compared.scenarios.expected.netProfit < 0 ? "negative" : "positive"}>{gold(compared.scenarios.expected.netProfit)}</td><td>{gold(compared.scenarios.expected.profitPerDay)}</td>
               </tr>)}</tbody>
             </table></div> : <div className="planner-comparison-chart" aria-label={t("planner.compare.chartLabel")}>
-              {comparisonRows.map(({ saved, result: compared, name, current: isCurrent }) => {
+              {comparisonRows.map(({ saved, entry, result: compared, name, current: isCurrent }) => {
                 const profit = compared.scenarios.expected.netProfit;
                 const width = `${Math.abs(profit) / comparisonScale * 50}%`;
                 return <div className="planner-comparison-chart-row" key={saved.id}>
-                  <strong>{isCurrent ? `${t("planner.compare.current")}: ${name}` : name}</strong>
+                  <strong className="planner-comparison-chart-name">{renderItemArtwork?.(entry.output.id, resolveGameName(entry.output.name, entry.output.id), entry.output.spriteIndex)}<span>{isCurrent ? `${t("planner.compare.current")}: ${name}` : name}</span></strong>
                   <div className="planner-comparison-track"><i className={profit < 0 ? "negative" : "positive"} style={{ width }} /></div>
                   <span className={profit < 0 ? "negative" : "positive"}>{gold(profit)}</span>
                 </div>;

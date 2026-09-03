@@ -6578,11 +6578,28 @@ button {
 .forestry-options {
   margin-top: 8px;
   padding: 9px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px 18px;
   background: #eee8da;
   border-left: 3px solid #6c8a62;
 }
+.forestry-calculator .planner-quick-grid {
+  grid-template-columns: 1.5fr 0.9fr 0.9fr;
+}
+.forestry-calculator .planner-producer-menu .sheet-artwork.craftable {
+  width: 16px;
+  height: 32px;
+}
+.forestry-calculator .planner-producer-menu .sheet-artwork.craftable img {
+  transform: scale(1);
+}
 .forestry-options > .planner-check {
   margin-right: 18px;
+}
+.forestry-options > fieldset {
+  flex: 1 1 100%;
 }
 .forestry-options fieldset {
   margin: 0;
@@ -6699,6 +6716,16 @@ button {
   justify-content: space-between;
   gap: 20px;
   align-items: center;
+}
+.planner-result-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.planner-result-identity > .item-mention-artwork,
+.planner-result-identity > .sheet-artwork {
+  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.25));
 }
 .planner-result-head h3 {
   margin: 3px 0 4px;
@@ -6851,6 +6878,24 @@ button {
   font: 700 7px Arial, sans-serif;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.planner-comparison-identity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.planner-comparison-identity > span {
+  display: flex;
+  flex-direction: column;
+}
+.planner-comparison-chart-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.planner-comparison-chart-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .planner-comparison .positive {
   color: #3f7047;

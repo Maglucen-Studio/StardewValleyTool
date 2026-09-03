@@ -74,7 +74,7 @@ static class GameCatalogReader
         {
             string qualifiedId = QualifyObject(id);
             ObjectData? data = ObjectFor(qualifiedId);
-            return new { id = qualifiedId, name = data?.Name ?? qualifiedId, price = data?.Price ?? 0, category = data?.Category };
+            return new { id = qualifiedId, name = data?.Name ?? qualifiedId, price = data?.Price ?? 0, category = data?.Category, spriteIndex = data?.SpriteIndex };
         }
         object[] RecipeMaterials(string name)
         {
@@ -232,6 +232,7 @@ static class GameCatalogReader
                 id = $"(BC){pair.Key}",
                 pair.Value.Name,
                 pair.Value.Price,
+                pair.Value.SpriteIndex,
                 materials = RecipeMaterials(pair.Value.Name),
                 opportunityCost = RecipeOpportunityCost(pair.Value.Name),
             }).ToArray();
