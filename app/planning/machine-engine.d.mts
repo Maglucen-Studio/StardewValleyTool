@@ -29,6 +29,7 @@ export function calculateMachinePlan(input: {
   existing?: boolean;
   collectionEveryDays?: number;
   hasCellar?: boolean;
+  linkedUpstream?: boolean;
   startDate: StardewDate;
   durationDays?: number;
   endDate?: StardewDate;

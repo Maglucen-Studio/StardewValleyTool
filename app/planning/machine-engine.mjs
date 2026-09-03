@@ -69,7 +69,7 @@ export function calculateMachinePlan(input) {
   if (!conversion.verified) warnings.push("machine-unverified");
   if (conversion.locationRequirement === "cellar" && input.hasCellar !== true) warnings.push("machine-cellar-required");
   if (caskAlreadyIridium) warnings.push("machine-cask-already-iridium");
-  if (conversion.priceFormula === "cask" && conversion.input.source) warnings.push("machine-cask-flavor-stock-manual");
+  if (conversion.priceFormula === "cask" && conversion.input.source && input.linkedUpstream !== true) warnings.push("machine-cask-flavor-stock-manual");
   if (cyclesPerMachine === 0) warnings.push("machine-period-too-short");
   if (availableInput < inputCount) warnings.push("machine-no-input");
   else if (batches < capacityBatches) warnings.push("machine-input-bottleneck");

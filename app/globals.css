@@ -6364,12 +6364,6 @@ button {
   display: flex;
   flex-direction: column;
 }
-.planner-flow > .planner-quick-grid { order: 1; }
-.planner-flow > .planner-advanced { order: 2; }
-.planner-flow > .planner-results { order: 3; }
-.planner-flow > .planner-bookmark-toolbar { order: 4; }
-.planner-flow > .planner-bookmarks { order: 5; }
-.planner-flow > .planner-comparison { order: 6; }
 .planner-catalog-empty {
   padding: 15px 17px;
   display: flex;
@@ -7041,6 +7035,69 @@ button {
 .planner-portfolio ul {
   margin: 2px 0 0;
   padding-left: 18px;
+}
+.planner-portfolio-save {
+  margin-top: 8px;
+  display: flex;
+  gap: 7px;
+}
+.planner-portfolio-save input,
+.planner-saved-portfolios input {
+  min-width: 0;
+  padding: 6px 8px;
+  color: #294432;
+  background: #fffaf0;
+  border: 1px solid #cdbd9f;
+  font: 9px Arial, sans-serif;
+}
+.planner-portfolio-save input { flex: 1; }
+.planner-portfolio-save button {
+  padding: 6px 10px;
+  color: #fff5d8;
+  background: #3d5c45;
+  border: 1px solid #294432;
+  font: 700 9px Arial, sans-serif;
+  cursor: pointer;
+}
+.planner-saved-portfolios {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.planner-saved-portfolios article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  background: #fffaf0;
+  border-left: 3px solid #557d58;
+}
+.planner-saved-portfolios article > button:first-child {
+  min-width: 0;
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: #294432;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.planner-saved-portfolios article small {
+  color: #756a59;
+  font: 8px Arial, sans-serif;
+}
+.planner-saved-portfolios input {
+  grid-column: 1 / -1;
+  margin: 0 7px 7px;
+}
+.planner-saved-portfolios .remove {
+  width: 28px;
+  color: #7c3d2f;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: 16px;
 }
 .planner-advanced {
   margin-top: 9px;

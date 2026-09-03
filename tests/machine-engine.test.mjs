@@ -41,3 +41,21 @@ test("casks respect starting quality and reject already-iridium goods", () => {
   assert.equal(plan.batches, 0);
   assert.ok(plan.warnings.includes("machine-cask-already-iridium"));
 });
+
+test("linked casks use the upstream plan instead of requesting manual flavored stock", () => {
+  const conversion = {
+    ...wine,
+    priceFormula: "cask",
+    cycleMinutes: 56 * 1600,
+    agingMultiplier: 2,
+    locationRequirement: "cellar",
+    outputQuality: 4,
+    input: { ...wine.input, id: "(O)348", name: "Wine", source: wine.input },
+  };
+  const plan = calculateMachinePlan({
+    conversion, machineCount: 1, recurringInputPerDay: 1, linkedUpstream: true, hasCellar: true,
+    startDate: { year: 1, season: "summer", day: 1 }, durationDays: 56,
+  });
+  assert.ok(plan.batches > 0);
+  assert.ok(!plan.warnings.includes("machine-cask-flavor-stock-manual"));
+});

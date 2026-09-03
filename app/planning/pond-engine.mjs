@@ -21,6 +21,9 @@ export function calculateFishPondPlan(input) {
   let expectedRoeValue = 0;
   let conservativeRoeValue = 0;
   let optimisticRoeValue = 0;
+  let expectedRoeItems = 0;
+  let conservativeRoeItems = 0;
+  let optimisticRoeItems = 0;
   let expectedOtherValue = 0;
   let conservativeOtherValue = 0;
   let optimisticOtherValue = 0;
@@ -33,9 +36,11 @@ export function calculateFishPondPlan(input) {
     let remaining = 1;
     let dayExpectedItems = 0;
     let dayExpectedRoeValue = 0;
+    let dayExpectedRoeItems = 0;
     let dayExpectedOtherValue = 0;
     let dayMaxItems = 0;
     let dayMaxRoeValue = 0;
+    let dayMaxRoeItems = 0;
     let dayMaxOtherValue = 0;
     for (const reward of [...(pond.producedItems || [])].sort((a, b) => (a.precedence || 0) - (b.precedence || 0))) {
       if (population < (reward.requiredPopulation || 0) || reward.condition) continue;
@@ -48,6 +53,8 @@ export function calculateFishPondPlan(input) {
       dayExpectedItems += selectionChance * averageStack;
       dayMaxItems = Math.max(dayMaxItems, Math.max(1, reward.maxStack || 1));
       if (isRoe) {
+        dayExpectedRoeItems += selectionChance * averageStack;
+        dayMaxRoeItems = Math.max(dayMaxRoeItems, Math.max(1, reward.maxStack || 1));
         dayExpectedRoeValue += selectionChance * averageStack * unitPrice;
         dayMaxRoeValue = Math.max(dayMaxRoeValue, Math.max(1, reward.maxStack || 1) * unitPrice);
       } else {
@@ -64,6 +71,9 @@ export function calculateFishPondPlan(input) {
     expectedRoeValue += baseChance * dayExpectedRoeValue;
     conservativeRoeValue += conservativeChance * dayExpectedRoeValue;
     optimisticRoeValue += optimisticChance * Math.max(dayExpectedRoeValue, dayMaxRoeValue);
+    expectedRoeItems += baseChance * dayExpectedRoeItems;
+    conservativeRoeItems += conservativeChance * dayExpectedRoeItems;
+    optimisticRoeItems += optimisticChance * Math.max(dayExpectedRoeItems, dayMaxRoeItems);
     expectedOtherValue += baseChance * dayExpectedOtherValue;
     conservativeOtherValue += conservativeChance * dayExpectedOtherValue;
     optimisticOtherValue += optimisticChance * Math.max(dayExpectedOtherValue, dayMaxOtherValue);
@@ -71,14 +81,24 @@ export function calculateFishPondPlan(input) {
   }
   const purchaseCost = input.existing ? 0 : pondCount * Math.max(0, Number(input.pondCost) || 0);
   const processRoe = input.processRoe === true;
+  const processorCount = processRoe ? Math.max(0, whole(input.processorCount)) : 0;
+  const processorCycleDays = Math.max(1, Number(input.processorCycleDays) || 1);
+  const batchesPerProcessor = horizon.durationDays > 0 ? Math.floor(horizon.durationDays / processorCycleDays) : 0;
+  const processorCapacity = processorCount * batchesPerProcessor;
   const artisan = input.artisan && processRoe ? 1.4 : 1;
   const baseRoePrice = roePrice(fishPrice);
   const processedRoePrice = pond.fish?.id === "(O)698" ? 500 : baseRoePrice * 2 + 100;
-  const aged = value => processRoe ? value * processedRoePrice / baseRoePrice : value;
+  const processedValue = (roeItems, roeValue) => {
+    if (!processRoe || processorCapacity <= 0) return roeValue * pondCount;
+    const totalItems = roeItems * pondCount;
+    const processedItems = Math.min(totalItems, processorCapacity);
+    const rawItems = Math.max(0, totalItems - processedItems);
+    return processedItems * processedRoePrice * artisan + rawItems * baseRoePrice;
+  };
   const values = {
-    conservative: (aged(conservativeRoeValue) * artisan + conservativeOtherValue) * pondCount,
-    expected: (aged(expectedRoeValue) * artisan + expectedOtherValue) * pondCount,
-    optimistic: (aged(optimisticRoeValue) * artisan + optimisticOtherValue) * pondCount,
+    conservative: processedValue(conservativeRoeItems, conservativeRoeValue) + conservativeOtherValue * pondCount,
+    expected: processedValue(expectedRoeItems, expectedRoeValue) + expectedOtherValue * pondCount,
+    optimistic: processedValue(optimisticRoeItems, optimisticRoeValue) + optimisticOtherValue * pondCount,
   };
   const units = { conservative: conservativeItems, expected: expectedItems, optimistic: optimisticItems };
   const scenarios = Object.fromEntries(Object.entries(values).map(([key, gross]) => {
@@ -90,11 +110,16 @@ export function calculateFishPondPlan(input) {
   if (unlockedPopulation < pond.maxPopulation) warnings.push("pond-population-gated");
   if (pond.producedItems?.some(item => item.condition)) warnings.push("pond-conditional-output");
   if (processRoe) warnings.push("pond-roe-processing-estimate");
+  const expectedTotalRoe = expectedRoeItems * pondCount;
+  const processedRoe = processRoe ? Math.min(expectedTotalRoe, processorCapacity) : 0;
+  const unprocessedRoe = Math.max(0, expectedTotalRoe - processedRoe);
+  if (processRoe && unprocessedRoe > 0) warnings.push("pond-processing-capacity");
   return {
     ...horizon, pondCount, startPopulation, endPopulation: population, unlockedPopulation,
     purchaseCost, totalCosts: purchaseCost, scenarios, expectedDailyValue: horizon.durationDays ? Math.floor(values.expected / horizon.durationDays) : 0,
     firstIncomeDate: firstOutputOffset ? addStardewDays(horizon.startDate, firstOutputOffset) : null,
     breakEvenDate: purchaseCost === 0 ? (firstOutputOffset ? addStardewDays(horizon.startDate, firstOutputOffset) : null) : null,
     warnings: [...new Set(warnings)], grossPerExpectedUnit,
+    processorCount, processorCycleDays, processorCapacity, processedRoe, unprocessedRoe,
   };
 }

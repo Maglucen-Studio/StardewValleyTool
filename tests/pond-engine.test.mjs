@@ -16,3 +16,20 @@ test("pond plans grow only to the unlocked population", () => {
   assert.ok(plan.warnings.includes("pond-population-gated"));
   assert.ok(plan.scenarios.expected.grossRevenue > 0);
 });
+
+test("roe processing is capped by the selected preserves jars", () => {
+  const pond = {
+    fish: { id: "(O)698", price: 200 }, maxPopulation: 10, spawnTime: 1,
+    baseMinProduceChance: 1, baseMaxProduceChance: 1,
+    producedItems: [{ requiredPopulation: 1, chance: 1, precedence: 0, item: { id: "(O)812", price: 0 }, minStack: 1, maxStack: 1 }],
+  };
+  const plan = calculateFishPondPlan({
+    pond, pondCount: 2, startPopulation: 10, unlockedPopulation: 10, existing: true,
+    processRoe: true, processorCount: 1, processorCycleDays: 3,
+    startDate: { year: 1, season: "spring", day: 1 }, durationDays: 6,
+  });
+  assert.equal(plan.processorCapacity, 2);
+  assert.equal(plan.processedRoe, 2);
+  assert.equal(plan.unprocessedRoe, 10);
+  assert.ok(plan.warnings.includes("pond-processing-capacity"));
+});

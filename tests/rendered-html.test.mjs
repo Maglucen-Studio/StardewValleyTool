@@ -1994,7 +1994,7 @@ test("Today checklist persists per farm and resolves eligible tasks from LIVE ev
 });
 
 test("production planner works offline with a catalog derived from the local game", async () => {
-  const [page, calculator, engine, machineEngine, extractor, gameReader, generator] = await Promise.all([
+  const [page, calculator, engine, machineEngine, extractor, gameReader, generator, preferences] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/planning/production-calculator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/planning/production-engine.mjs", import.meta.url), "utf8"),
@@ -2002,6 +2002,7 @@ test("production planner works offline with a catalog derived from the local gam
     readFile(new URL("../scripts/extract_game_data.mjs", import.meta.url), "utf8"),
     readFile(new URL("../tools/StardewDataExtractor/Program.cs", import.meta.url), "utf8"),
     readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/preferences/route.ts", import.meta.url), "utf8"),
   ]);
   assert.match(page, /productionCatalog\?: ProductionCatalog/);
   assert.match(page, /<ProductionCalculator/);
@@ -2038,13 +2039,24 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /queryTerms\.every\(term => searchable\.includes\(term\)\)/);
   assert.match(calculator, /producerSearch\.current\?\.focus\(\)/);
   assert.match(calculator, /document\.addEventListener\("pointerdown", closeOnOutsideClick\)/);
-  assert.match(calculator, /window\.localStorage\.setItem\(storageKey/);
+  assert.doesNotMatch(calculator, /window\.localStorage\.setItem\(storageKey/);
+  assert.match(calculator, /fetch\("\/api\/preferences"/);
+  assert.match(calculator, /productionPlanning: \{ current: calculation, bookmarks, comparisonIds, comparisonView, portfolios \}/);
+  assert.match(preferences, /sanitizeProductionPlanning/);
+  assert.match(preferences, /productionPlanning/);
   assert.match(calculator, /className="planner-bookmarks"/);
   assert.match(calculator, /planner-applied-assumptions/);
   assert.match(calculator, /className="planner-comparison-table"/);
   assert.match(calculator, /className="planner-comparison-chart"/);
   assert.match(calculator, /comparisonIds\.length >= 3/);
   assert.match(calculator, /comparisonRows/);
+  assert.match(calculator, /machineUpstreamId/);
+  assert.match(calculator, /bookmarkOutput/);
+  assert.match(calculator, /pondProcessorCount/);
+  assert.match(calculator, /savePortfolio/);
+  assert.match(calculator, /planner-saved-portfolios/);
+  assert.ok(calculator.indexOf('className="planner-advanced"') < calculator.indexOf('className="planner-results"'));
+  assert.ok(calculator.indexOf('className="planner-results"') < calculator.indexOf('className="planner-bookmark-toolbar"'));
   assert.match(calculator, /savedEntries = buildCalculatorEntries/);
   assert.match(calculator, /selectedIsForestry \? "forestry\.initialCost"/);
   assert.match(calculator, /selectedIsForestry \? "forestry\.collectionCycles"/);

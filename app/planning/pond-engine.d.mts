@@ -6,4 +6,4 @@ export type FishPondPlan = {
   scenarios: Record<"conservative" | "expected" | "optimistic", Scenario>; warnings: string[];
 };
 export function roePrice(fishPrice: number): number;
-export function calculateFishPondPlan(input: Record<string, unknown> & { pond: unknown; startDate: StardewDate; durationDays?: number; endDate?: StardewDate }): FishPondPlan;
+export function calculateFishPondPlan(input: Record<string, unknown> & { pond: unknown; startDate: StardewDate; durationDays?: number; endDate?: StardewDate; processorCount?: number; processorCycleDays?: number }): FishPondPlan & { processorCount: number; processorCycleDays: number; processorCapacity: number; processedRoe: number; unprocessedRoe: number };
