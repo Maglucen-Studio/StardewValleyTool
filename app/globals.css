@@ -6664,28 +6664,36 @@ button {
   border: 1px solid #cdbd9f;
 }
 .forestry-materials {
+  margin-top: 7px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 10px 14px;
+  padding: 10px 12px;
   color: #f4ead5;
   background: #355641;
   font: 10px/1.4 Arial, sans-serif;
 }
 .forestry-materials strong {
+  flex: 0 0 auto;
   color: #f0c65f;
 }
 .planner-material-list {
+  min-width: 0;
+  flex: 1 1 260px;
+  padding-left: 12px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 5px 12px;
+  gap: 8px 18px;
+  border-left: 1px solid rgba(240, 198, 95, 0.32);
 }
 .planner-material {
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 7px;
+  white-space: nowrap;
 }
 .planner-material > .item-mention-artwork,
 .planner-material > .sheet-artwork {
