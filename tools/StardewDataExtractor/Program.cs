@@ -387,6 +387,9 @@ static class GameCatalogReader
             {
                 id = $"animal:{pair.Key}",
                 name = pair.Key,
+                texture = pair.Value.Texture,
+                pair.Value.SpriteWidth,
+                pair.Value.SpriteHeight,
                 pair.Value.PurchasePrice,
                 purchasable = pair.Value.PurchasePrice > 0,
                 requiredBuilding,
@@ -423,6 +426,7 @@ static class GameCatalogReader
                 {
                     id = $"pond:{fishId}",
                     fish = DescribeItem(fishId),
+                    processedRoe = DescribeItem(fishId == "(O)698" ? "(O)445" : "(O)447"),
                     ruleId = rule.Id,
                     maxPopulation = maximumPopulation,
                     spawnTime,
@@ -446,7 +450,7 @@ static class GameCatalogReader
             .ToArray();
 
         return JsonSerializer.Serialize(
-            new { catalogVersion = 5, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, feedUnitCost = PurchasePrice("(O)178") },
+            new { catalogVersion = 6, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, feedUnitCost = PurchasePrice("(O)178") },
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
         );
     }

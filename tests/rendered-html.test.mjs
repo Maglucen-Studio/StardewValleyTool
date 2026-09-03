@@ -2052,7 +2052,14 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /comparisonRows/);
   assert.match(calculator, /machineUpstreamId/);
   assert.match(calculator, /bookmarkOutput/);
+  assert.match(calculator, /inputEvents: selectedUpstream\?\.events/);
+  assert.match(machineEngine, /outputEvents/);
   assert.match(calculator, /pondProcessorCount/);
+  assert.match(calculator, /pondPlan\?\.outputs/);
+  assert.match(calculator, /animalPlan\?\.outputs/);
+  assert.match(calculator, /renderAnimalArtwork/);
+  assert.match(extractor, /public\/assets\/animals/);
+  assert.match(gameReader, /processedRoe = DescribeItem/);
   assert.match(calculator, /savePortfolio/);
   assert.match(calculator, /planner-saved-portfolios/);
   assert.ok(calculator.indexOf('className="planner-advanced"') < calculator.indexOf('className="planner-results"'));

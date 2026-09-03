@@ -1622,6 +1622,7 @@
   "planner.compare.configuration": "Applied configuration",
   "planner.compare.chartLabel": "Expected net profit comparison",
   "planner.result": "ESTIMATED RESULT",
+  "planner.expectedOutputs": "Expected products",
   "planner.range": "{start} → {end} · {days} days",
   "planner.gold": "{amount}g",
   "planner.netProfit": "expected net profit",

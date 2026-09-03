@@ -13,6 +13,16 @@ test("animal plans separate existing adults from newly purchased animals", () =>
   assert.equal(plan.cycles, 11);
   assert.equal(plan.purchaseCost, 800);
   assert.equal(plan.firstIncomeDate.day, 2);
+  assert.deepEqual(plan.outputs.map(output => [output.item.id, output.quantity]), [["(O)176", 11]]);
+});
+
+test("animal results identify processed products instead of only their value", () => {
+  const plan = calculateAnimalPlan({
+    animal: chicken, count: 1, existingCount: 1, fedDaily: true,
+    processor: { cycleDays: 1, output: { id: "(O)306", name: "Mayonnaise", price: 190 }, outputCount: 1 }, processorCount: 1,
+    startDate: { year: 1, season: "spring", day: 1 }, durationDays: 7,
+  });
+  assert.deepEqual(plan.outputs.map(output => [output.item.id, output.quantity]), [["(O)306", 7]]);
 });
 
 test("unfed animals do not create fictional production", () => {

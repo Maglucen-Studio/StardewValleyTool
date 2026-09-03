@@ -8094,6 +8094,40 @@ button {
     700 12px Arial,
     sans-serif;
 }
+.animal-artwork {
+  position: relative;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  display: block;
+  overflow: hidden;
+  image-rendering: pixelated;
+}
+.animal-artwork-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  overflow: hidden;
+  transform-origin: center;
+}
+.animal-artwork img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
+  image-rendering: pixelated;
+}
+.animal-artwork.missing {
+  display: grid;
+  place-items: center;
+  color: #f5ecd9;
+  background: #526b50;
+  border: 1px solid #b79d72;
+  font: 700 12px Arial, sans-serif;
+}
 .item-mention-artwork {
   width: 32px;
   height: 32px;

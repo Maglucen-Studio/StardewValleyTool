@@ -1622,6 +1622,7 @@
   "planner.compare.configuration": "Configuración aplicada",
   "planner.compare.chartLabel": "Comparación del beneficio neto esperado",
   "planner.result": "RESULTADO ESTIMADO",
+  "planner.expectedOutputs": "Productos esperados",
   "planner.range": "{start} → {end} · {days} días",
   "planner.gold": "{amount}g",
   "planner.netProfit": "beneficio neto esperado",

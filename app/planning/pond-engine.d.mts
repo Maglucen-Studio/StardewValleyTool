@@ -4,6 +4,7 @@ export type FishPondPlan = {
   startDate: StardewDate; endDate: StardewDate; durationDays: number; pondCount: number; endPopulation: number;
   purchaseCost: number; totalCosts: number; firstIncomeDate: StardewDate | null; breakEvenDate: StardewDate | null;
   scenarios: Record<"conservative" | "expected" | "optimistic", Scenario>; warnings: string[];
+  outputs: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number }; quantity: number }>;
 };
 export function roePrice(fishPrice: number): number;
 export function calculateFishPondPlan(input: Record<string, unknown> & { pond: unknown; startDate: StardewDate; durationDays?: number; endDate?: StardewDate; processorCount?: number; processorCycleDays?: number }): FishPondPlan & { processorCount: number; processorCycleDays: number; processorCapacity: number; processedRoe: number; unprocessedRoe: number };

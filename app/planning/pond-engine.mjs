@@ -29,6 +29,7 @@ export function calculateFishPondPlan(input) {
   let optimisticOtherValue = 0;
   let grossPerExpectedUnit = 0;
   let firstOutputOffset = null;
+  const expectedOutputMap = new Map();
   for (let day = 1; day <= horizon.durationDays; day += 1) {
     if (day % spawnTime === 0 && population < unlockedPopulation) population += 1;
     const fullness = Math.min(1, population / Math.max(1, pond.maxPopulation || 10));
@@ -50,6 +51,12 @@ export function calculateFishPondPlan(input) {
       const averageStack = (Math.max(1, reward.minStack || 1) + Math.max(1, reward.maxStack || 1)) / 2;
       const isRoe = reward.item?.id === "(O)812";
       const unitPrice = isRoe ? roePrice(fishPrice) : Math.max(0, Number(reward.item?.price) || 0);
+      const expectedQuantity = baseChance * selectionChance * averageStack;
+      const currentOutput = expectedOutputMap.get(reward.item?.id);
+      if (reward.item?.id) expectedOutputMap.set(reward.item.id, {
+        item: reward.item,
+        quantity: (currentOutput?.quantity || 0) + expectedQuantity,
+      });
       dayExpectedItems += selectionChance * averageStack;
       dayMaxItems = Math.max(dayMaxItems, Math.max(1, reward.maxStack || 1));
       if (isRoe) {
@@ -113,6 +120,13 @@ export function calculateFishPondPlan(input) {
   const expectedTotalRoe = expectedRoeItems * pondCount;
   const processedRoe = processRoe ? Math.min(expectedTotalRoe, processorCapacity) : 0;
   const unprocessedRoe = Math.max(0, expectedTotalRoe - processedRoe);
+  const outputs = [...expectedOutputMap.values()].map(output => ({ ...output, quantity: output.quantity * pondCount }));
+  if (processRoe) {
+    const roeOutput = outputs.find(output => output.item.id === "(O)812");
+    if (roeOutput) roeOutput.quantity = unprocessedRoe;
+    if (processedRoe > 0 && input.processedRoeItem)
+      outputs.push({ item: input.processedRoeItem, quantity: processedRoe });
+  }
   if (processRoe && unprocessedRoe > 0) warnings.push("pond-processing-capacity");
   return {
     ...horizon, pondCount, startPopulation, endPopulation: population, unlockedPopulation,
@@ -121,5 +135,6 @@ export function calculateFishPondPlan(input) {
     breakEvenDate: purchaseCost === 0 ? (firstOutputOffset ? addStardewDays(horizon.startDate, firstOutputOffset) : null) : null,
     warnings: [...new Set(warnings)], grossPerExpectedUnit,
     processorCount, processorCycleDays, processorCapacity, processedRoe, unprocessedRoe,
+    outputs: outputs.filter(output => output.quantity > 0).map(output => ({ ...output, quantity: Math.round(output.quantity * 100) / 100 })),
   };
 }

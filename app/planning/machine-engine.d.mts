@@ -24,6 +24,7 @@ export function calculateMachinePlan(input: {
   machineCount: number;
   initialInput: number;
   recurringInputPerDay?: number;
+  inputEvents?: Array<{ day?: number; minute?: number; quantity: number }>;
   inputQuality?: number;
   artisan?: boolean;
   existing?: boolean;
@@ -38,6 +39,7 @@ export function calculateMachinePlan(input: {
   machineCount: number; effectiveCycleMinutes: number; cyclesPerMachine: number; capacityBatches: number; batches: number;
   availableInput: number; consumedInput: number; surplusInput: number; idleBatches: number;
   directSaleValue: number; additionalInputCost: number; setupCost: number; outputPrice: number;
+  outputEvents: Array<{ day: number; minute: number; quantity: number }>;
   scenarios: Record<"conservative" | "expected" | "optimistic", { units: number; grossRevenue: number; netProfit: number; profitPerDay: number }>;
   firstIncomeDate: StardewDate | null; breakEvenDate: StardewDate | null; warnings: string[];
 };

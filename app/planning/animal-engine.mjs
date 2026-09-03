@@ -53,7 +53,19 @@ export function calculateAnimalPlan(input) {
   const purchaseCost = animalPurchaseCost + buildingCost;
   const feedCost = input.buyFeed ? count * horizon.durationDays * Math.max(0, Number(input.feedUnitCost) || 0) : 0;
   const processorCapacity = processor ? whole(input.processorCount) * Math.floor(horizon.durationDays / Math.max(1, Number(processor.cycleDays) || 1)) : Infinity;
-  const processedCycles = Math.min(cycles, processorCapacity);
+  const processedCycles = processor ? Math.min(cycles, processorCapacity) : 0;
+  const rawCycles = cycles - processedCycles;
+  const expectedDeluxeCycles = caredFor && deluxe ? rawCycles * deluxeChance : 0;
+  const expectedStandardCycles = Math.max(0, rawCycles - expectedDeluxeCycles);
+  const outputMap = new Map();
+  const addOutput = (item, quantity) => {
+    if (!item || quantity <= 0) return;
+    const current = outputMap.get(item.id);
+    outputMap.set(item.id, { item, quantity: (current?.quantity || 0) + quantity });
+  };
+  addOutput(standard, expectedStandardCycles);
+  addOutput(deluxe, expectedDeluxeCycles);
+  addOutput(processor?.output, processedCycles * Math.max(0, Number(processor?.outputCount) || 1));
   const warnings = [...horizon.warnings];
   if (!fedDaily) warnings.push("animal-not-fed");
   if (!animal.purchasable && newCount > 0) warnings.push("animal-not-purchasable");
@@ -83,5 +95,6 @@ export function calculateAnimalPlan(input) {
     firstIncomeDate: cycles > 0 ? addStardewDays(horizon.startDate, existingCount ? interval : maturity + interval) : null,
     breakEvenDate: breakEvenCycles > 0 && breakEvenCycles <= processedCycles ? addStardewDays(horizon.startDate, Math.ceil(breakEvenCycles / count) * interval + (newCount ? maturity : 0)) : null,
     warnings: [...new Set(warnings)], deluxeChance,
+    outputs: [...outputMap.values()].map(output => ({ ...output, quantity: Math.round(output.quantity * 100) / 100 })),
   };
 }
