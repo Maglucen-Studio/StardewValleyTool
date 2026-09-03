@@ -377,28 +377,35 @@ static class GameCatalogReader
             }
         }
 
-        var animalCatalog = farmAnimals.Select(pair => new
+        var animalCatalog = farmAnimals.Select(pair =>
         {
-            id = $"animal:{pair.Key}",
-            name = pair.Key,
-            pair.Value.PurchasePrice,
-            purchasable = pair.Value.PurchasePrice > 0,
-            pair.Value.RequiredBuilding,
-            pair.Value.DaysToMature,
-            pair.Value.DaysToProduce,
-            harvestType = pair.Value.HarvestType.ToString(),
-            pair.Value.ProduceOnMature,
-            pair.Value.FriendshipForFasterProduce,
-            pair.Value.DeluxeProduceMinimumFriendship,
-            pair.Value.DeluxeProduceCareDivisor,
-            pair.Value.DeluxeProduceLuckMultiplier,
-            pair.Value.ProfessionForQualityBoost,
-            pair.Value.ProfessionForFasterProduce,
-            pair.Value.GrassEatAmount,
-            buildingCapacity = buildings.GetValueOrDefault(pair.Value.RequiredBuilding)?.MaxOccupants ?? 0,
-            buildingCost = buildings.GetValueOrDefault(pair.Value.RequiredBuilding)?.BuildCost ?? 0,
-            produce = pair.Value.ProduceItemIds.Select(item => new { item.Id, item.Condition, item.MinimumFriendship, item = DescribeItem(item.ItemId) }).ToArray(),
-            deluxeProduce = pair.Value.DeluxeProduceItemIds.Select(item => new { item.Id, item.Condition, item.MinimumFriendship, item = DescribeItem(item.ItemId) }).ToArray(),
+            string requiredBuilding = pair.Value.RequiredBuilding ?? "";
+            BuildingData? requiredBuildingData = string.IsNullOrWhiteSpace(requiredBuilding)
+                ? null
+                : buildings.GetValueOrDefault(requiredBuilding);
+            return new
+            {
+                id = $"animal:{pair.Key}",
+                name = pair.Key,
+                pair.Value.PurchasePrice,
+                purchasable = pair.Value.PurchasePrice > 0,
+                requiredBuilding,
+                pair.Value.DaysToMature,
+                pair.Value.DaysToProduce,
+                harvestType = pair.Value.HarvestType.ToString(),
+                pair.Value.ProduceOnMature,
+                pair.Value.FriendshipForFasterProduce,
+                pair.Value.DeluxeProduceMinimumFriendship,
+                pair.Value.DeluxeProduceCareDivisor,
+                pair.Value.DeluxeProduceLuckMultiplier,
+                pair.Value.ProfessionForQualityBoost,
+                pair.Value.ProfessionForFasterProduce,
+                pair.Value.GrassEatAmount,
+                buildingCapacity = requiredBuildingData?.MaxOccupants ?? 0,
+                buildingCost = requiredBuildingData?.BuildCost ?? 0,
+                produce = pair.Value.ProduceItemIds.Select(item => new { item.Id, item.Condition, item.MinimumFriendship, item = DescribeItem(item.ItemId) }).ToArray(),
+                deluxeProduce = pair.Value.DeluxeProduceItemIds.Select(item => new { item.Id, item.Condition, item.MinimumFriendship, item = DescribeItem(item.ItemId) }).ToArray(),
+            };
         }).ToArray();
 
         int PondSpawnTime(int price) => price <= 30 ? 1 : price <= 80 ? 2 : price <= 120 ? 3 : price <= 250 ? 4 : 5;
