@@ -433,6 +433,7 @@ type PlanningBrief = {
   pet?: PetPlan;
   machines: MachinePlan[];
   animals?: FarmAnimal[];
+  fishPonds?: Array<{ id: string; fishId: string; population: number; capacity: number }>;
   inventory: StorageInventoryItem[];
 };
 type SpecialOrderBrief = {
@@ -7594,6 +7595,10 @@ function PlanningView({
             currentProfessionIds={current.professionIds || []}
             currentInventory={current.planningBrief.inventory}
             currentMachines={current.planningBrief.machines}
+            currentHouseUpgradeLevel={current.progress.houseUpgradeLevel}
+            currentAnimals={current.planningBrief.animals}
+            currentBuildings={current.planningBrief.buildings}
+            currentPonds={current.planningBrief.fishPonds}
             profileId={current.profileId || `${current.farmName}-${current.farmer}`}
             resolveGameName={gameName}
             renderItemArtwork={(id, name, spriteIndex) => <SheetArtwork id={String(spriteIndex ?? id.replace(/^\((?:O|BC)\)/, ""))} kind={id.startsWith("(BC)") ? "craftable" : "object"} label={name} fit />}

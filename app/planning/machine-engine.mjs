@@ -4,11 +4,12 @@ const GAME_MINUTES_PER_DAY = 1600;
 const qualityMultiplier = quality => quality === 4 ? 2 : quality === 2 ? 1.5 : quality === 1 ? 1.25 : 1;
 const whole = value => Math.max(0, Math.floor(Number(value) || 0));
 
-function outputUnitPrice(conversion, inputQuality, artisan) {
+export function machineOutputUnitPrice(conversion, inputQuality = 0, artisan = false) {
   const inputPrice = Math.max(0, Number(conversion.input.price) || 0);
   const base = Math.max(0, Number(conversion.output.price) || 0);
   const formula = conversion.priceFormula || "fixed";
-  let value = formula === "wine" ? inputPrice * 3
+  let value = formula === "cask" ? inputPrice * qualityMultiplier(4)
+    : formula === "wine" ? inputPrice * 3
     : formula === "juice" ? inputPrice * 2.25
       : formula === "jelly" || formula === "pickles" ? inputPrice * 2 + 50
         : formula === "dried-fruit" || formula === "dried-mushroom" ? inputPrice * 7.5 + 25
@@ -25,14 +26,18 @@ export function calculateMachinePlan(input) {
   const initialInput = whole(input.initialInput);
   const recurringInputPerDay = Math.max(0, Number(input.recurringInputPerDay) || 0);
   const inputCount = Math.max(1, whole(conversion.inputCount));
-  const baseCycleMinutes = Math.max(1, whole(conversion.cycleMinutes));
+  const caskDaysByQuality = { 0: 56, 1: 42, 2: 28, 4: 0 };
+  const baseCycleMinutes = conversion.priceFormula === "cask"
+    ? Math.max(1, Math.ceil((caskDaysByQuality[input.inputQuality] ?? 56) / Math.max(0.01, Number(conversion.agingMultiplier) || 1)) * GAME_MINUTES_PER_DAY)
+    : Math.max(1, whole(conversion.cycleMinutes));
   const collectionEveryDays = whole(input.collectionEveryDays);
   const cadenceMinutes = collectionEveryDays * GAME_MINUTES_PER_DAY;
   const effectiveCycleMinutes = cadenceMinutes > 0
     ? Math.ceil(baseCycleMinutes / cadenceMinutes) * cadenceMinutes
     : baseCycleMinutes;
   const cyclesPerMachine = Math.floor(horizon.durationDays * GAME_MINUTES_PER_DAY / effectiveCycleMinutes);
-  const capacityBatches = machineCount * cyclesPerMachine;
+  const caskAlreadyIridium = conversion.priceFormula === "cask" && input.inputQuality === 4;
+  const capacityBatches = caskAlreadyIridium ? 0 : machineCount * cyclesPerMachine;
   const availableInput = Math.floor(initialInput + recurringInputPerDay * horizon.durationDays);
   const inputLimitedBatches = Math.floor(availableInput / inputCount);
   const batches = Math.min(capacityBatches, inputLimitedBatches);
@@ -40,10 +45,11 @@ export function calculateMachinePlan(input) {
   const surplusInput = Math.max(0, availableInput - consumedInput);
   const idleBatches = Math.max(0, capacityBatches - batches);
   const inputQuality = [0, 1, 2, 4].includes(input.inputQuality) ? input.inputQuality : 0;
-  const directSaleValue = Math.floor(consumedInput * conversion.input.price * qualityMultiplier(inputQuality));
+  const inputArtisanMultiplier = conversion.priceFormula === "cask" && input.artisan && conversion.artisanEligible ? 1.4 : 1;
+  const directSaleValue = Math.floor(consumedInput * conversion.input.price * qualityMultiplier(inputQuality) * inputArtisanMultiplier);
   const additionalInputCost = batches * Math.max(0, Number(conversion.additionalInputCost) || 0);
   const setupCost = input.existing ? 0 : machineCount * Math.max(0, Number(conversion.machine.opportunityCost) || 0);
-  const outputPrice = outputUnitPrice(conversion, inputQuality, input.artisan === true);
+  const outputPrice = machineOutputUnitPrice(conversion, inputQuality, input.artisan === true);
   const scenarioCounts = {
     conservative: Math.max(0, Number(conversion.outputCount?.min) || 0),
     expected: Math.max(0, Number(conversion.outputCount?.expected) || 0),
@@ -61,6 +67,9 @@ export function calculateMachinePlan(input) {
   const breakEvenOffset = Math.ceil(breakEvenCycles * effectiveCycleMinutes / GAME_MINUTES_PER_DAY);
   const warnings = [];
   if (!conversion.verified) warnings.push("machine-unverified");
+  if (conversion.locationRequirement === "cellar" && input.hasCellar !== true) warnings.push("machine-cellar-required");
+  if (caskAlreadyIridium) warnings.push("machine-cask-already-iridium");
+  if (conversion.priceFormula === "cask" && conversion.input.source) warnings.push("machine-cask-flavor-stock-manual");
   if (cyclesPerMachine === 0) warnings.push("machine-period-too-short");
   if (availableInput < inputCount) warnings.push("machine-no-input");
   else if (batches < capacityBatches) warnings.push("machine-input-bottleneck");

@@ -4,8 +4,11 @@ using System.Runtime.Loader;
 using System.Text.Json;
 using Microsoft.Xna.Framework.Content;
 using StardewValley.GameData.BigCraftables;
+using StardewValley.GameData.Buildings;
 using StardewValley.GameData.Crops;
 using StardewValley.GameData.FruitTrees;
+using StardewValley.GameData.FarmAnimals;
+using StardewValley.GameData.FishPonds;
 using StardewValley.GameData.Machines;
 using StardewValley.GameData.Objects;
 using StardewValley.GameData.Shops;
@@ -36,10 +39,13 @@ static class GameCatalogReader
         Dictionary<string, CropData> crops = content.Load<Dictionary<string, CropData>>("Data/Crops");
         Dictionary<string, ObjectData> objects = content.Load<Dictionary<string, ObjectData>>("Data/Objects");
         Dictionary<string, FruitTreeData> fruitTrees = content.Load<Dictionary<string, FruitTreeData>>("Data/FruitTrees");
+        Dictionary<string, FarmAnimalData> farmAnimals = content.Load<Dictionary<string, FarmAnimalData>>("Data/FarmAnimals");
+        List<FishPondData> fishPondRules = content.Load<List<FishPondData>>("Data/FishPondData");
         Dictionary<string, ShopData> shops = content.Load<Dictionary<string, ShopData>>("Data/Shops");
         Dictionary<string, WildTreeData> wildTrees = content.Load<Dictionary<string, WildTreeData>>("Data/WildTrees");
         Dictionary<string, MachineData> machines = content.Load<Dictionary<string, MachineData>>("Data/Machines");
         Dictionary<string, BigCraftableData> bigCraftables = content.Load<Dictionary<string, BigCraftableData>>("Data/BigCraftables");
+        Dictionary<string, BuildingData> buildings = content.Load<Dictionary<string, BuildingData>>("Data/Buildings");
         Dictionary<string, string> craftingRecipes = content.Load<Dictionary<string, string>>("Data/CraftingRecipes");
 
         static string QualifyObject(string? id) => string.IsNullOrWhiteSpace(id) ? "" : id.StartsWith('(') ? id : $"(O){id}";
@@ -323,8 +329,117 @@ static class GameCatalogReader
             }
         }
 
+        // Casks use an output method instead of a normal item query. Preserve the
+        // exact input identity (including flavored wine) and expose the local
+        // aging multiplier so the renderer can model every quality step.
+        if (machines.TryGetValue("(BC)163", out MachineData? caskData) && bigCraftables.TryGetValue("163", out BigCraftableData? cask))
+        {
+            foreach (MachineOutputRule rule in caskData.OutputRules ?? new List<MachineOutputRule>())
+            {
+                MachineOutputTriggerRule? trigger = rule.Triggers?.FirstOrDefault(candidate => candidate.Trigger == MachineOutputTrigger.ItemPlacedInMachine);
+                MachineItemOutput? outputRule = rule.OutputItem?.FirstOrDefault(candidate => candidate.OutputMethod?.Contains("Cask", StringComparison.OrdinalIgnoreCase) == true);
+                if (trigger is null || outputRule is null || string.IsNullOrWhiteSpace(trigger.RequiredItemId)) continue;
+                string inputId = QualifyObject(trigger.RequiredItemId);
+                ObjectData? input = ObjectFor(inputId);
+                if (input is null) continue;
+                double agingMultiplier = 1;
+                if (outputRule.CustomData?.TryGetValue("AgingMultiplier", out string? rawMultiplier) == true)
+                    double.TryParse(rawMultiplier, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out agingMultiplier);
+                (string Key, object Item)[] caskInputs = inputId == "(O)348"
+                    ? objects.Where(pair => pair.Value.Category == GameObject.FruitsCategory).Select(pair => (QualifyObject(pair.Key), (object)new
+                    {
+                        id = inputId,
+                        name = input.Name,
+                        price = pair.Value.Price * 3,
+                        category = input.Category,
+                        spriteIndex = input.SpriteIndex,
+                        source = DescribeItem(QualifyObject(pair.Key)),
+                    })).ToArray()
+                    : new[] { (inputId, DescribeItem(inputId)) };
+                foreach ((string caskKey, object caskInput) in caskInputs) artisanMachines.Add(new
+                {
+                    id = $"machine:(BC)163:{rule.Id}:{inputId}:{caskKey}",
+                    machine = new { id = "(BC)163", cask.Name, cask.SpriteIndex, materials = RecipeMaterials(cask.Name), opportunityCost = RecipeOpportunityCost(cask.Name) },
+                    input = caskInput,
+                    output = caskInput,
+                    inputCount = Math.Max(1, trigger.RequiredCount),
+                    outputCount = new { min = 1, expected = 1d, max = 1 },
+                    outputQuality = 4,
+                    cycleMinutes = 56 * 1600,
+                    priceFormula = "cask",
+                    agingMultiplier = agingMultiplier > 0 ? agingMultiplier : 1,
+                    locationRequirement = "cellar",
+                    artisanEligible = input.Category == GameObject.artisanGoodsCategory,
+                    additionalInputs = Array.Empty<object>(),
+                    additionalInputCost = 0,
+                    verified = input.Price > 0,
+                });
+            }
+        }
+
+        var animalCatalog = farmAnimals.Select(pair => new
+        {
+            id = $"animal:{pair.Key}",
+            name = pair.Key,
+            pair.Value.PurchasePrice,
+            purchasable = pair.Value.PurchasePrice > 0,
+            pair.Value.RequiredBuilding,
+            pair.Value.DaysToMature,
+            pair.Value.DaysToProduce,
+            harvestType = pair.Value.HarvestType.ToString(),
+            pair.Value.ProduceOnMature,
+            pair.Value.FriendshipForFasterProduce,
+            pair.Value.DeluxeProduceMinimumFriendship,
+            pair.Value.DeluxeProduceCareDivisor,
+            pair.Value.DeluxeProduceLuckMultiplier,
+            pair.Value.ProfessionForQualityBoost,
+            pair.Value.ProfessionForFasterProduce,
+            pair.Value.GrassEatAmount,
+            buildingCapacity = buildings.GetValueOrDefault(pair.Value.RequiredBuilding)?.MaxOccupants ?? 0,
+            buildingCost = buildings.GetValueOrDefault(pair.Value.RequiredBuilding)?.BuildCost ?? 0,
+            produce = pair.Value.ProduceItemIds.Select(item => new { item.Id, item.Condition, item.MinimumFriendship, item = DescribeItem(item.ItemId) }).ToArray(),
+            deluxeProduce = pair.Value.DeluxeProduceItemIds.Select(item => new { item.Id, item.Condition, item.MinimumFriendship, item = DescribeItem(item.ItemId) }).ToArray(),
+        }).ToArray();
+
+        int PondSpawnTime(int price) => price <= 30 ? 1 : price <= 80 ? 2 : price <= 120 ? 3 : price <= 250 ? 4 : 5;
+        var pondCatalog = objects
+            .Where(pair => pair.Value.Category == GameObject.FishCategory)
+            .Select(pair =>
+            {
+                string fishId = QualifyObject(pair.Key);
+                var tags = new HashSet<string>((pair.Value.ContextTags ?? new List<string>()).Concat(GeneratedCategoryTags(pair.Value)), StringComparer.OrdinalIgnoreCase);
+                FishPondData? rule = fishPondRules.OrderBy(candidate => candidate.Precedence).FirstOrDefault(candidate => candidate.RequiredTags?.All(tags.Contains) != false);
+                if (rule is null) return null;
+                int maximumPopulation = rule.MaxPopulation > 0 ? rule.MaxPopulation : 10;
+                int spawnTime = rule.SpawnTime >= 0 ? rule.SpawnTime : PondSpawnTime(pair.Value.Price);
+                return new
+                {
+                    id = $"pond:{fishId}",
+                    fish = DescribeItem(fishId),
+                    ruleId = rule.Id,
+                    maxPopulation = maximumPopulation,
+                    spawnTime,
+                    rule.BaseMinProduceChance,
+                    rule.BaseMaxProduceChance,
+                    populationGates = rule.PopulationGates,
+                    producedItems = rule.ProducedItems.Select(item => new
+                    {
+                        item.Id,
+                        item.RequiredPopulation,
+                        item.Chance,
+                        item.Precedence,
+                        item.Condition,
+                        item = DescribeItem(item.ItemId),
+                        minStack = item.MinStack > 0 ? item.MinStack : 1,
+                        maxStack = item.MaxStack > 0 ? item.MaxStack : 1,
+                    }).ToArray(),
+                };
+            })
+            .Where(item => item is not null)
+            .ToArray();
+
         return JsonSerializer.Serialize(
-            new { catalogVersion = 4, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines },
+            new { catalogVersion = 5, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, feedUnitCost = PurchasePrice("(O)178") },
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
         );
     }

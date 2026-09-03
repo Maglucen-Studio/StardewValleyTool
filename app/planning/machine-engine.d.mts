@@ -9,13 +9,16 @@ export type MachineConversion = {
   outputCount: { min: number; expected: number; max: number };
   outputQuality: number;
   cycleMinutes: number;
-  priceFormula: "fixed" | "wine" | "juice" | "jelly" | "pickles" | "dried-fruit" | "dried-mushroom" | "smoked-fish";
+  priceFormula: "fixed" | "wine" | "juice" | "jelly" | "pickles" | "dried-fruit" | "dried-mushroom" | "smoked-fish" | "cask";
+  agingMultiplier?: number;
+  locationRequirement?: "cellar";
   artisanEligible: boolean;
   additionalInputs?: Array<{ item: MachineItem; quantity: number }>;
   additionalInputCost: number;
   verified: boolean;
 };
-export type MachineItem = { id: string; name: string; price: number; category?: number; spriteIndex?: number };
+export type MachineItem = { id: string; name: string; price: number; category?: number; spriteIndex?: number; source?: { id: string; name: string; price: number; spriteIndex?: number } };
+export function machineOutputUnitPrice(conversion: MachineConversion, inputQuality?: number, artisan?: boolean): number;
 export function calculateMachinePlan(input: {
   conversion: MachineConversion;
   machineCount: number;
@@ -25,6 +28,7 @@ export function calculateMachinePlan(input: {
   artisan?: boolean;
   existing?: boolean;
   collectionEveryDays?: number;
+  hasCellar?: boolean;
   startDate: StardewDate;
   durationDays?: number;
   endDate?: StardewDate;

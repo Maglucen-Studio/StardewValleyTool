@@ -34,3 +34,10 @@ test("collection cadence reduces effective capacity", () => {
   assert.equal(immediate.batches, 6);
   assert.equal(everyTwoDays.batches, 3);
 });
+
+test("casks respect starting quality and reject already-iridium goods", () => {
+  const conversion = { ...wine, priceFormula: "cask", cycleMinutes: 56 * 1600, agingMultiplier: 2, locationRequirement: "cellar", outputQuality: 4 };
+  const plan = calculateMachinePlan({ conversion, machineCount: 1, initialInput: 1, inputQuality: 4, hasCellar: true, startDate: { year: 1, season: "summer", day: 1 }, durationDays: 56 });
+  assert.equal(plan.batches, 0);
+  assert.ok(plan.warnings.includes("machine-cask-already-iridium"));
+});

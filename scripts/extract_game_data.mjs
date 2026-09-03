@@ -86,6 +86,7 @@ const nameCatalogs = [
   ["Strings/Pants.xnb", key => key.endsWith("_Name")],
   ["Strings/Shirts.xnb", key => key.endsWith("_Name")],
   ["Strings/Furniture.xnb", () => true],
+  ["Strings/FarmAnimals.xnb", key => key.includes("DisplayType_")],
 ];
 const fish = await unpack("Data/Fish.xnb");
 function extractProductionCatalog() {

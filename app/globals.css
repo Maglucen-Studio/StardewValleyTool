@@ -6583,6 +6583,14 @@ button {
   cursor: pointer;
   font: 700 9px Arial, sans-serif;
 }
+.planner-bookmark-toolbar input {
+  min-width: 180px;
+  min-height: 28px;
+  padding: 5px 8px;
+  background: #fffaf0;
+  border: 1px solid #c9b99e;
+  font: 9px Arial, sans-serif;
+}
 .planner-bookmark-toolbar button:disabled {
   opacity: 0.5;
   cursor: default;
@@ -6665,12 +6673,13 @@ button {
 .planner-bookmarks article {
   min-width: 0;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   background: #eee6d7;
   border-left: 3px solid #6c8a62;
 }
 .planner-bookmark-load,
-.planner-bookmark-remove {
+.planner-bookmark-remove,
+.planner-bookmark-duplicate {
   color: #294432;
   background: transparent;
   border: 0;
@@ -6958,6 +6967,39 @@ button {
 .planner-comparison-track i.negative {
   right: 50%;
   background: #b45d45;
+}
+.planner-bookmark-duplicate {
+  padding: 0 7px;
+  color: #52644f;
+  border-left: 1px solid #d3c8b5;
+  font: 700 8px Arial, sans-serif;
+}
+.planner-bookmark-name {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-width: 0;
+  margin: 0 7px 7px;
+  padding: 4px 6px;
+  background: #fffaf0;
+  border: 1px solid #d3c8b5;
+  font: 8px Arial, sans-serif;
+}
+.planner-portfolio {
+  margin-top: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 5px;
+  border-left: 3px solid #5f8b62;
+  background: #e2eadc;
+  font: 9px/1.45 Arial, sans-serif;
+}
+.planner-portfolio.conflicted {
+  border-left-color: #b45d45;
+  background: #f0d7cf;
+}
+.planner-portfolio ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
 }
 .planner-advanced {
   margin-top: 9px;

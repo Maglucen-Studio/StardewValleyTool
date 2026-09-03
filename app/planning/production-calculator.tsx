@@ -12,16 +12,32 @@ import {
   type StardewDate,
 } from "./production-engine.mjs";
 import { calculateMushroomLogPlan, expectedTreeGrowthDays, type MushroomSpecies } from "./forestry-engine.mjs";
-import { calculateMachinePlan, type MachineConversion } from "./machine-engine.mjs";
+import { calculateMachinePlan, machineOutputUnitPrice, type MachineConversion } from "./machine-engine.mjs";
+import { calculateAnimalPlan } from "./animal-engine.mjs";
+import { calculateFishPondPlan } from "./pond-engine.mjs";
+import { evaluateProductionPortfolio } from "./portfolio-engine.mjs";
 
 export type ProductionCatalogEntry = Omit<ProductionProducer, "outputValue"> & {
   output: { id: string; name: string; price: number; category?: number; spriteIndex?: number };
   growthPhases?: number[];
   yieldRules?: { maxIncreasePerFarmingLevel: number; extraHarvestChance: number };
   clearance?: number;
-  family?: "farming" | "forestry" | "machine";
+  family?: "farming" | "forestry" | "machine" | "animal" | "pond";
   materials?: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number }; quantity: number }>;
   machineConversion?: MachineConversion;
+  animal?: ProductionAnimal;
+  pond?: ProductionPond;
+};
+export type ProductionAnimal = {
+  id: string; name: string; purchasePrice: number; purchasable: boolean; requiredBuilding: string; buildingCapacity: number; buildingCost: number; daysToMature: number; daysToProduce: number;
+  harvestType: string; produceOnMature: boolean; deluxeProduceMinimumFriendship: number; deluxeProduceCareDivisor: number;
+  produce: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number } }>;
+  deluxeProduce: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number } }>;
+};
+export type ProductionPond = {
+  id: string; fish: { id: string; name: string; price: number; spriteIndex?: number }; ruleId: string; maxPopulation: number; spawnTime: number;
+  baseMinProduceChance: number; baseMaxProduceChance: number; populationGates?: Record<string, string[]>;
+  producedItems: Array<{ requiredPopulation: number; chance: number; precedence: number; condition?: string | null; item: { id: string; name: string; price: number; spriteIndex?: number }; minStack: number; maxStack: number }>;
 };
 export type ProductionFertilizer = {
   id: string;
@@ -43,6 +59,9 @@ export type ProductionCatalog = {
   mushroomLogOutputs?: Array<{ id: string; name: string; price: number; spriteIndex?: number }>;
   forestryEquipment?: Array<{ id: string; name: string; spriteIndex?: number; opportunityCost: number; materials: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number }; quantity: number }> }>;
   artisanMachines?: MachineConversion[];
+  farmAnimals?: ProductionAnimal[];
+  fishPonds?: ProductionPond[];
+  feedUnitCost?: number;
 };
 
 type CalculatorMode = "budget" | "tiles" | "target" | "units";
@@ -51,6 +70,7 @@ type GrowingLocation = "outdoors" | "greenhouse" | "island";
 type ComparisonView = "table" | "chart";
 type SavedCalculation = {
   id: string;
+  name?: string;
   selectedId: string;
   mode: CalculatorMode;
   amount: number;
@@ -77,6 +97,16 @@ type SavedCalculation = {
   machineInputQuality?: number;
   machineCollectionEveryDays?: number;
   artisan?: boolean;
+  animalExistingCount?: number;
+  animalFed?: boolean;
+  animalFriendship?: number;
+  animalHappiness?: number;
+  animalProcessorId?: string;
+  animalProcessorCount?: number;
+  pondExisting?: boolean;
+  pondPopulation?: number;
+  pondUnlockedPopulation?: number;
+  pondProcessRoe?: boolean;
 };
 
 type ForestrySettings = {
@@ -99,8 +129,10 @@ function producerGroupKey(kind: ProductionCatalogEntry["kind"]) {
   return kind === "crop" ? "planner.group.crops"
     : kind === "fruit-tree" ? "planner.group.fruitTrees"
       : kind === "tapped-tree" ? "planner.group.tappedTrees"
-        : kind === "mushroom-log" ? "planner.group.mushroomLogs"
-          : "planner.group.machines";
+      : kind === "mushroom-log" ? "planner.group.mushroomLogs"
+        : kind === "animal" ? "planner.group.animals"
+          : kind === "fish-pond" ? "planner.group.ponds"
+            : "planner.group.machines";
 }
 
 function buildCalculatorEntries(catalog: ProductionCatalog | undefined, forestry: ForestrySettings): ProductionCatalogEntry[] {
@@ -163,7 +195,12 @@ function buildCalculatorEntries(catalog: ProductionCatalog | undefined, forestry
     materials: conversion.machine.materials,
     machineConversion: conversion,
   }));
-  return [...farming, ...tapped, ...mushroomLog, ...machineEntries];
+  const animalEntries: ProductionCatalogEntry[] = (catalog?.farmAnimals || []).flatMap(animal => {
+    const output = animal.produce?.[0]?.item;
+    return output ? [{ id: animal.id, kind: "animal", family: "animal", name: animal.name, output, seasons: [], firstOutputDays: animal.daysToMature + animal.daysToProduce, repeatDays: animal.daysToProduce, startupCost: animal.purchasePrice, yield: { min: 1, expected: 1, max: 1 }, space: 1, verified: output.price > 0, animal }] : [];
+  });
+  const pondEntries: ProductionCatalogEntry[] = (catalog?.fishPonds || []).map(pond => ({ id: pond.id, kind: "fish-pond", family: "pond", name: pond.fish.name, output: pond.fish, seasons: [], firstOutputDays: 1, repeatDays: 1, startupCost: 0, yield: { min: 0, expected: 1, max: 1 }, space: 25, verified: pond.fish.price > 0, pond }));
+  return [...farming, ...tapped, ...mushroomLog, ...machineEntries, ...animalEntries, ...pondEntries];
 }
 
 function normalizeMachineResult(conversion: MachineConversion, plan: ReturnType<typeof calculateMachinePlan>): ProductionPlan {
@@ -194,6 +231,21 @@ function normalizeMachineResult(conversion: MachineConversion, plan: ReturnType<
     breakEvenDate: plan.breakEvenDate,
     scenarios,
     warnings: plan.warnings,
+  };
+}
+
+type RecurringPlan = ReturnType<typeof calculateAnimalPlan> | ReturnType<typeof calculateFishPondPlan>;
+function normalizeRecurringResult(id: string, quantity: number, space: number, plan: RecurringPlan): ProductionPlan {
+  const scenarios = Object.fromEntries(Object.entries(plan.scenarios).map(([key, raw]) => {
+    const scenario = raw as { units: number; grossRevenue: number; netProfit: number; profitPerDay: number };
+    return [key, { ...scenario, profitPerSpace: space > 0 ? Math.floor(scenario.netProfit / space) : 0 }];
+  })) as ProductionPlan["scenarios"];
+  return {
+    producerId: id, mode: "units", requestedAmount: quantity, location: "farm", replant: false, forcePlantToday: false,
+    plantingDate: null, plantingDelayDays: 0, startDate: plan.startDate, endDate: plan.endDate, durationDays: plan.durationDays,
+    quantity, requiredSpace: space, investment: plan.purchaseCost || 0, recurringCosts: plan.feedCost || 0,
+    totalCosts: plan.totalCosts || 0, setupCosts: 0, unusedBudget: 0, harvestDates: [], breakEvenDate: plan.breakEvenDate,
+    scenarios, warnings: plan.warnings || [],
   };
 }
 
@@ -266,6 +318,10 @@ export function ProductionCalculator({
   currentProfessionIds,
   currentInventory,
   currentMachines,
+  currentHouseUpgradeLevel,
+  currentAnimals,
+  currentBuildings,
+  currentPonds,
   profileId,
   resolveGameName,
   renderItemArtwork,
@@ -277,6 +333,10 @@ export function ProductionCalculator({
   currentProfessionIds: number[];
   currentInventory?: Array<{ id: string; count: number; quality?: number }>;
   currentMachines?: Array<{ id?: string; name: string; count: number }>;
+  currentHouseUpgradeLevel?: number;
+  currentAnimals?: Array<{ type: string; friendship: number; happiness: number }>;
+  currentBuildings?: Array<{ name: string; cost: number; owned?: number }>;
+  currentPonds?: Array<{ fishId: string; population: number; capacity: number }>;
   profileId: string;
   resolveGameName: (name: string, id?: string) => string;
   renderItemArtwork?: (id: string, name: string, spriteIndex?: number) => ReactNode;
@@ -313,11 +373,22 @@ export function ProductionCalculator({
   const [machineInputQuality, setMachineInputQuality] = useState(0);
   const [machineCollectionEveryDays, setMachineCollectionEveryDays] = useState(0);
   const [artisan, setArtisan] = useState(savedHasArtisan);
+  const [animalExistingCount, setAnimalExistingCount] = useState(0);
+  const [animalFed, setAnimalFed] = useState(true);
+  const [animalFriendship, setAnimalFriendship] = useState(0);
+  const [animalHappiness, setAnimalHappiness] = useState(255);
+  const [animalProcessorId, setAnimalProcessorId] = useState("");
+  const [animalProcessorCount, setAnimalProcessorCount] = useState(1);
+  const [pondExisting, setPondExisting] = useState(true);
+  const [pondPopulation, setPondPopulation] = useState(1);
+  const [pondUnlockedPopulation, setPondUnlockedPopulation] = useState(10);
+  const [pondProcessRoe, setPondProcessRoe] = useState(false);
   const [bookmarks, setBookmarks] = useState<SavedCalculation[]>([]);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
   const [comparisonView, setComparisonView] = useState<ComparisonView>("table");
   const [loadedStorageKey, setLoadedStorageKey] = useState("");
   const [bookmarkSaved, setBookmarkSaved] = useState(false);
+  const [bookmarkName, setBookmarkName] = useState("");
   const producerMenu = useRef<HTMLDetailsElement>(null);
   const producerSearch = useRef<HTMLInputElement>(null);
   const bookmarkNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -330,7 +401,7 @@ export function ProductionCalculator({
     displayName: entry.kind === "crop" || entry.family === "forestry"
       ? resolveGameName(entry.output.name, entry.output.id)
       : entry.family === "machine" && entry.machineConversion
-        ? `${resolveGameName(entry.machineConversion.input.name, entry.machineConversion.input.id)} → ${resolveGameName(entry.output.name, entry.output.id)}`
+        ? `${entry.machineConversion.input.source ? `${resolveGameName(entry.machineConversion.input.source.name, entry.machineConversion.input.source.id)} · ` : ""}${resolveGameName(entry.machineConversion.input.name, entry.machineConversion.input.id)} → ${resolveGameName(entry.output.name, entry.output.id)}`
       : resolveGameName(entry.name, entry.id),
     outputName: resolveGameName(entry.output.name, entry.output.id),
     detailName: entry.family === "machine" && entry.machineConversion
@@ -346,6 +417,11 @@ export function ProductionCalculator({
   const selected = entries.find((entry) => entry.id === selectedId) || entries[0];
   const selectedIsForestry = selected?.family === "forestry";
   const selectedIsMachine = selected?.family === "machine";
+  const selectedIsAnimal = selected?.family === "animal";
+  const selectedIsPond = selected?.family === "pond";
+  const animalInputIds = new Set([...(selected?.animal?.produce || []), ...(selected?.animal?.deluxeProduce || [])].map(item => item.item.id));
+  const animalProcessors = (catalog?.artisanMachines || []).filter(conversion => animalInputIds.has(conversion.input.id));
+  const animalProcessorConversion = animalProcessors.find(conversion => conversion.id === animalProcessorId);
   const selectedNamed = namedEntries.find(({ entry }) => entry.id === selected?.id);
   const calculation = useMemo<Omit<SavedCalculation, "id">>(() => ({
     selectedId: selected?.id || "",
@@ -374,7 +450,9 @@ export function ProductionCalculator({
     machineInputQuality,
     machineCollectionEveryDays,
     artisan,
-  }), [agriculturist, amount, artisan, durationDays, endDay, endSeason, endYear, farmingLevel, fertilizerId, forcePlantToday, forestryExisting, forestryFertilized, forestryHeavy, horizonMode, location, machineCollectionEveryDays, machineExisting, machineInitialInput, machineInputQuality, machineRecurringInput, mode, mushroomMossy, mushroomSpecies, replant, selected?.id, tiller]);
+    animalExistingCount, animalFed, animalFriendship, animalHappiness, animalProcessorId, animalProcessorCount,
+    pondExisting, pondPopulation, pondUnlockedPopulation, pondProcessRoe,
+  }), [agriculturist, amount, animalExistingCount, animalFed, animalFriendship, animalHappiness, animalProcessorCount, animalProcessorId, artisan, durationDays, endDay, endSeason, endYear, farmingLevel, fertilizerId, forcePlantToday, forestryExisting, forestryFertilized, forestryHeavy, horizonMode, location, machineCollectionEveryDays, machineExisting, machineInitialInput, machineInputQuality, machineRecurringInput, mode, mushroomMossy, mushroomSpecies, pondExisting, pondPopulation, pondProcessRoe, pondUnlockedPopulation, replant, selected?.id, tiller]);
 
   useEffect(() => {
     const closeOnOutsideClick = (event: PointerEvent) => {
@@ -422,6 +500,16 @@ export function ProductionCalculator({
           if ([0, 1, 2, 4].includes(Number(saved.machineInputQuality))) setMachineInputQuality(Number(saved.machineInputQuality));
           if ([0, 1, 2, 7].includes(Number(saved.machineCollectionEveryDays))) setMachineCollectionEveryDays(Number(saved.machineCollectionEveryDays));
           setArtisan(typeof saved.artisan === "boolean" ? saved.artisan : savedHasArtisan);
+          if (Number.isFinite(saved.animalExistingCount)) setAnimalExistingCount(Math.max(0, Number(saved.animalExistingCount)));
+          if (typeof saved.animalFed === "boolean") setAnimalFed(saved.animalFed);
+          if (Number.isFinite(saved.animalFriendship)) setAnimalFriendship(Math.max(0, Number(saved.animalFriendship)));
+          if (Number.isFinite(saved.animalHappiness)) setAnimalHappiness(Math.max(0, Number(saved.animalHappiness)));
+          if (typeof saved.animalProcessorId === "string") setAnimalProcessorId(saved.animalProcessorId);
+          if (Number.isFinite(saved.animalProcessorCount)) setAnimalProcessorCount(Math.max(1, Number(saved.animalProcessorCount)));
+          if (typeof saved.pondExisting === "boolean") setPondExisting(saved.pondExisting);
+          if (Number.isFinite(saved.pondPopulation)) setPondPopulation(Math.max(1, Number(saved.pondPopulation)));
+          if (Number.isFinite(saved.pondUnlockedPopulation)) setPondUnlockedPopulation(Math.max(1, Number(saved.pondUnlockedPopulation)));
+          if (typeof saved.pondProcessRoe === "boolean") setPondProcessRoe(saved.pondProcessRoe);
         }
         setBookmarks(Array.isArray(stored?.bookmarks) ? stored.bookmarks.slice(0, 12) : []);
         setComparisonIds(Array.isArray(stored?.comparisonIds) ? stored.comparisonIds.slice(0, 3) : []);
@@ -470,10 +558,21 @@ export function ProductionCalculator({
     setMachineInputQuality(saved.machineInputQuality || 0);
     setMachineCollectionEveryDays(saved.machineCollectionEveryDays || 0);
     setArtisan(saved.artisan ?? savedHasArtisan);
+    setAnimalExistingCount(saved.animalExistingCount || 0);
+    setAnimalFed(saved.animalFed ?? true);
+    setAnimalFriendship(saved.animalFriendship || 0);
+    setAnimalHappiness(saved.animalHappiness ?? 255);
+    setAnimalProcessorId(saved.animalProcessorId || "");
+    setAnimalProcessorCount(saved.animalProcessorCount || 1);
+    setPondExisting(saved.pondExisting ?? true);
+    setPondPopulation(saved.pondPopulation || 1);
+    setPondUnlockedPopulation(saved.pondUnlockedPopulation || 10);
+    setPondProcessRoe(saved.pondProcessRoe ?? false);
   };
   const saveCalculation = () => {
-    const bookmark = { ...calculation, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
+    const bookmark = { ...calculation, name: bookmarkName.trim() || selectedNamed?.displayName, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
     setBookmarks((current) => [bookmark, ...current].slice(0, 12));
+    setBookmarkName("");
     setBookmarkSaved(true);
     if (bookmarkNoticeTimer.current) clearTimeout(bookmarkNoticeTimer.current);
     bookmarkNoticeTimer.current = setTimeout(() => setBookmarkSaved(false), 1600);
@@ -507,6 +606,16 @@ export function ProductionCalculator({
     setMachineInputQuality(0);
     setMachineCollectionEveryDays(0);
     setArtisan(savedHasArtisan);
+    setAnimalExistingCount(0);
+    setAnimalFed(true);
+    setAnimalFriendship(0);
+    setAnimalHappiness(255);
+    setAnimalProcessorId("");
+    setAnimalProcessorCount(1);
+    setPondExisting(true);
+    setPondPopulation(1);
+    setPondUnlockedPopulation(10);
+    setPondProcessRoe(false);
   };
   const defaultEnd = addStardewDays(currentDate, 28);
   const isDefaultCalculation = !query
@@ -525,7 +634,7 @@ export function ProductionCalculator({
     ? current.filter((candidate) => candidate !== id)
     : current.length < 3 ? [...current, id] : current);
   const producer = useMemo(() => {
-    if (!selected || selected.family === "machine") return null;
+    if (!selected || ["machine", "animal", "pond"].includes(selected.family || "")) return null;
     return producerWithModifiers(selected, farmingLevel, tiller, agriculturist, fertilizers.find(({ id }) => id === fertilizerId));
   }, [agriculturist, farmingLevel, fertilizerId, fertilizers, selected, tiller]);
   const selectedFertilizer = fertilizers.find(({ id }) => id === fertilizerId);
@@ -551,16 +660,39 @@ export function ProductionCalculator({
     artisan,
     existing: machineExisting,
     collectionEveryDays: machineCollectionEveryDays,
+    hasCellar: (currentHouseUpgradeLevel || 0) >= 3,
     startDate: currentDate,
     ...(horizonMode === "days"
       ? { durationDays }
       : { endDate: { year: endYear, season: endSeason, day: endDay } }),
-  }) : null, [amount, artisan, currentDate, durationDays, endDay, endSeason, endYear, horizonMode, machineCollectionEveryDays, machineExisting, machineInitialInput, machineInputQuality, machineRecurringInput, selected]);
-  const result = machinePlan && selected?.machineConversion ? normalizeMachineResult(selected.machineConversion, machinePlan) : productionResult;
+  }) : null, [amount, artisan, currentDate, currentHouseUpgradeLevel, durationDays, endDay, endSeason, endYear, horizonMode, machineCollectionEveryDays, machineExisting, machineInitialInput, machineInputQuality, machineRecurringInput, selected]);
+  const animalPlan = selected?.animal ? calculateAnimalPlan({
+    animal: selected.animal, count: amount, existingCount: animalExistingCount, fedDaily: animalFed,
+    friendship: animalFriendship, happiness: animalHappiness, feedUnitCost: catalog?.feedUnitCost || 0, buyFeed: true,
+    rancher: currentProfessionIds.includes(0), startDate: currentDate,
+    processor: animalProcessorConversion ? {
+      outputPrice: machineOutputUnitPrice(animalProcessorConversion, 0, false),
+      artisanEligible: animalProcessorConversion.artisanEligible,
+      cycleDays: Math.max(1, Math.ceil(animalProcessorConversion.cycleMinutes / 1600)),
+    } : null,
+    processorCount: animalProcessorCount, artisan,
+    buildingCapacity: (currentBuildings?.find(building => building.name === selected.animal?.requiredBuilding)?.owned || 0) * selected.animal.buildingCapacity,
+    ...(horizonMode === "days" ? { durationDays } : { endDate: { year: endYear, season: endSeason, day: endDay } }),
+  }) : null;
+  const pondCost = currentBuildings?.find(building => building.name === "Fish Pond")?.cost || 0;
+  const pondPlan = selected?.pond ? calculateFishPondPlan({
+    pond: selected.pond, pondCount: amount, startPopulation: pondPopulation, unlockedPopulation: pondUnlockedPopulation,
+    existing: pondExisting, pondCost, processRoe: pondProcessRoe, artisan, startDate: currentDate,
+    ...(horizonMode === "days" ? { durationDays } : { endDate: { year: endYear, season: endSeason, day: endDay } }),
+  }) : null;
+  const result = machinePlan && selected?.machineConversion ? normalizeMachineResult(selected.machineConversion, machinePlan)
+    : animalPlan && selected?.animal ? normalizeRecurringResult(selected.id, animalPlan.count, animalPlan.count, animalPlan)
+      : pondPlan && selected?.pond ? normalizeRecurringResult(selected.id, pondPlan.pondCount, pondPlan.pondCount * 25, pondPlan)
+        : productionResult;
   const visibleWarnings = result?.warnings.filter(warning => !(selectedIsForestry && forestryExisting && warning === "missing-startup-cost")) || [];
   const mushroomNearby = Object.values(mushroomSpecies).reduce((sum, value) => sum + value, 0);
   const setMushroomSpeciesCount = (key: keyof MushroomSpecies, value: number) => setMushroomSpecies(current => ({ ...current, [key]: Math.max(0, Math.floor(value || 0)) }));
-  const comparisons = useMemo(() => comparisonIds.flatMap((id) => {
+  const comparisons = comparisonIds.flatMap((id) => {
     const saved = bookmarks.find((bookmark) => bookmark.id === id);
     const savedEntries = buildCalculatorEntries(catalog, {
       existing: saved?.forestryExisting ?? true,
@@ -582,12 +714,31 @@ export function ProductionCalculator({
           artisan: saved.artisan ?? savedHasArtisan,
           existing: saved.machineExisting ?? true,
           collectionEveryDays: saved.machineCollectionEveryDays || 0,
+          hasCellar: (currentHouseUpgradeLevel || 0) >= 3,
           startDate: currentDate,
           ...(saved.horizonMode === "days"
             ? { durationDays: saved.durationDays }
             : { endDate: { year: saved.endYear, season: saved.endSeason, day: saved.endDay } }),
         }))
-      : calculateProductionPlan({
+      : entry.animal
+        ? normalizeRecurringResult(entry.id, saved.amount, saved.amount, calculateAnimalPlan({
+            animal: entry.animal, count: saved.amount, existingCount: saved.animalExistingCount || 0, fedDaily: saved.animalFed ?? true,
+            friendship: saved.animalFriendship || 0, happiness: saved.animalHappiness ?? 255, feedUnitCost: catalog?.feedUnitCost || 0, buyFeed: true,
+            rancher: currentProfessionIds.includes(0), startDate: currentDate,
+            processor: (() => {
+              const conversion = (catalog?.artisanMachines || []).find(candidate => candidate.id === saved.animalProcessorId);
+              return conversion ? { outputPrice: machineOutputUnitPrice(conversion, 0, false), artisanEligible: conversion.artisanEligible, cycleDays: Math.max(1, Math.ceil(conversion.cycleMinutes / 1600)) } : null;
+            })(),
+            processorCount: saved.animalProcessorCount || 1, artisan: saved.artisan ?? savedHasArtisan,
+            ...(saved.horizonMode === "days" ? { durationDays: saved.durationDays } : { endDate: { year: saved.endYear, season: saved.endSeason, day: saved.endDay } }),
+          }))
+        : entry.pond
+          ? normalizeRecurringResult(entry.id, saved.amount, saved.amount * 25, calculateFishPondPlan({
+              pond: entry.pond, pondCount: saved.amount, startPopulation: saved.pondPopulation || 1, unlockedPopulation: saved.pondUnlockedPopulation || entry.pond.maxPopulation,
+              existing: saved.pondExisting ?? true, pondCost, processRoe: saved.pondProcessRoe ?? false, artisan: saved.artisan ?? savedHasArtisan, startDate: currentDate,
+              ...(saved.horizonMode === "days" ? { durationDays: saved.durationDays } : { endDate: { year: saved.endYear, season: saved.endSeason, day: saved.endDay } }),
+            }))
+          : calculateProductionPlan({
           producer: producerWithModifiers(entry, saved.farmingLevel, saved.tiller ?? savedHasTiller, saved.agriculturist ?? savedHasAgriculturist, savedFertilizer),
           mode: saved.mode,
           amount: saved.amount,
@@ -599,14 +750,40 @@ export function ProductionCalculator({
           replant: saved.replant,
           forcePlantToday: saved.forcePlantToday ?? false,
           setupCostPerProducer: entry.kind === "crop" ? savedFertilizer?.startupCost || 0 : 0,
-        });
+            });
     const named = namedEntries.find(({ entry: candidate }) => candidate.id === entry.id);
     return [{ saved, entry, result: savedResult, name: named?.displayName || entry.name }];
-  }), [bookmarks, catalog, comparisonIds, currentDate, fertilizers, namedEntries, savedHasAgriculturist, savedHasArtisan, savedHasTiller]);
+  });
   const comparisonRows = result && selected && comparisons.length > 0
     ? [{ saved: { ...calculation, id: "current" }, entry: selected, result, name: selectedNamed?.displayName || selected.name, current: true }, ...comparisons.map((comparison) => ({ ...comparison, current: false }))]
     : [];
   const comparisonScale = Math.max(1, ...comparisonRows.map(({ result: compared }) => Math.abs(compared.scenarios.expected.netProfit)));
+  const portfolio = (() => {
+    const plans = comparisonRows.map(({ saved, entry, result: compared }) => {
+      const inventory: Record<string, number> = {};
+      const machines: Record<string, number> = {};
+      if (entry.machineConversion) {
+        inventory[entry.machineConversion.input.id] = Math.max(0, (saved.machineInitialInput || 0) + (saved.machineRecurringInput || 0) * compared.durationDays);
+        if (saved.machineExisting ?? true) machines[entry.machineConversion.machine.id] = saved.amount;
+        else for (const material of entry.machineConversion.machine.materials || []) inventory[material.item.id] = (inventory[material.item.id] || 0) + material.quantity * saved.amount;
+      }
+      if (entry.animal && saved.animalProcessorId) {
+        const processor = (catalog?.artisanMachines || []).find(conversion => conversion.id === saved.animalProcessorId);
+        if (processor) machines[processor.machine.id] = saved.animalProcessorCount || 1;
+      }
+      if (entry.pond && saved.pondProcessRoe) {
+        const jar = (catalog?.artisanMachines || []).find(conversion => conversion.machine.name === "Preserves Jar");
+        if (jar) machines[jar.machine.id] = saved.amount;
+      }
+      return {
+        resources: { money: compared.totalCosts, space: compared.requiredSpace, inventory, machines },
+        metrics: { profit: compared.scenarios.expected.netProfit, revenue: compared.scenarios.expected.grossRevenue, items: compared.scenarios.expected.units },
+      };
+    });
+    const availableInventory = Object.fromEntries((currentInventory || []).map(item => [item.id, (currentInventory || []).filter(candidate => candidate.id === item.id).reduce((sum, candidate) => sum + candidate.count, 0)]));
+    const availableMachines = Object.fromEntries((currentMachines || []).map(machine => [machine.id || machine.name, machine.count]));
+    return evaluateProductionPortfolio(plans, { money: currentMoney, inventory: availableInventory, machines: availableMachines });
+  })();
   const gold = (value: number) => t("planner.gold", { amount: number(value) });
   const fertilizerName = (fertilizer?: ProductionFertilizer) => fertilizer
     ? resolveGameName(fertilizer.name, fertilizer.id)
@@ -618,7 +795,7 @@ export function ProductionCalculator({
     return t("planner.effect.expectedValue", { percent: number(Math.round((multiplier - 1) * 100)) });
   };
   const unqualifiedId = (id?: string) => (id || "").replace(/^\([^)]*\)/, "");
-  const savedInputCount = (conversion: MachineConversion) => (currentInventory || [])
+  const savedInputCount = (conversion: MachineConversion) => conversion.input.source ? 0 : (currentInventory || [])
     .filter(item => item.id === conversion.input.id && (item.quality ?? 0) === 0)
     .reduce((sum, item) => sum + Math.max(0, item.count), 0);
   const savedMachineCount = (conversion: MachineConversion) => (currentMachines || [])
@@ -660,7 +837,7 @@ export function ProductionCalculator({
                       producerMenu.current?.querySelector("summary")?.focus();
                     }} placeholder={t("planner.searchPlaceholder")} autoComplete="off" />
                   </div>
-                  {(["crop", "fruit-tree", "tapped-tree", "mushroom-log", "machine"] as const).map((kind) => {
+                  {(["crop", "fruit-tree", "tapped-tree", "mushroom-log", "machine", "animal", "fish-pond"] as const).map((kind) => {
                     const options = filtered.filter(({ entry }) => entry.kind === kind);
                     if (!options.length) return null;
                     return <section key={kind}>
@@ -675,6 +852,24 @@ export function ProductionCalculator({
                           setMachineExisting(built > 0);
                           setMachineInitialInput(savedInputCount(entry.machineConversion));
                           setMachineInputQuality(0);
+                        }
+                        if (entry.animal) {
+                          const savedAnimals = (currentAnimals || []).filter(animal => animal.type === entry.animal?.name);
+                          setMode("units");
+                          setAmount(Math.max(1, savedAnimals.length));
+                          setAnimalExistingCount(savedAnimals.length);
+                          setAnimalProcessorId("");
+                          if (savedAnimals.length) {
+                            setAnimalFriendship(Math.round(savedAnimals.reduce((sum, animal) => sum + animal.friendship, 0) / savedAnimals.length));
+                            setAnimalHappiness(Math.round(savedAnimals.reduce((sum, animal) => sum + animal.happiness, 0) / savedAnimals.length));
+                          }
+                        }
+                        if (entry.pond) {
+                          const savedPonds = (currentPonds || []).filter(pond => pond.fishId === entry.pond?.fish.id);
+                          setMode("units"); setAmount(Math.max(1, savedPonds.length));
+                          setPondExisting(savedPonds.length > 0);
+                          setPondPopulation(savedPonds.length ? Math.round(savedPonds.reduce((sum, pond) => sum + pond.population, 0) / savedPonds.length) : 1);
+                          setPondUnlockedPopulation(savedPonds.length ? Math.max(...savedPonds.map(pond => pond.capacity)) : entry.pond.maxPopulation);
                         }
                         setQuery("");
                         producerMenu.current?.removeAttribute("open");
@@ -693,20 +888,22 @@ export function ProductionCalculator({
             <label>
               {t("planner.question")}
               <select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}>
-                {!selectedIsMachine && (!selectedIsForestry || !forestryExisting) && <option value="budget">{t("planner.mode.budget")}</option>}
-                {!selectedIsMachine && <option value="tiles">{t("planner.mode.tiles")}</option>}
-                {!selectedIsMachine && <option value="target">{t("planner.mode.target")}</option>}
+                {!selectedIsMachine && !selectedIsAnimal && !selectedIsPond && (!selectedIsForestry || !forestryExisting) && <option value="budget">{t("planner.mode.budget")}</option>}
+                {!selectedIsMachine && !selectedIsAnimal && !selectedIsPond && <option value="tiles">{t("planner.mode.tiles")}</option>}
+                {!selectedIsMachine && !selectedIsAnimal && !selectedIsPond && <option value="target">{t("planner.mode.target")}</option>}
                 <option value="units">{t("planner.mode.units")}</option>
               </select>
             </label>
             <label>
-              {t(selectedIsMachine ? "machine.machineCount" : `planner.amount.${mode}`)}
+              {t(selectedIsMachine ? "machine.machineCount" : selectedIsAnimal ? "animal.count" : selectedIsPond ? "pond.count" : `planner.amount.${mode}`)}
               <input type="number" min="0" step="1" value={amount} onChange={(event) => setAmount(Math.max(0, Number(event.target.value)))} />
             </label>
             {selectedIsMachine && selected.machineConversion && <label>
               {t("machine.initialInput", { item: resolveGameName(selected.machineConversion.input.name, selected.machineConversion.input.id) })}
               <input type="number" min="0" step="1" value={machineInitialInput} onChange={(event) => setMachineInitialInput(Math.max(0, Number(event.target.value)))} />
             </label>}
+            {selectedIsAnimal && <label>{t("animal.existingCount")}<input type="number" min="0" max={amount} step="1" value={animalExistingCount} onChange={(event) => setAnimalExistingCount(Math.min(amount, Math.max(0, Number(event.target.value))))} /></label>}
+            {selectedIsPond && <label>{t("pond.startPopulation")}<input type="number" min="1" max={selected.pond?.maxPopulation || 10} step="1" value={pondPopulation} onChange={(event) => setPondPopulation(Math.max(1, Number(event.target.value)))} /></label>}
             {selectedIsMachine && selected.machineConversion && <label>
               {t("machine.recurringInput", { item: resolveGameName(selected.machineConversion.input.name, selected.machineConversion.input.id) })}
               <input type="number" min="0" step="0.1" value={machineRecurringInput} onChange={(event) => setMachineRecurringInput(Math.max(0, Number(event.target.value)))} />
@@ -740,6 +937,7 @@ export function ProductionCalculator({
             </fieldset>
           </div>
           <div className="planner-bookmark-toolbar">
+            <input type="text" value={bookmarkName} onChange={(event) => setBookmarkName(event.target.value)} placeholder={t("planner.bookmark.namePlaceholder")} aria-label={t("planner.bookmark.name")} />
             <button type="button" onClick={saveCalculation} disabled={!selected}>
               {bookmarkSaved ? t("planner.bookmark.saved") : t("planner.bookmark.save")}
             </button>
@@ -754,13 +952,15 @@ export function ProductionCalculator({
                 : date({ year: bookmark.endYear, season: bookmark.endSeason, day: bookmark.endDay });
               return <article key={bookmark.id}>
                 <button type="button" className="planner-bookmark-load" onClick={() => applyCalculation(bookmark)}>
-                  <strong>{named?.displayName || bookmark.selectedId}</strong>
+                  <strong>{bookmark.name || named?.displayName || bookmark.selectedId}</strong>
                   <small>{t(`planner.amount.${bookmark.mode}`)}: {number(bookmark.amount)} · {horizon}</small>
                 </button>
+                <input className="planner-bookmark-name" aria-label={t("planner.bookmark.rename")} value={bookmark.name || ""} placeholder={named?.displayName || bookmark.selectedId} onChange={(event) => setBookmarks((current) => current.map(item => item.id === bookmark.id ? { ...item, name: event.target.value } : item))} />
                 <label className="planner-bookmark-compare">
                   <input type="checkbox" checked={comparisonIds.includes(bookmark.id)} disabled={!comparisonIds.includes(bookmark.id) && comparisonIds.length >= 3} onChange={() => toggleComparison(bookmark.id)} />
                   <span>{t("planner.compare.select")}</span>
                 </label>
+                <button type="button" className="planner-bookmark-duplicate" onClick={() => setBookmarks((current) => [{ ...bookmark, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: t("planner.bookmark.copyName", { name: bookmark.name || named?.displayName || bookmark.selectedId }) }, ...current].slice(0, 12))}>{t("planner.bookmark.duplicate")}</button>
                 <button type="button" className="planner-bookmark-remove" aria-label={t("planner.bookmark.remove", { name: named?.displayName || bookmark.selectedId })} onClick={() => {
                   setBookmarks((current) => current.filter(({ id }) => id !== bookmark.id));
                   setComparisonIds((current) => current.filter((id) => id !== bookmark.id));
@@ -781,13 +981,15 @@ export function ProductionCalculator({
                     {tiller && tillerApplies(selected) && <b>{t("planner.applied.tiller")}</b>}
                     {selected.kind === "crop" && agriculturist && <b>{t("planner.applied.agriculturist")}</b>}
                     {selected.kind === "crop" && selectedFertilizer && <b>{fertilizerName(selectedFertilizer)} · {fertilizerEffect(selectedFertilizer)}</b>}
-                    {!selectedIsForestry && !selectedIsMachine && <b>{t(`planner.location.${location}`)}</b>}
+                    {!selectedIsForestry && !selectedIsMachine && !selectedIsAnimal && !selectedIsPond && <b>{t(`planner.location.${location}`)}</b>}
                     {selectedIsForestry && <b>{t(forestryExisting ? "forestry.existing" : "forestry.newSetup")}</b>}
                     {selected.kind === "tapped-tree" && forestryHeavy && <b>{t("forestry.heavy")}</b>}
                     {selected.kind === "tapped-tree" && !forestryExisting && forestryFertilized && <b>{t("forestry.treeFertilizer")}</b>}
                     {selected.kind === "mushroom-log" && <b>{t("forestry.nearbyCount", { count: number(mushroomNearby) })}</b>}
                     {selectedIsMachine && selected.machineConversion && <b>{resolveGameName(selected.machineConversion.machine.name, selected.machineConversion.machine.id)}</b>}
                     {selectedIsMachine && <b>{t(machineExisting ? "machine.existing" : "machine.newSetup")}</b>}
+                    {selectedIsAnimal && <b>{t("animal.savedPrefill", { count: number(animalExistingCount) })}</b>}
+                    {selectedIsPond && <b>{t(pondExisting ? "pond.existing" : "pond.newSetup")}</b>}
                     {selectedIsMachine && artisan && <b>{t("machine.artisanApplied")}</b>}
                     {selectedIsMachine && <b>{t(machineCollectionEveryDays === 0 ? "machine.cadence.ready" : "machine.cadence.days", { count: number(machineCollectionEveryDays) })}</b>}
                     {selected.kind === "crop" && location === "outdoors" && forcePlantToday && <b>{t("planner.applied.forcePlantToday")}</b>}
@@ -798,7 +1000,7 @@ export function ProductionCalculator({
               <strong>{gold(result.scenarios.expected.netProfit)}<small>{t(selectedIsMachine ? "machine.addedValue" : "planner.netProfit")}</small></strong>
             </div>
             <dl className="planner-metrics">
-              <div><dt>{t(selectedIsMachine ? "machine.machineCount" : selectedIsForestry ? "forestry.count" : selected.kind === "fruit-tree" ? "planner.quantity.saplings" : "planner.quantity.seeds")}</dt><dd>{number(result.quantity)}</dd></div>
+              <div><dt>{t(selectedIsMachine ? "machine.machineCount" : selectedIsAnimal ? "animal.count" : selectedIsPond ? "pond.count" : selectedIsForestry ? "forestry.count" : selected.kind === "fruit-tree" ? "planner.quantity.saplings" : "planner.quantity.seeds")}</dt><dd>{number(result.quantity)}</dd></div>
               <div><dt>{t("planner.space")}</dt><dd>{number(result.requiredSpace)}</dd></div>
               <div><dt>{t(selectedIsMachine ? "machine.setupCost" : selectedIsForestry ? "forestry.initialCost" : "planner.investment")}</dt><dd>{gold(result.investment)}</dd></div>
               {result.setupCosts > 0 && <div><dt>{t("planner.fertilizerCosts")}</dt><dd>{gold(result.setupCosts)}</dd></div>}
@@ -810,10 +1012,14 @@ export function ProductionCalculator({
               {machinePlan && <div><dt>{t("machine.inputSurplus")}</dt><dd>{number(machinePlan.surplusInput)}</dd></div>}
               {machinePlan && <div><dt>{t("machine.idleBatches")}</dt><dd>{number(machinePlan.idleBatches)}</dd></div>}
               {machinePlan && <div><dt>{t("machine.directSaleValue")}</dt><dd>{gold(machinePlan.directSaleValue)}</dd></div>}
+              {animalPlan && <div><dt>{t("animal.productionCycles")}</dt><dd>{number(animalPlan.cycles)}</dd></div>}
+              {animalPlan && <div><dt>{t("animal.feedCost")}</dt><dd>{gold(animalPlan.feedCost)}</dd></div>}
+              {selectedIsAnimal && selected.animal && <div><dt>{t("animal.requiredBuilding")}</dt><dd>{resolveGameName(selected.animal.requiredBuilding)}</dd></div>}
+              {pondPlan && <div><dt>{t("pond.endPopulation")}</dt><dd>{number(pondPlan.endPopulation)}</dd></div>}
               {selected.kind === "crop" && <div><dt>{t("planner.plantingDate")}</dt><dd>{result.plantingDate ? date(result.plantingDate) : t("planner.none")}</dd></div>}
               <div><dt>{t("planner.grossRevenue")}</dt><dd>{gold(result.scenarios.expected.grossRevenue)}</dd></div>
               <div><dt>{t("planner.profitPerDay")}</dt><dd>{gold(result.scenarios.expected.profitPerDay)}</dd></div>
-              <div><dt>{t("planner.firstIncome")}</dt><dd>{machinePlan?.firstIncomeDate ? date(machinePlan.firstIncomeDate) : result.harvestDates[0] ? date(result.harvestDates[0]) : t("planner.none")}</dd></div>
+              <div><dt>{t("planner.firstIncome")}</dt><dd>{machinePlan?.firstIncomeDate ? date(machinePlan.firstIncomeDate) : animalPlan?.firstIncomeDate ? date(animalPlan.firstIncomeDate) : pondPlan?.firstIncomeDate ? date(pondPlan.firstIncomeDate) : result.harvestDates[0] ? date(result.harvestDates[0]) : t("planner.none")}</dd></div>
               <div><dt>{t("planner.breakEven")}</dt><dd>{result.breakEvenDate ? date(result.breakEvenDate) : t("planner.notInRange")}</dd></div>
             </dl>
             {selectedIsForestry && !forestryExisting && selected.materials?.length ? <div className="forestry-materials"><strong>{t("forestry.materials")}</strong><span>{selected.materials.map(({ item, quantity }) => `${number(result.quantity * quantity)}× ${resolveGameName(item.name, item.id)}`).join(" · ")}</span></div> : null}
@@ -871,10 +1077,17 @@ export function ProductionCalculator({
                 </div>;
               })}
             </div>}
+            {comparisonRows.length >= 2 && <div className={`planner-portfolio ${portfolio.feasible ? "feasible" : "conflicted"}`}>
+              <strong>{t("planner.portfolio.title")}</strong>
+              <span>{t("planner.portfolio.summary", { cost: gold(portfolio.totals.money), profit: gold(portfolio.totals.profit), space: number(portfolio.totals.space) })}</span>
+              {portfolio.conflicts.length > 0
+                ? <ul>{portfolio.conflicts.map((conflict: { kind: string; id?: string; required: number; available: number }, index: number) => <li key={`${conflict.kind}-${conflict.id || index}`}>{t(`planner.portfolio.conflict.${conflict.kind}`, { item: conflict.id ? resolveGameName(conflict.id, conflict.id) : "", required: number(conflict.required), available: number(conflict.available) })}</li>)}</ul>
+                : <small>{t("planner.portfolio.feasible")}</small>}
+            </div>}
           </section>}
           <details className="planner-advanced">
             <summary>{t("planner.adjust")}</summary>
-            {!selectedIsForestry && !selectedIsMachine && <label>
+            {!selectedIsForestry && !selectedIsMachine && !selectedIsAnimal && !selectedIsPond && <label>
               {t("planner.location")}
               <select value={location} onChange={(event) => {
                 const nextLocation = event.target.value as typeof location;
@@ -898,7 +1111,7 @@ export function ProductionCalculator({
               {t("planner.farmingLevel")}
               <input type="number" min="0" max="10" step="1" value={farmingLevel} onChange={(event) => setFarmingLevel(Math.min(10, Math.max(0, Number(event.target.value))))} />
             </label>}
-            {!selectedIsForestry && !selectedIsMachine && <label className="planner-check">
+            {!selectedIsForestry && !selectedIsMachine && !selectedIsAnimal && !selectedIsPond && <label className="planner-check">
               <input type="checkbox" checked={tiller} onChange={(event) => setTiller(event.target.checked)} />
               <span>{t("planner.profession.tiller")} <small>{t("planner.effect.salePrice", { percent: number(10) })}</small></span>
             </label>}
@@ -962,6 +1175,23 @@ export function ProductionCalculator({
               <input type="checkbox" checked={artisan} onChange={(event) => setArtisan(event.target.checked)} />
               <span>{t("machine.artisan")} <small>{t("machine.artisanEffect")}</small></span>
             </label>}
+            {selectedIsAnimal && <label className="planner-check"><input type="checkbox" checked={animalFed} onChange={(event) => setAnimalFed(event.target.checked)} /><span>{t("animal.fedDaily")}</span></label>}
+            {selectedIsAnimal && <label>{t("animal.friendship")}<input type="number" min="0" max="1000" value={animalFriendship} onChange={(event) => setAnimalFriendship(Math.min(1000, Math.max(0, Number(event.target.value))))} /></label>}
+            {selectedIsAnimal && <label>{t("animal.happiness")}<input type="number" min="0" max="255" value={animalHappiness} onChange={(event) => setAnimalHappiness(Math.min(255, Math.max(0, Number(event.target.value))))} /></label>}
+            {selectedIsAnimal && animalProcessors.length > 0 && <label>{t("animal.processing")}<select value={animalProcessorId} onChange={(event) => {
+              const id = event.target.value;
+              setAnimalProcessorId(id);
+              const conversion = animalProcessors.find(candidate => candidate.id === id);
+              if (conversion) setAnimalProcessorCount(Math.max(1, savedMachineCount(conversion)));
+            }}><option value="">{t("animal.sellDirect")}</option>{animalProcessors.map(conversion => <option value={conversion.id} key={conversion.id}>{resolveGameName(conversion.machine.name, conversion.machine.id)} → {resolveGameName(conversion.output.name, conversion.output.id)}</option>)}</select></label>}
+            {selectedIsAnimal && animalProcessorId && <label>{t("animal.processorCount")}<input type="number" min="1" value={animalProcessorCount} onChange={(event) => setAnimalProcessorCount(Math.max(1, Number(event.target.value)))} /></label>}
+            {selectedIsPond && <label className="planner-check"><input type="checkbox" checked={pondExisting} onChange={(event) => setPondExisting(event.target.checked)} /><span>{t("pond.existing")}</span></label>}
+            {selectedIsPond && <label>{t("pond.unlockedPopulation")}<input type="number" min={pondPopulation} max={selected.pond?.maxPopulation || 10} value={pondUnlockedPopulation} onChange={(event) => setPondUnlockedPopulation(Math.max(pondPopulation, Number(event.target.value)))} /></label>}
+            {selectedIsPond && <label className="planner-check"><input type="checkbox" checked={pondProcessRoe} onChange={(event) => setPondProcessRoe(event.target.checked)} /><span>{t("pond.processRoe")}</span></label>}
+            {selectedIsPond && selected.pond?.populationGates && <div className="forestry-materials"><strong>{t("pond.requests")}</strong><span>{Object.entries(selected.pond.populationGates).map(([population, items]) => t("pond.request", { population, items: items.map(raw => {
+              const [id, quantity = "1"] = raw.split(" ");
+              return `${quantity}× ${resolveGameName(id, id)}`;
+            }).join(" + ") })).join(" · ")}</span></div>}
             <p>{t(selectedIsMachine ? "machine.assumptions" : selectedIsForestry ? "forestry.assumptions" : "planner.assumptions")}</p>
           </details>
         </>
