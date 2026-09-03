@@ -12,7 +12,7 @@
     "dev": "node scripts/dev-local.mjs",
     "build": "npm run verify:changelog && vinext build && node scripts/prepare-built-public.mjs",
     "start": "vinext start",
-    "test": "npm run verify:localization && npm run build && node --test tests/rendered-html.test.mjs tests/localization.test.mjs tests/changelog.test.mjs tests/production-engine.test.mjs tests/forestry-engine.test.mjs tests/machine-engine.test.mjs tests/animal-engine.test.mjs tests/pond-engine.test.mjs tests/portfolio-engine.test.mjs",
+    "test": "npm run verify:localization && npm run build && node --test tests/rendered-html.test.mjs tests/localization.test.mjs tests/changelog.test.mjs tests/production-engine.test.mjs tests/forestry-engine.test.mjs tests/machine-engine.test.mjs tests/animal-engine.test.mjs tests/pond-engine.test.mjs tests/portfolio-engine.test.mjs tests/local-package.test.mjs",
     "verify:changelog": "node scripts/verify-changelog.mjs",
     "verify:localization": "node scripts/verify-localization-ui.mjs",
     "verify:public": "node scripts/verify-public-safety.mjs",
@@ -27,7 +27,10 @@
     "desktop:dist": "npm run desktop:installer",
     "desktop:installer": "npm run desktop:bridge && npm run desktop:game-data && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win nsis --publish never",
     "desktop:portable": "npm run desktop:bridge && npm run desktop:game-data && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win portable",
-    "desktop:dir": "npm run desktop:bridge && npm run desktop:game-data && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win dir"
+    "desktop:dir": "npm run desktop:bridge && npm run desktop:game-data && npm run build && node scripts/prepare-portable-python.mjs && npm run electron:prepare && electron-builder --win dir",
+    "local:verify": "node scripts/local-package.mjs verify",
+    "local:unpacked": "node scripts/local-package.mjs unpacked",
+    "local:installer": "node scripts/local-package.mjs installer"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
