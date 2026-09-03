@@ -777,6 +777,25 @@ def farm_animals(locations: ET.Element) -> list[dict]:
     return sorted(animals, key=lambda item: (item["type"], item["name"]))
 
 
+def fish_ponds(farm: ET.Element) -> list[dict]:
+    ponds = []
+    buildings = farm.find("buildings")
+    for building in buildings if buildings is not None else []:
+        building_type = building.findtext("buildingType", "")
+        if building_type != "Fish Pond" and building.attrib.get(XSI_TYPE, "") != "FishPond":
+            continue
+        fish_id = building.findtext("fishType", "")
+        if fish_id and not fish_id.startswith("("):
+            fish_id = f"(O){fish_id}"
+        ponds.append({
+            "id": f'{number(building, "tileX")}-{number(building, "tileY")}',
+            "fishId": fish_id,
+            "population": number(building, "currentOccupants"),
+            "capacity": number(building, "maxOccupants", 10),
+        })
+    return ponds
+
+
 def int_dictionary(node: ET.Element | None) -> dict[str, int]:
     values: dict[str, int] = {}
     if node is None:
@@ -2146,6 +2165,7 @@ def read_snapshot(save_path: Path) -> dict:
         game_data = {"giftTastes": {}}
     planning = planning_brief(root, player, locations, season, day, number(player, "money"), all_production_objects, game_data)
     planning["animals"] = farm_animals(locations)
+    planning["fishPonds"] = fish_ponds(farm)
     farmer_avatar = render_farmer_avatar(player, game_data, save_path)
     artwork_catalog = item_artwork_catalog(root, game_data)
     return {

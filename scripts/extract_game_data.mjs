@@ -86,6 +86,7 @@ const nameCatalogs = [
   ["Strings/Pants.xnb", key => key.endsWith("_Name")],
   ["Strings/Shirts.xnb", key => key.endsWith("_Name")],
   ["Strings/Furniture.xnb", () => true],
+  ["Strings/FarmAnimals.xnb", key => key.includes("DisplayType_")],
 ];
 const fish = await unpack("Data/Fish.xnb");
 function extractProductionCatalog() {
@@ -248,6 +249,17 @@ const textures = {
   "Maps/JojaRuins_TileSheet.xnb": "assetbuild/unpacked/JojaRuins_TileSheet.png",
 };
 
+const animalsByTexture = new Map();
+for (const animal of productionCatalog.farmAnimals || []) {
+  if (!animal.texture) continue;
+  const assetKey = String(animal.id || animal.name || animal.texture).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "animal";
+  const destination = `public/assets/animals/${assetKey}.png`;
+  const source = `${String(animal.texture).replace(/\\/g, "/")}.xnb`;
+  textures[source] = destination;
+  animal.artworkUrl = `/${destination.replace(/^public\//, "")}`;
+  animalsByTexture.set(source, [...(animalsByTexture.get(source) || []), animal]);
+}
+
 const friendshipCharacters = [
   "Abigail", "Alex", "Caroline", "Clint", "Demetrius", "Dwarf", "Elliott", "Emily", "Evelyn", "George", "Gus",
   "Haley", "Harvey", "Jas", "Jodi", "Kent", "Krobus", "Leah", "Leo", "Lewis", "Linus", "Marnie", "Maru", "Pam", "Penny",
@@ -265,6 +277,12 @@ for (const name of friendshipCharacters) {
 for (const [source, destination] of Object.entries(textures)) {
   try { await unpackTexture(source, destination); }
   catch (error) {
+    const animals = animalsByTexture.get(source);
+    if (animals) {
+      for (const animal of animals) delete animal.artworkUrl;
+      console.warn(`Animal artwork unavailable for ${source}; using the generated placeholder.`);
+      continue;
+    }
     const character = /^(?:Characters|Portraits)\/([^/]+)\.xnb$/i.exec(source)?.[1];
     if (!character || !optionalFriendshipCharacters.has(character) || error?.code !== "ENOENT") throw error;
   }

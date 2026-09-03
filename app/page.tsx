@@ -13,7 +13,7 @@ import {
 import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
 import { furnitureDestination } from "./furniture-layout.mjs";
-import { ProductionCalculator, type ProductionCatalog } from "./planning/production-calculator";
+import { ProductionCalculator, type ProductionAnimal, type ProductionCatalog } from "./planning/production-calculator";
 import {
   useI18n,
   type AppLanguageMode,
@@ -433,6 +433,7 @@ type PlanningBrief = {
   pet?: PetPlan;
   machines: MachinePlan[];
   animals?: FarmAnimal[];
+  fishPonds?: Array<{ id: string; fishId: string; population: number; capacity: number }>;
   inventory: StorageInventoryItem[];
 };
 type SpecialOrderBrief = {
@@ -5172,6 +5173,23 @@ function SheetArtwork({
   );
 }
 
+function AnimalArtwork({ animal, label }: { animal: ProductionAnimal; label: string }) {
+  const width = Math.max(1, Number(animal.spriteWidth) || 16);
+  const height = Math.max(1, Number(animal.spriteHeight) || 16);
+  const scale = Math.min(2, 38 / Math.max(width, height));
+  if (!animal.artworkUrl) return <span className="animal-artwork missing" title={label} aria-hidden="true">{label.slice(0, 1)}</span>;
+  return <span className="animal-artwork" title={label} aria-hidden="true">
+    <span className="animal-artwork-frame" style={{ width, height, transform: `translate(-50%, -50%) scale(${scale})` }}>
+      {/* Farm-animal textures are extracted at runtime from the user's local game. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={animal.artworkUrl} alt="" onError={(event) => {
+        event.currentTarget.hidden = true;
+        event.currentTarget.closest(".animal-artwork")?.classList.add("missing");
+      }} />
+    </span>
+  </span>;
+}
+
 function StorageArtwork({ item }: { item: ItemArtwork }) {
   const label = item.displayName || item.name;
   const qualifier = /^\(([A-Z]+)\)/.exec(item.id)?.[1];
@@ -7594,9 +7612,14 @@ function PlanningView({
             currentProfessionIds={current.professionIds || []}
             currentInventory={current.planningBrief.inventory}
             currentMachines={current.planningBrief.machines}
+            currentHouseUpgradeLevel={current.progress.houseUpgradeLevel}
+            currentAnimals={current.planningBrief.animals}
+            currentBuildings={current.planningBrief.buildings}
+            currentPonds={current.planningBrief.fishPonds}
             profileId={current.profileId || `${current.farmName}-${current.farmer}`}
             resolveGameName={gameName}
             renderItemArtwork={(id, name, spriteIndex) => <SheetArtwork id={String(spriteIndex ?? id.replace(/^\((?:O|BC)\)/, ""))} kind={id.startsWith("(BC)") ? "craftable" : "object"} label={name} fit />}
+            renderAnimalArtwork={(animal) => <AnimalArtwork animal={animal} label={gameName(animal.name)} />}
           />
         </div>
       )}
