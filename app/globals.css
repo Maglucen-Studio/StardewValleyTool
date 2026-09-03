@@ -6585,14 +6585,11 @@ button {
   background: #eee8da;
   border-left: 3px solid #6c8a62;
 }
-.forestry-calculator .planner-quick-grid {
-  grid-template-columns: 1.5fr 0.9fr 0.9fr;
-}
-.forestry-calculator .planner-producer-menu .sheet-artwork.craftable {
+.planner-producer-menu .sheet-artwork.craftable {
   width: 16px;
   height: 32px;
 }
-.forestry-calculator .planner-producer-menu .sheet-artwork.craftable img {
+.planner-producer-menu .sheet-artwork.craftable img {
   transform: scale(1);
 }
 .forestry-options > .planner-check {

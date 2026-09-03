@@ -14,7 +14,6 @@ import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
 import { furnitureDestination } from "./furniture-layout.mjs";
 import { ProductionCalculator, type ProductionCatalog } from "./planning/production-calculator";
-import { ForestryCalculator } from "./planning/forestry-calculator";
 import {
   useI18n,
   type AppLanguageMode,
@@ -7595,12 +7594,7 @@ function PlanningView({
             currentProfessionIds={current.professionIds || []}
             profileId={current.profileId || `${current.farmName}-${current.farmer}`}
             resolveGameName={gameName}
-            renderItemArtwork={(id, name, spriteIndex) => <ItemMentionArtwork id={String(spriteIndex ?? id.replace(/^\(O\)/, ""))} name={name} locatable={false} />}
-          />
-          <ForestryCalculator
-            catalog={current.productionCatalog}
-            resolveGameName={gameName}
-            renderProducerArtwork={(id, name, spriteIndex) => <SheetArtwork id={String(spriteIndex ?? id.replace(/^\((?:O|BC)\)/, ""))} kind={id.startsWith("(BC)") ? "craftable" : "object"} label={name} fit />}
+            renderItemArtwork={(id, name, spriteIndex) => <SheetArtwork id={String(spriteIndex ?? id.replace(/^\((?:O|BC)\)/, ""))} kind={id.startsWith("(BC)") ? "craftable" : "object"} label={name} fit />}
           />
         </div>
       )}

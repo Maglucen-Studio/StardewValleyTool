@@ -2005,6 +2005,9 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(page, /productionCatalog\?: ProductionCatalog/);
   assert.match(page, /<ProductionCalculator/);
   assert.match(calculator, /calculateProductionPlan/);
+  assert.match(calculator, /buildCalculatorEntries/);
+  assert.match(calculator, /"tapped-tree", "mushroom-log"/);
+  assert.match(calculator, /<option value="units">/);
   assert.match(calculator, /horizonMode === "days"/);
   assert.match(calculator, /horizonMode === "date"/);
   assert.match(calculator, /<span>\{t\("planner\.endDay"\)\}<\/span>/);
@@ -2031,9 +2034,13 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /className="planner-comparison-chart"/);
   assert.match(calculator, /comparisonIds\.length >= 3/);
   assert.match(calculator, /comparisonRows/);
+  assert.match(calculator, /savedEntries = buildCalculatorEntries/);
+  assert.match(calculator, /selectedIsForestry \? "forestry\.initialCost"/);
+  assert.match(calculator, /selectedIsForestry \? "forestry\.collectionCycles"/);
+  assert.match(calculator, /!selectedIsForestry \|\| !forestryExisting/);
   assert.match(calculator, /resetCalculation/);
   assert.match(calculator, /forcePlantToday/);
-  assert.match(page, /renderItemArtwork=\{.{0,120}<ItemMentionArtwork/);
+  assert.match(page, /renderItemArtwork=\{.{0,160}<SheetArtwork/);
   assert.match(extractor, /StardewDataExtractor\.exe/);
   assert.match(gameReader, /Data\/Crops/);
   assert.match(gameReader, /Data\/Objects/);

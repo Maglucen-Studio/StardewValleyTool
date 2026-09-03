@@ -128,3 +128,27 @@ test("fertilizer setup cost and quality-adjusted values affect the estimate", ()
   assert.equal(result.scenarios.expected.grossRevenue, 210);
   assert.equal(result.scenarios.optimistic.grossRevenue, 285);
 });
+
+test("direct producer counts support repeating passive producers", () => {
+  const plan = calculateProductionPlan({
+    producer: {
+      id: "forestry:oak",
+      kind: "tapped-tree",
+      seasons: [],
+      firstOutputDays: 7,
+      repeatDays: 7,
+      startupCost: 200,
+      outputValue: 150,
+      yield: { min: 1, expected: 1, max: 1 },
+      verified: true,
+    },
+    mode: "units",
+    amount: 3,
+    startDate: { year: 1, season: "summer", day: 1 },
+    durationDays: 28,
+  });
+  assert.equal(plan.quantity, 3);
+  assert.equal(plan.harvestDates.length, 4);
+  assert.equal(plan.totalCosts, 600);
+  assert.equal(plan.scenarios.expected.grossRevenue, 1800);
+});
