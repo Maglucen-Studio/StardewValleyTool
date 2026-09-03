@@ -95,7 +95,7 @@ Use [GitHub Issues](https://github.com/Maglucen-Studio/StardewValleyTool/issues)
 
 This is the canonical source, distribution, and support repository for Maglucen Stardew Valley Companion. Stable installers are built from public tagged source by GitHub Actions. The workflow publishes SHA-256 checksums and a build-provenance attestation with each new release.
 
-The source is available under the [MIT License](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes, [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) for release-signing governance, [SECURITY.md](SECURITY.md) for private vulnerability reports, [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for dependency notices, and [AI_USAGE.md](AI_USAGE.md) for the project's AI-assisted development disclosure.
+The source is available under the [MIT License](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes, [LOCAL_BUILD.md](LOCAL_BUILD.md) for verified local test builds and installers, [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) for release-signing governance, [SECURITY.md](SECURITY.md) for private vulnerability reports, [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for dependency notices, and [AI_USAGE.md](AI_USAGE.md) for the project's AI-assisted development disclosure.
 
 Stardew Valley assets and game assemblies are deliberately absent. Required images and data are extracted locally from each user's legitimate game installation. Continuous integration compiles the optional SMAPI bridge against public API-only reference assemblies.
 
