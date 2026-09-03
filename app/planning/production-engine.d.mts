@@ -2,7 +2,7 @@ export type StardewSeason = "spring" | "summer" | "fall" | "winter";
 export type StardewDate = { year: number; season: StardewSeason; day: number };
 export type ProductionProducer = {
   id: string;
-  kind: "crop" | "fruit-tree" | "tapped-tree" | "mushroom-log";
+  kind: "crop" | "fruit-tree" | "tapped-tree" | "mushroom-log" | "machine";
   name: string;
   seasons: StardewSeason[];
   firstOutputDays: number;

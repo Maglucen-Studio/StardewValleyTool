@@ -7,18 +7,21 @@ import {
   STARDEW_SEASONS,
   addStardewDays,
   calculateProductionPlan,
+  type ProductionPlan,
   type ProductionProducer,
   type StardewDate,
 } from "./production-engine.mjs";
 import { calculateMushroomLogPlan, expectedTreeGrowthDays, type MushroomSpecies } from "./forestry-engine.mjs";
+import { calculateMachinePlan, type MachineConversion } from "./machine-engine.mjs";
 
 export type ProductionCatalogEntry = Omit<ProductionProducer, "outputValue"> & {
   output: { id: string; name: string; price: number; category?: number; spriteIndex?: number };
   growthPhases?: number[];
   yieldRules?: { maxIncreasePerFarmingLevel: number; extraHarvestChance: number };
   clearance?: number;
-  family?: "farming" | "forestry";
+  family?: "farming" | "forestry" | "machine";
   materials?: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number }; quantity: number }>;
+  machineConversion?: MachineConversion;
 };
 export type ProductionFertilizer = {
   id: string;
@@ -39,6 +42,7 @@ export type ProductionCatalog = {
   tappedTrees?: Array<{ id: string; treeType: string; seed: { id: string; name: string; price: number; spriteIndex?: number }; growthChance: number; fertilizedGrowthChance: number; growsInWinter: boolean; tapItems: Array<{ itemId: string; item: { id: string; name: string; price: number; spriteIndex?: number } | null; daysUntilReady: number; condition?: string | null; season?: string | null; hasTimeModifiers?: boolean }> }>;
   mushroomLogOutputs?: Array<{ id: string; name: string; price: number; spriteIndex?: number }>;
   forestryEquipment?: Array<{ id: string; name: string; spriteIndex?: number; opportunityCost: number; materials: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number }; quantity: number }> }>;
+  artisanMachines?: MachineConversion[];
 };
 
 type CalculatorMode = "budget" | "tiles" | "target" | "units";
@@ -67,6 +71,12 @@ type SavedCalculation = {
   forestryFertilized?: boolean;
   mushroomSpecies?: MushroomSpecies;
   mushroomMossy?: number;
+  machineExisting?: boolean;
+  machineInitialInput?: number;
+  machineRecurringInput?: number;
+  machineInputQuality?: number;
+  machineCollectionEveryDays?: number;
+  artisan?: boolean;
 };
 
 type ForestrySettings = {
@@ -77,6 +87,10 @@ type ForestrySettings = {
   mossy: number;
 };
 
+function normalizeSearchValue(value: string, locale: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase(locale);
+}
+
 const MUSHROOM_OUTPUT_KEYS: Record<string, "common" | "red" | "purple" | "morel" | "chanterelle"> = {
   "(O)404": "common", "(O)420": "red", "(O)422": "purple", "(O)257": "morel", "(O)281": "chanterelle",
 };
@@ -85,7 +99,8 @@ function producerGroupKey(kind: ProductionCatalogEntry["kind"]) {
   return kind === "crop" ? "planner.group.crops"
     : kind === "fruit-tree" ? "planner.group.fruitTrees"
       : kind === "tapped-tree" ? "planner.group.tappedTrees"
-        : "planner.group.mushroomLogs";
+        : kind === "mushroom-log" ? "planner.group.mushroomLogs"
+          : "planner.group.machines";
 }
 
 function buildCalculatorEntries(catalog: ProductionCatalog | undefined, forestry: ForestrySettings): ProductionCatalogEntry[] {
@@ -132,7 +147,54 @@ function buildCalculatorEntries(catalog: ProductionCatalog | undefined, forestry
     verified: possiblePrices.length > 0,
     materials: forestry.existing ? [] : log.materials,
   }] : [];
-  return [...farming, ...tapped, ...mushroomLog];
+  const machineEntries: ProductionCatalogEntry[] = (catalog?.artisanMachines || []).map(conversion => ({
+    id: conversion.id,
+    kind: "machine",
+    family: "machine",
+    name: conversion.output.name,
+    output: conversion.output,
+    seasons: [],
+    firstOutputDays: Math.max(1, Math.ceil(conversion.cycleMinutes / 1600)),
+    repeatDays: Math.max(1, Math.ceil(conversion.cycleMinutes / 1600)),
+    startupCost: conversion.machine.opportunityCost,
+    yield: conversion.outputCount,
+    space: 1,
+    verified: conversion.verified,
+    materials: conversion.machine.materials,
+    machineConversion: conversion,
+  }));
+  return [...farming, ...tapped, ...mushroomLog, ...machineEntries];
+}
+
+function normalizeMachineResult(conversion: MachineConversion, plan: ReturnType<typeof calculateMachinePlan>): ProductionPlan {
+  const scenarios = Object.fromEntries(Object.entries(plan.scenarios).map(([key, scenario]) => [key, {
+    ...scenario,
+    profitPerSpace: plan.machineCount > 0 ? Math.floor(scenario.netProfit / plan.machineCount) : 0,
+  }])) as ProductionPlan["scenarios"];
+  return {
+    producerId: conversion.id,
+    mode: "units",
+    requestedAmount: plan.machineCount,
+    location: "machine",
+    replant: false,
+    forcePlantToday: false,
+    plantingDate: null,
+    plantingDelayDays: 0,
+    startDate: plan.startDate,
+    endDate: plan.endDate,
+    durationDays: plan.durationDays,
+    quantity: plan.machineCount,
+    requiredSpace: plan.machineCount,
+    investment: plan.setupCost,
+    recurringCosts: plan.directSaleValue + plan.additionalInputCost,
+    totalCosts: plan.setupCost + plan.directSaleValue + plan.additionalInputCost,
+    setupCosts: 0,
+    unusedBudget: 0,
+    harvestDates: [],
+    breakEvenDate: plan.breakEvenDate,
+    scenarios,
+    warnings: plan.warnings,
+  };
 }
 
 function acceleratedGrowthDays(entry: ProductionCatalogEntry, speedBonus: number) {
@@ -202,6 +264,8 @@ export function ProductionCalculator({
   currentMoney,
   currentFarmingLevel,
   currentProfessionIds,
+  currentInventory,
+  currentMachines,
   profileId,
   resolveGameName,
   renderItemArtwork,
@@ -211,6 +275,8 @@ export function ProductionCalculator({
   currentMoney: number;
   currentFarmingLevel: number;
   currentProfessionIds: number[];
+  currentInventory?: Array<{ id: string; count: number; quality?: number }>;
+  currentMachines?: Array<{ id?: string; name: string; count: number }>;
   profileId: string;
   resolveGameName: (name: string, id?: string) => string;
   renderItemArtwork?: (id: string, name: string, spriteIndex?: number) => ReactNode;
@@ -218,6 +284,7 @@ export function ProductionCalculator({
   const { t, number, date, locale } = useI18n();
   const savedHasTiller = currentProfessionIds.includes(1);
   const savedHasAgriculturist = currentProfessionIds.includes(5);
+  const savedHasArtisan = currentProfessionIds.includes(4);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [mode, setMode] = useState<CalculatorMode>("budget");
@@ -240,12 +307,19 @@ export function ProductionCalculator({
   const [forestryFertilized, setForestryFertilized] = useState(false);
   const [mushroomSpecies, setMushroomSpecies] = useState<MushroomSpecies>({ oak: 2, maple: 2, pine: 2, mystic: 0, other: 0 });
   const [mushroomMossy, setMushroomMossy] = useState(0);
+  const [machineExisting, setMachineExisting] = useState(true);
+  const [machineInitialInput, setMachineInitialInput] = useState(0);
+  const [machineRecurringInput, setMachineRecurringInput] = useState(0);
+  const [machineInputQuality, setMachineInputQuality] = useState(0);
+  const [machineCollectionEveryDays, setMachineCollectionEveryDays] = useState(0);
+  const [artisan, setArtisan] = useState(savedHasArtisan);
   const [bookmarks, setBookmarks] = useState<SavedCalculation[]>([]);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
   const [comparisonView, setComparisonView] = useState<ComparisonView>("table");
   const [loadedStorageKey, setLoadedStorageKey] = useState("");
   const [bookmarkSaved, setBookmarkSaved] = useState(false);
   const producerMenu = useRef<HTMLDetailsElement>(null);
+  const producerSearch = useRef<HTMLInputElement>(null);
   const bookmarkNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storageKey = `maglucen.production-calculator.${profileId || "default"}`;
   const forestrySettings = useMemo<ForestrySettings>(() => ({ existing: forestryExisting, heavy: forestryHeavy, fertilized: forestryFertilized, species: mushroomSpecies, mossy: mushroomMossy }), [forestryExisting, forestryFertilized, forestryHeavy, mushroomMossy, mushroomSpecies]);
@@ -255,14 +329,23 @@ export function ProductionCalculator({
     entry,
     displayName: entry.kind === "crop" || entry.family === "forestry"
       ? resolveGameName(entry.output.name, entry.output.id)
+      : entry.family === "machine" && entry.machineConversion
+        ? `${resolveGameName(entry.machineConversion.input.name, entry.machineConversion.input.id)} → ${resolveGameName(entry.output.name, entry.output.id)}`
       : resolveGameName(entry.name, entry.id),
     outputName: resolveGameName(entry.output.name, entry.output.id),
+    detailName: entry.family === "machine" && entry.machineConversion
+      ? resolveGameName(entry.machineConversion.machine.name, entry.machineConversion.machine.id)
+      : "",
   })).sort((left, right) => left.displayName.localeCompare(right.displayName, locale)), [entries, locale, resolveGameName]);
-  const normalizedQuery = query.trim().toLocaleLowerCase(locale);
-  const filtered = namedEntries.filter(({ displayName, outputName }) =>
-    `${displayName} ${outputName}`.toLocaleLowerCase(locale).includes(normalizedQuery));
+  const normalizedQuery = normalizeSearchValue(query.trim(), locale);
+  const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+  const filtered = namedEntries.filter(({ displayName, outputName, detailName }) => {
+    const searchable = normalizeSearchValue(`${displayName} ${outputName} ${detailName}`, locale);
+    return queryTerms.every(term => searchable.includes(term));
+  });
   const selected = entries.find((entry) => entry.id === selectedId) || entries[0];
   const selectedIsForestry = selected?.family === "forestry";
+  const selectedIsMachine = selected?.family === "machine";
   const selectedNamed = namedEntries.find(({ entry }) => entry.id === selected?.id);
   const calculation = useMemo<Omit<SavedCalculation, "id">>(() => ({
     selectedId: selected?.id || "",
@@ -285,7 +368,13 @@ export function ProductionCalculator({
     forestryFertilized,
     mushroomSpecies,
     mushroomMossy,
-  }), [agriculturist, amount, durationDays, endDay, endSeason, endYear, farmingLevel, fertilizerId, forcePlantToday, forestryExisting, forestryFertilized, forestryHeavy, horizonMode, location, mode, mushroomMossy, mushroomSpecies, replant, selected?.id, tiller]);
+    machineExisting,
+    machineInitialInput,
+    machineRecurringInput,
+    machineInputQuality,
+    machineCollectionEveryDays,
+    artisan,
+  }), [agriculturist, amount, artisan, durationDays, endDay, endSeason, endYear, farmingLevel, fertilizerId, forcePlantToday, forestryExisting, forestryFertilized, forestryHeavy, horizonMode, location, machineCollectionEveryDays, machineExisting, machineInitialInput, machineInputQuality, machineRecurringInput, mode, mushroomMossy, mushroomSpecies, replant, selected?.id, tiller]);
 
   useEffect(() => {
     const closeOnOutsideClick = (event: PointerEvent) => {
@@ -327,6 +416,12 @@ export function ProductionCalculator({
           if (typeof saved.forestryFertilized === "boolean") setForestryFertilized(saved.forestryFertilized);
           if (saved.mushroomSpecies) setMushroomSpecies(saved.mushroomSpecies);
           if (Number.isFinite(saved.mushroomMossy)) setMushroomMossy(Math.max(0, Number(saved.mushroomMossy)));
+          if (typeof saved.machineExisting === "boolean") setMachineExisting(saved.machineExisting);
+          if (Number.isFinite(saved.machineInitialInput)) setMachineInitialInput(Math.max(0, Number(saved.machineInitialInput)));
+          if (Number.isFinite(saved.machineRecurringInput)) setMachineRecurringInput(Math.max(0, Number(saved.machineRecurringInput)));
+          if ([0, 1, 2, 4].includes(Number(saved.machineInputQuality))) setMachineInputQuality(Number(saved.machineInputQuality));
+          if ([0, 1, 2, 7].includes(Number(saved.machineCollectionEveryDays))) setMachineCollectionEveryDays(Number(saved.machineCollectionEveryDays));
+          setArtisan(typeof saved.artisan === "boolean" ? saved.artisan : savedHasArtisan);
         }
         setBookmarks(Array.isArray(stored?.bookmarks) ? stored.bookmarks.slice(0, 12) : []);
         setComparisonIds(Array.isArray(stored?.comparisonIds) ? stored.comparisonIds.slice(0, 3) : []);
@@ -337,7 +432,7 @@ export function ProductionCalculator({
       setLoadedStorageKey(storageKey);
     }, 0);
     return () => window.clearTimeout(restore);
-  }, [savedHasAgriculturist, savedHasTiller, storageKey]);
+  }, [savedHasAgriculturist, savedHasArtisan, savedHasTiller, storageKey]);
 
   useEffect(() => {
     if (loadedStorageKey !== storageKey) return;
@@ -369,6 +464,12 @@ export function ProductionCalculator({
     setForestryFertilized(saved.forestryFertilized ?? false);
     setMushroomSpecies(saved.mushroomSpecies || { oak: 2, maple: 2, pine: 2, mystic: 0, other: 0 });
     setMushroomMossy(saved.mushroomMossy || 0);
+    setMachineExisting(saved.machineExisting ?? true);
+    setMachineInitialInput(saved.machineInitialInput || 0);
+    setMachineRecurringInput(saved.machineRecurringInput || 0);
+    setMachineInputQuality(saved.machineInputQuality || 0);
+    setMachineCollectionEveryDays(saved.machineCollectionEveryDays || 0);
+    setArtisan(saved.artisan ?? savedHasArtisan);
   };
   const saveCalculation = () => {
     const bookmark = { ...calculation, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
@@ -400,6 +501,12 @@ export function ProductionCalculator({
     setForestryFertilized(false);
     setMushroomSpecies({ oak: 2, maple: 2, pine: 2, mystic: 0, other: 0 });
     setMushroomMossy(0);
+    setMachineExisting(true);
+    setMachineInitialInput(0);
+    setMachineRecurringInput(0);
+    setMachineInputQuality(0);
+    setMachineCollectionEveryDays(0);
+    setArtisan(savedHasArtisan);
   };
   const defaultEnd = addStardewDays(currentDate, 28);
   const isDefaultCalculation = !query
@@ -411,16 +518,18 @@ export function ProductionCalculator({
     && farmingLevel === Math.min(10, Math.max(0, currentFarmingLevel))
     && tiller === savedHasTiller && agriculturist === savedHasAgriculturist && !fertilizerId
     && forestryExisting && !forestryHeavy && !forestryFertilized && mushroomMossy === 0
-    && JSON.stringify(mushroomSpecies) === JSON.stringify({ oak: 2, maple: 2, pine: 2, mystic: 0, other: 0 });
+    && JSON.stringify(mushroomSpecies) === JSON.stringify({ oak: 2, maple: 2, pine: 2, mystic: 0, other: 0 })
+    && machineExisting && machineInitialInput === 0 && machineRecurringInput === 0 && machineInputQuality === 0
+    && machineCollectionEveryDays === 0 && artisan === savedHasArtisan;
   const toggleComparison = (id: string) => setComparisonIds((current) => current.includes(id)
     ? current.filter((candidate) => candidate !== id)
     : current.length < 3 ? [...current, id] : current);
   const producer = useMemo(() => {
-    if (!selected) return null;
+    if (!selected || selected.family === "machine") return null;
     return producerWithModifiers(selected, farmingLevel, tiller, agriculturist, fertilizers.find(({ id }) => id === fertilizerId));
   }, [agriculturist, farmingLevel, fertilizerId, fertilizers, selected, tiller]);
   const selectedFertilizer = fertilizers.find(({ id }) => id === fertilizerId);
-  const result = useMemo(() => producer ? calculateProductionPlan({
+  const productionResult = useMemo(() => producer ? calculateProductionPlan({
     producer,
     mode,
     amount,
@@ -433,6 +542,21 @@ export function ProductionCalculator({
     forcePlantToday,
     setupCostPerProducer: selected?.kind === "crop" ? selectedFertilizer?.startupCost || 0 : 0,
   }) : null, [amount, currentDate, durationDays, endDay, endSeason, endYear, forcePlantToday, horizonMode, location, mode, producer, replant, selected?.kind, selectedFertilizer?.startupCost]);
+  const machinePlan = useMemo(() => selected?.machineConversion ? calculateMachinePlan({
+    conversion: selected.machineConversion,
+    machineCount: amount,
+    initialInput: machineInitialInput,
+    recurringInputPerDay: machineRecurringInput,
+    inputQuality: machineInputQuality,
+    artisan,
+    existing: machineExisting,
+    collectionEveryDays: machineCollectionEveryDays,
+    startDate: currentDate,
+    ...(horizonMode === "days"
+      ? { durationDays }
+      : { endDate: { year: endYear, season: endSeason, day: endDay } }),
+  }) : null, [amount, artisan, currentDate, durationDays, endDay, endSeason, endYear, horizonMode, machineCollectionEveryDays, machineExisting, machineInitialInput, machineInputQuality, machineRecurringInput, selected]);
+  const result = machinePlan && selected?.machineConversion ? normalizeMachineResult(selected.machineConversion, machinePlan) : productionResult;
   const visibleWarnings = result?.warnings.filter(warning => !(selectedIsForestry && forestryExisting && warning === "missing-startup-cost")) || [];
   const mushroomNearby = Object.values(mushroomSpecies).reduce((sum, value) => sum + value, 0);
   const setMushroomSpeciesCount = (key: keyof MushroomSpecies, value: number) => setMushroomSpecies(current => ({ ...current, [key]: Math.max(0, Math.floor(value || 0)) }));
@@ -448,23 +572,37 @@ export function ProductionCalculator({
     const entry = savedEntries.find((candidate) => candidate.id === saved?.selectedId);
     if (!saved || !entry) return [];
     const savedFertilizer = fertilizers.find(({ id: candidate }) => candidate === saved.fertilizerId);
-    const savedProducer = producerWithModifiers(entry, saved.farmingLevel, saved.tiller ?? savedHasTiller, saved.agriculturist ?? savedHasAgriculturist, savedFertilizer);
-    const savedResult = calculateProductionPlan({
-      producer: savedProducer,
-      mode: saved.mode,
-      amount: saved.amount,
-      startDate: currentDate,
-      ...(saved.horizonMode === "days"
-        ? { durationDays: saved.durationDays }
-        : { endDate: { year: saved.endYear, season: saved.endSeason, day: saved.endDay } }),
-      location: saved.location,
-      replant: saved.replant,
-      forcePlantToday: saved.forcePlantToday ?? false,
-      setupCostPerProducer: entry.kind === "crop" ? savedFertilizer?.startupCost || 0 : 0,
-    });
+    const savedResult = entry.machineConversion
+      ? normalizeMachineResult(entry.machineConversion, calculateMachinePlan({
+          conversion: entry.machineConversion,
+          machineCount: saved.amount,
+          initialInput: saved.machineInitialInput || 0,
+          recurringInputPerDay: saved.machineRecurringInput || 0,
+          inputQuality: saved.machineInputQuality || 0,
+          artisan: saved.artisan ?? savedHasArtisan,
+          existing: saved.machineExisting ?? true,
+          collectionEveryDays: saved.machineCollectionEveryDays || 0,
+          startDate: currentDate,
+          ...(saved.horizonMode === "days"
+            ? { durationDays: saved.durationDays }
+            : { endDate: { year: saved.endYear, season: saved.endSeason, day: saved.endDay } }),
+        }))
+      : calculateProductionPlan({
+          producer: producerWithModifiers(entry, saved.farmingLevel, saved.tiller ?? savedHasTiller, saved.agriculturist ?? savedHasAgriculturist, savedFertilizer),
+          mode: saved.mode,
+          amount: saved.amount,
+          startDate: currentDate,
+          ...(saved.horizonMode === "days"
+            ? { durationDays: saved.durationDays }
+            : { endDate: { year: saved.endYear, season: saved.endSeason, day: saved.endDay } }),
+          location: saved.location,
+          replant: saved.replant,
+          forcePlantToday: saved.forcePlantToday ?? false,
+          setupCostPerProducer: entry.kind === "crop" ? savedFertilizer?.startupCost || 0 : 0,
+        });
     const named = namedEntries.find(({ entry: candidate }) => candidate.id === entry.id);
     return [{ saved, entry, result: savedResult, name: named?.displayName || entry.name }];
-  }), [bookmarks, catalog, comparisonIds, currentDate, fertilizers, namedEntries, savedHasAgriculturist, savedHasTiller]);
+  }), [bookmarks, catalog, comparisonIds, currentDate, fertilizers, namedEntries, savedHasAgriculturist, savedHasArtisan, savedHasTiller]);
   const comparisonRows = result && selected && comparisons.length > 0
     ? [{ saved: { ...calculation, id: "current" }, entry: selected, result, name: selectedNamed?.displayName || selected.name, current: true }, ...comparisons.map((comparison) => ({ ...comparison, current: false }))]
     : [];
@@ -479,6 +617,13 @@ export function ProductionCalculator({
     const multiplier = qualityPriceMultipliers(level, fertilizer.qualityBoost).expected;
     return t("planner.effect.expectedValue", { percent: number(Math.round((multiplier - 1) * 100)) });
   };
+  const unqualifiedId = (id?: string) => (id || "").replace(/^\([^)]*\)/, "");
+  const savedInputCount = (conversion: MachineConversion) => (currentInventory || [])
+    .filter(item => item.id === conversion.input.id && (item.quality ?? 0) === 0)
+    .reduce((sum, item) => sum + Math.max(0, item.count), 0);
+  const savedMachineCount = (conversion: MachineConversion) => (currentMachines || [])
+    .filter(item => unqualifiedId(item.id) === unqualifiedId(conversion.machine.id))
+    .reduce((sum, item) => sum + Math.max(0, item.count), 0);
 
   return (
     <section className="production-calculator" aria-labelledby="production-calculator-title">
@@ -499,25 +644,45 @@ export function ProductionCalculator({
           <div className="planner-quick-grid">
             <div className="planner-field">
               <label htmlFor="planner-producer-search">{t("planner.producer")}</label>
-              <input id="planner-producer-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("planner.searchPlaceholder")} />
-              <details className="planner-producer-menu" ref={producerMenu}>
+              <details className="planner-producer-menu" ref={producerMenu} onToggle={(event) => {
+                if (event.currentTarget.open) window.requestAnimationFrame(() => producerSearch.current?.focus());
+                else setQuery("");
+              }}>
                 <summary aria-label={t("planner.chooseProducer")}>
                   {selected && renderItemArtwork?.(selected.output.id, selectedNamed?.outputName || selected.output.name, selected.output.spriteIndex)}
-                  <span><strong>{selectedNamed?.displayName}</strong>{selected?.kind === "fruit-tree" && <small>{selectedNamed?.outputName}</small>}{selected?.family === "forestry" && <small>{t(producerGroupKey(selected.kind))}</small>}</span>
+                  <span><strong>{selectedNamed?.displayName}</strong>{selected?.kind === "fruit-tree" && <small>{selectedNamed?.outputName}</small>}{selected?.family === "forestry" && <small>{t(producerGroupKey(selected.kind))}</small>}{selected?.family === "machine" && <small>{selectedNamed?.detailName}</small>}</span>
                 </summary>
                 <div className="planner-producer-options">
-                  {(["crop", "fruit-tree", "tapped-tree", "mushroom-log"] as const).map((kind) => {
+                  <div className="planner-producer-search">
+                    <input ref={producerSearch} id="planner-producer-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => {
+                      if (event.key !== "Escape") return;
+                      producerMenu.current?.removeAttribute("open");
+                      producerMenu.current?.querySelector("summary")?.focus();
+                    }} placeholder={t("planner.searchPlaceholder")} autoComplete="off" />
+                  </div>
+                  {(["crop", "fruit-tree", "tapped-tree", "mushroom-log", "machine"] as const).map((kind) => {
                     const options = filtered.filter(({ entry }) => entry.kind === kind);
                     if (!options.length) return null;
                     return <section key={kind}>
                       <h4>{t(producerGroupKey(kind))}</h4>
-                      {options.map(({ entry, displayName, outputName }) => <button type="button" className={entry.id === selected?.id ? "active" : ""} onClick={() => {
+                      {options.map(({ entry, displayName, outputName, detailName }) => <button type="button" className={entry.id === selected?.id ? "active" : ""} onClick={() => {
                         setSelectedId(entry.id);
                         if (entry.family === "forestry") { setMode("units"); setAmount(1); }
+                        if (entry.machineConversion) {
+                          const built = savedMachineCount(entry.machineConversion);
+                          setMode("units");
+                          setAmount(Math.max(1, built));
+                          setMachineExisting(built > 0);
+                          setMachineInitialInput(savedInputCount(entry.machineConversion));
+                          setMachineInputQuality(0);
+                        }
+                        setQuery("");
                         producerMenu.current?.removeAttribute("open");
                       }} key={entry.id}>
-                        {renderItemArtwork?.(entry.output.id, outputName, entry.output.spriteIndex)}
-                        <span><strong>{displayName}</strong>{entry.kind === "fruit-tree" && <small>{outputName}</small>}{entry.family === "forestry" && <small>{t(producerGroupKey(entry.kind))}</small>}</span>
+                        {entry.machineConversion
+                          ? renderItemArtwork?.(entry.machineConversion.input.id, resolveGameName(entry.machineConversion.input.name, entry.machineConversion.input.id), entry.machineConversion.input.spriteIndex)
+                          : renderItemArtwork?.(entry.output.id, outputName, entry.output.spriteIndex)}
+                        <span><strong>{displayName}</strong>{entry.kind === "fruit-tree" && <small>{outputName}</small>}{entry.family === "forestry" && <small>{t(producerGroupKey(entry.kind))}</small>}{entry.family === "machine" && <small>{detailName}</small>}</span>
                       </button>)}
                     </section>;
                   })}
@@ -528,16 +693,24 @@ export function ProductionCalculator({
             <label>
               {t("planner.question")}
               <select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}>
-                {(!selectedIsForestry || !forestryExisting) && <option value="budget">{t("planner.mode.budget")}</option>}
-                <option value="tiles">{t("planner.mode.tiles")}</option>
-                <option value="target">{t("planner.mode.target")}</option>
+                {!selectedIsMachine && (!selectedIsForestry || !forestryExisting) && <option value="budget">{t("planner.mode.budget")}</option>}
+                {!selectedIsMachine && <option value="tiles">{t("planner.mode.tiles")}</option>}
+                {!selectedIsMachine && <option value="target">{t("planner.mode.target")}</option>}
                 <option value="units">{t("planner.mode.units")}</option>
               </select>
             </label>
             <label>
-              {t(`planner.amount.${mode}`)}
+              {t(selectedIsMachine ? "machine.machineCount" : `planner.amount.${mode}`)}
               <input type="number" min="0" step="1" value={amount} onChange={(event) => setAmount(Math.max(0, Number(event.target.value)))} />
             </label>
+            {selectedIsMachine && selected.machineConversion && <label>
+              {t("machine.initialInput", { item: resolveGameName(selected.machineConversion.input.name, selected.machineConversion.input.id) })}
+              <input type="number" min="0" step="1" value={machineInitialInput} onChange={(event) => setMachineInitialInput(Math.max(0, Number(event.target.value)))} />
+            </label>}
+            {selectedIsMachine && selected.machineConversion && <label>
+              {t("machine.recurringInput", { item: resolveGameName(selected.machineConversion.input.name, selected.machineConversion.input.id) })}
+              <input type="number" min="0" step="0.1" value={machineRecurringInput} onChange={(event) => setMachineRecurringInput(Math.max(0, Number(event.target.value)))} />
+            </label>}
             <fieldset>
               <legend>{t("planner.horizon")}</legend>
               <div className="planner-segmented">
@@ -608,33 +781,44 @@ export function ProductionCalculator({
                     {tiller && tillerApplies(selected) && <b>{t("planner.applied.tiller")}</b>}
                     {selected.kind === "crop" && agriculturist && <b>{t("planner.applied.agriculturist")}</b>}
                     {selected.kind === "crop" && selectedFertilizer && <b>{fertilizerName(selectedFertilizer)} · {fertilizerEffect(selectedFertilizer)}</b>}
-                    {!selectedIsForestry && <b>{t(`planner.location.${location}`)}</b>}
+                    {!selectedIsForestry && !selectedIsMachine && <b>{t(`planner.location.${location}`)}</b>}
                     {selectedIsForestry && <b>{t(forestryExisting ? "forestry.existing" : "forestry.newSetup")}</b>}
                     {selected.kind === "tapped-tree" && forestryHeavy && <b>{t("forestry.heavy")}</b>}
                     {selected.kind === "tapped-tree" && !forestryExisting && forestryFertilized && <b>{t("forestry.treeFertilizer")}</b>}
                     {selected.kind === "mushroom-log" && <b>{t("forestry.nearbyCount", { count: number(mushroomNearby) })}</b>}
+                    {selectedIsMachine && selected.machineConversion && <b>{resolveGameName(selected.machineConversion.machine.name, selected.machineConversion.machine.id)}</b>}
+                    {selectedIsMachine && <b>{t(machineExisting ? "machine.existing" : "machine.newSetup")}</b>}
+                    {selectedIsMachine && artisan && <b>{t("machine.artisanApplied")}</b>}
+                    {selectedIsMachine && <b>{t(machineCollectionEveryDays === 0 ? "machine.cadence.ready" : "machine.cadence.days", { count: number(machineCollectionEveryDays) })}</b>}
                     {selected.kind === "crop" && location === "outdoors" && forcePlantToday && <b>{t("planner.applied.forcePlantToday")}</b>}
                     {selected.kind === "crop" && !selected.repeatDays && <b>{t(replant ? "planner.applied.replantOn" : "planner.applied.replantOff")}</b>}
                   </div>
                 </div>
               </div>
-              <strong>{gold(result.scenarios.expected.netProfit)}<small>{t("planner.netProfit")}</small></strong>
+              <strong>{gold(result.scenarios.expected.netProfit)}<small>{t(selectedIsMachine ? "machine.addedValue" : "planner.netProfit")}</small></strong>
             </div>
             <dl className="planner-metrics">
-              <div><dt>{t(selectedIsForestry ? "forestry.count" : selected.kind === "fruit-tree" ? "planner.quantity.saplings" : "planner.quantity.seeds")}</dt><dd>{number(result.quantity)}</dd></div>
+              <div><dt>{t(selectedIsMachine ? "machine.machineCount" : selectedIsForestry ? "forestry.count" : selected.kind === "fruit-tree" ? "planner.quantity.saplings" : "planner.quantity.seeds")}</dt><dd>{number(result.quantity)}</dd></div>
               <div><dt>{t("planner.space")}</dt><dd>{number(result.requiredSpace)}</dd></div>
-              <div><dt>{t(selectedIsForestry ? "forestry.initialCost" : "planner.investment")}</dt><dd>{gold(result.investment)}</dd></div>
+              <div><dt>{t(selectedIsMachine ? "machine.setupCost" : selectedIsForestry ? "forestry.initialCost" : "planner.investment")}</dt><dd>{gold(result.investment)}</dd></div>
               {result.setupCosts > 0 && <div><dt>{t("planner.fertilizerCosts")}</dt><dd>{gold(result.setupCosts)}</dd></div>}
               <div><dt>{t("planner.totalCosts")}</dt><dd>{gold(result.totalCosts)}</dd></div>
               {mode === "budget" && <div><dt>{t("planner.unusedBudget")}</dt><dd>{gold(result.unusedBudget)}</dd></div>}
-              <div><dt>{t(selectedIsForestry ? "forestry.collectionCycles" : "planner.harvests")}</dt><dd>{number(result.harvestDates.length)}</dd></div>
+              <div><dt>{t(selectedIsMachine ? "machine.batches" : selectedIsForestry ? "forestry.collectionCycles" : "planner.harvests")}</dt><dd>{number(machinePlan?.batches ?? result.harvestDates.length)}</dd></div>
+              {machinePlan && <div><dt>{t("machine.capacity")}</dt><dd>{number(machinePlan.capacityBatches)}</dd></div>}
+              {machinePlan && <div><dt>{t("machine.inputsConsumed")}</dt><dd>{number(machinePlan.consumedInput)}</dd></div>}
+              {machinePlan && <div><dt>{t("machine.inputSurplus")}</dt><dd>{number(machinePlan.surplusInput)}</dd></div>}
+              {machinePlan && <div><dt>{t("machine.idleBatches")}</dt><dd>{number(machinePlan.idleBatches)}</dd></div>}
+              {machinePlan && <div><dt>{t("machine.directSaleValue")}</dt><dd>{gold(machinePlan.directSaleValue)}</dd></div>}
               {selected.kind === "crop" && <div><dt>{t("planner.plantingDate")}</dt><dd>{result.plantingDate ? date(result.plantingDate) : t("planner.none")}</dd></div>}
               <div><dt>{t("planner.grossRevenue")}</dt><dd>{gold(result.scenarios.expected.grossRevenue)}</dd></div>
               <div><dt>{t("planner.profitPerDay")}</dt><dd>{gold(result.scenarios.expected.profitPerDay)}</dd></div>
-              <div><dt>{t("planner.firstIncome")}</dt><dd>{result.harvestDates[0] ? date(result.harvestDates[0]) : t("planner.none")}</dd></div>
+              <div><dt>{t("planner.firstIncome")}</dt><dd>{machinePlan?.firstIncomeDate ? date(machinePlan.firstIncomeDate) : result.harvestDates[0] ? date(result.harvestDates[0]) : t("planner.none")}</dd></div>
               <div><dt>{t("planner.breakEven")}</dt><dd>{result.breakEvenDate ? date(result.breakEvenDate) : t("planner.notInRange")}</dd></div>
             </dl>
             {selectedIsForestry && !forestryExisting && selected.materials?.length ? <div className="forestry-materials"><strong>{t("forestry.materials")}</strong><span>{selected.materials.map(({ item, quantity }) => `${number(result.quantity * quantity)}× ${resolveGameName(item.name, item.id)}`).join(" · ")}</span></div> : null}
+            {selectedIsMachine && !machineExisting && selected.materials?.length ? <div className="forestry-materials"><strong>{t("machine.machineMaterials")}</strong><span>{selected.materials.map(({ item, quantity }) => `${number(result.quantity * quantity)}× ${resolveGameName(item.name, item.id)}`).join(" · ")}</span></div> : null}
+            {selectedIsMachine && selected.machineConversion?.additionalInputs?.length ? <div className="forestry-materials"><strong>{t("machine.additionalInputs")}</strong><span>{selected.machineConversion.additionalInputs.map(({ item, quantity }) => `${number((machinePlan?.batches || 0) * quantity)}× ${resolveGameName(item.name, item.id)}`).join(" · ")}</span></div> : null}
             <div className="planner-scenarios">
               {(["conservative", "expected", "optimistic"] as const).map((scenario) => <article key={scenario}>
                 <span>{t(`planner.scenario.${scenario}`)}</span>
@@ -670,6 +854,8 @@ export function ProductionCalculator({
                 <th><div className="planner-comparison-identity">{renderItemArtwork?.(entry.output.id, resolveGameName(entry.output.name, entry.output.id), entry.output.spriteIndex)}<span>{isCurrent && <em>{t("planner.compare.current")}</em>}{name}<small>{t("planner.range", { start: date(compared.startDate), end: date(compared.endDate), days: compared.durationDays })}</small></span></div></th>
                 <td>{entry.family === "forestry"
                   ? `${t(producerGroupKey(entry.kind))} · ${t((saved.forestryExisting ?? true) ? "forestry.existing" : "forestry.newSetup")}${entry.kind === "tapped-tree" && saved.forestryHeavy ? ` · ${t("forestry.heavy")}` : ""}`
+                  : entry.family === "machine" && entry.machineConversion
+                    ? `${resolveGameName(entry.machineConversion.machine.name, entry.machineConversion.machine.id)} · ${t((saved.machineExisting ?? true) ? "machine.existing" : "machine.newSetup")}${saved.artisan ? ` · ${t("machine.artisanApplied")}` : ""}`
                   : <>{entry.kind === "crop" && <span>{t("planner.applied.farmingLevel", { level: number(saved.farmingLevel) })} · </span>}{(saved.tiller ?? savedHasTiller) && tillerApplies(entry) ? `${t("planner.applied.tiller")} · ` : ""}{entry.kind === "crop" && (saved.agriculturist ?? savedHasAgriculturist) ? `${t("planner.applied.agriculturist")} · ` : ""}{entry.kind === "crop" && saved.fertilizerId ? `${fertilizerName(fertilizers.find(({ id }) => id === saved.fertilizerId))} · ${fertilizerEffect(fertilizers.find(({ id }) => id === saved.fertilizerId), saved.farmingLevel)} · ` : ""}{t(`planner.location.${saved.location}`)}{entry.kind === "crop" && saved.location === "outdoors" && (saved.forcePlantToday ?? false) ? ` · ${t("planner.applied.forcePlantToday")}` : ""}{entry.kind === "crop" && !entry.repeatDays ? ` · ${t(saved.replant ? "planner.applied.replantOn" : "planner.applied.replantOff")}` : ""}</>}
                 </td>
                 <td>{gold(compared.totalCosts)}</td><td>{gold(compared.scenarios.expected.grossRevenue)}</td><td className={compared.scenarios.expected.netProfit < 0 ? "negative" : "positive"}>{gold(compared.scenarios.expected.netProfit)}</td><td>{gold(compared.scenarios.expected.profitPerDay)}</td>
@@ -688,7 +874,7 @@ export function ProductionCalculator({
           </section>}
           <details className="planner-advanced">
             <summary>{t("planner.adjust")}</summary>
-            {!selectedIsForestry && <label>
+            {!selectedIsForestry && !selectedIsMachine && <label>
               {t("planner.location")}
               <select value={location} onChange={(event) => {
                 const nextLocation = event.target.value as typeof location;
@@ -712,7 +898,7 @@ export function ProductionCalculator({
               {t("planner.farmingLevel")}
               <input type="number" min="0" max="10" step="1" value={farmingLevel} onChange={(event) => setFarmingLevel(Math.min(10, Math.max(0, Number(event.target.value))))} />
             </label>}
-            {!selectedIsForestry && <label className="planner-check">
+            {!selectedIsForestry && !selectedIsMachine && <label className="planner-check">
               <input type="checkbox" checked={tiller} onChange={(event) => setTiller(event.target.checked)} />
               <span>{t("planner.profession.tiller")} <small>{t("planner.effect.salePrice", { percent: number(10) })}</small></span>
             </label>}
@@ -750,7 +936,33 @@ export function ProductionCalculator({
               {(["oak", "maple", "pine", "mystic", "other"] as const).map(key => <label key={key}>{t(`forestry.${key}`)}<input type="number" min="0" value={mushroomSpecies[key]} onChange={(event) => setMushroomSpeciesCount(key, Number(event.target.value))} /></label>)}
               <label>{t("forestry.mossy")}<input type="number" min="0" max={mushroomNearby} value={mushroomMossy} onChange={(event) => setMushroomMossy(Math.max(0, Math.min(mushroomNearby, Math.floor(Number(event.target.value) || 0))))} /></label>
             </div></fieldset>}
-            <p>{t(selectedIsForestry ? "forestry.assumptions" : "planner.assumptions")}</p>
+            {selectedIsMachine && <label className="planner-check">
+              <input type="checkbox" checked={machineExisting} onChange={(event) => setMachineExisting(event.target.checked)} />
+              <span>{t("machine.existing")}</span>
+            </label>}
+            {selectedIsMachine && <label>
+              {t("machine.inputQuality")}
+              <select value={machineInputQuality} onChange={(event) => setMachineInputQuality(Number(event.target.value))}>
+                <option value="0">{t("machine.quality.normal")}</option>
+                <option value="1">{t("machine.quality.silver")}</option>
+                <option value="2">{t("machine.quality.gold")}</option>
+                <option value="4">{t("machine.quality.iridium")}</option>
+              </select>
+            </label>}
+            {selectedIsMachine && <label>
+              {t("machine.collectionCadence")}
+              <select value={machineCollectionEveryDays} onChange={(event) => setMachineCollectionEveryDays(Number(event.target.value))}>
+                <option value="0">{t("machine.cadence.ready")}</option>
+                <option value="1">{t("machine.cadence.daily")}</option>
+                <option value="2">{t("machine.cadence.everyTwoDays")}</option>
+                <option value="7">{t("machine.cadence.weekly")}</option>
+              </select>
+            </label>}
+            {selectedIsMachine && selected.machineConversion?.artisanEligible && <label className="planner-check">
+              <input type="checkbox" checked={artisan} onChange={(event) => setArtisan(event.target.checked)} />
+              <span>{t("machine.artisan")} <small>{t("machine.artisanEffect")}</small></span>
+            </label>}
+            <p>{t(selectedIsMachine ? "machine.assumptions" : selectedIsForestry ? "forestry.assumptions" : "planner.assumptions")}</p>
           </details>
         </>
       )}

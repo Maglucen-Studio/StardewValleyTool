@@ -7592,6 +7592,8 @@ function PlanningView({
             currentMoney={current.money}
             currentFarmingLevel={current.progress.farming}
             currentProfessionIds={current.professionIds || []}
+            currentInventory={current.planningBrief.inventory}
+            currentMachines={current.planningBrief.machines}
             profileId={current.profileId || `${current.farmName}-${current.farmer}`}
             resolveGameName={gameName}
             renderItemArtwork={(id, name, spriteIndex) => <SheetArtwork id={String(spriteIndex ?? id.replace(/^\((?:O|BC)\)/, ""))} kind={id.startsWith("(BC)") ? "craftable" : "object"} label={name} fit />}

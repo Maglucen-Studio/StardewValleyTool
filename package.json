@@ -12,7 +12,7 @@
     "dev": "node scripts/dev-local.mjs",
     "build": "npm run verify:changelog && vinext build && node scripts/prepare-built-public.mjs",
     "start": "vinext start",
-    "test": "npm run verify:localization && npm run build && node --test tests/rendered-html.test.mjs tests/localization.test.mjs tests/changelog.test.mjs tests/production-engine.test.mjs tests/forestry-engine.test.mjs",
+    "test": "npm run verify:localization && npm run build && node --test tests/rendered-html.test.mjs tests/localization.test.mjs tests/changelog.test.mjs tests/production-engine.test.mjs tests/forestry-engine.test.mjs tests/machine-engine.test.mjs",
     "verify:changelog": "node scripts/verify-changelog.mjs",
     "verify:localization": "node scripts/verify-localization-ui.mjs",
     "verify:public": "node scripts/verify-public-safety.mjs",

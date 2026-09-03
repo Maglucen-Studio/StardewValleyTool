@@ -1994,10 +1994,11 @@ test("Today checklist persists per farm and resolves eligible tasks from LIVE ev
 });
 
 test("production planner works offline with a catalog derived from the local game", async () => {
-  const [page, calculator, engine, extractor, gameReader, generator] = await Promise.all([
+  const [page, calculator, engine, machineEngine, extractor, gameReader, generator] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/planning/production-calculator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/planning/production-engine.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../app/planning/machine-engine.mjs", import.meta.url), "utf8"),
     readFile(new URL("../scripts/extract_game_data.mjs", import.meta.url), "utf8"),
     readFile(new URL("../tools/StardewDataExtractor/Program.cs", import.meta.url), "utf8"),
     readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
@@ -2007,6 +2008,12 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /calculateProductionPlan/);
   assert.match(calculator, /buildCalculatorEntries/);
   assert.match(calculator, /"tapped-tree", "mushroom-log"/);
+  assert.match(calculator, /"tapped-tree", "mushroom-log", "machine"/);
+  assert.match(calculator, /calculateMachinePlan/);
+  assert.match(calculator, /currentInventory/);
+  assert.match(calculator, /currentMachines/);
+  assert.match(machineEngine, /directSaleValue/);
+  assert.match(machineEngine, /machine-input-bottleneck/);
   assert.match(calculator, /<option value="units">/);
   assert.match(calculator, /horizonMode === "days"/);
   assert.match(calculator, /horizonMode === "date"/);
@@ -2026,6 +2033,10 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /className="planner-result-identity"/);
   assert.match(calculator, /className="planner-comparison-identity"/);
   assert.match(calculator, /className="planner-producer-menu"/);
+  assert.match(calculator, /className="planner-producer-search"/);
+  assert.match(calculator, /normalize\("NFD"\)/);
+  assert.match(calculator, /queryTerms\.every\(term => searchable\.includes\(term\)\)/);
+  assert.match(calculator, /producerSearch\.current\?\.focus\(\)/);
   assert.match(calculator, /document\.addEventListener\("pointerdown", closeOnOutsideClick\)/);
   assert.match(calculator, /window\.localStorage\.setItem\(storageKey/);
   assert.match(calculator, /className="planner-bookmarks"/);
@@ -2051,6 +2062,8 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(gameReader, /fertilizerCatalog/);
   assert.match(gameReader, /Data\/WildTrees/);
   assert.match(gameReader, /Data\/Machines/);
+  assert.match(gameReader, /artisanMachines/);
+  assert.match(gameReader, /GeneratedCategoryTags/);
   assert.match(gameReader, /tappedTreeCatalog/);
   assert.match(gameReader, /mushroomLogRules/);
   assert.match(gameReader, /forestryEquipment/);
