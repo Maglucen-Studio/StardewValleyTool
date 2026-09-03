@@ -10,6 +10,7 @@ using StardewValley.GameData.Machines;
 using StardewValley.GameData.Objects;
 using StardewValley.GameData.Shops;
 using StardewValley.GameData.WildTrees;
+using GameObject = StardewValley.Object;
 
 if (args.Length != 1)
     throw new ArgumentException("Expected the local Stardew Valley installation directory.");
@@ -96,6 +97,39 @@ static class GameCatalogReader
                 int.TryParse(parts[index * 2 + 1], out int quantity);
                 return (ObjectFor(parts[index * 2])?.Price ?? 0) * quantity;
             });
+        }
+        IEnumerable<string> GeneratedCategoryTags(ObjectData data) => data.Category switch
+        {
+            GameObject.FruitsCategory => new[] { "category_fruits" },
+            GameObject.VegetableCategory => new[] { "category_vegetable" },
+            GameObject.GreensCategory => new[] { "category_greens" },
+            GameObject.FishCategory => new[] { "category_fish" },
+            GameObject.EggCategory => new[] { "category_egg" },
+            GameObject.MilkCategory => new[] { "category_milk" },
+            _ => Array.Empty<string>(),
+        };
+        bool MatchesInput(MachineOutputTriggerRule trigger, string inputId, ObjectData data)
+        {
+            if (!string.IsNullOrWhiteSpace(trigger.Condition)) return false;
+            if (!string.IsNullOrWhiteSpace(trigger.RequiredItemId) && QualifyObject(trigger.RequiredItemId) != inputId) return false;
+            var tags = new HashSet<string>((data.ContextTags ?? new List<string>()).Concat(GeneratedCategoryTags(data)), StringComparer.OrdinalIgnoreCase);
+            return trigger.RequiredTags is null || trigger.RequiredTags.All(tags.Contains);
+        }
+        (string Id, string Formula) OutputIdentity(string itemQuery)
+        {
+            if (!itemQuery.StartsWith("FLAVORED_ITEM ", StringComparison.OrdinalIgnoreCase)) return (QualifyObject(itemQuery), "fixed");
+            string flavor = itemQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1) ?? "";
+            return flavor switch
+            {
+                "Wine" => ("(O)348", "wine"),
+                "Juice" => ("(O)350", "juice"),
+                "Jelly" => ("(O)344", "jelly"),
+                "Pickles" => ("(O)342", "pickles"),
+                "DriedFruit" => ("(O)DriedFruit", "dried-fruit"),
+                "DriedMushroom" => ("(O)DriedMushrooms", "dried-mushroom"),
+                "SmokedFish" => ("(O)SmokedFish", "smoked-fish"),
+                _ => ("", "unsupported"),
+            };
         }
 
         var cropCatalog = crops.Select(pair =>
@@ -237,8 +271,60 @@ static class GameCatalogReader
                 opportunityCost = RecipeOpportunityCost(pair.Value.Name),
             }).ToArray();
 
+        var supportedMachineNames = new HashSet<string>(new[] { "Keg", "Preserves Jar", "Dehydrator", "Fish Smoker", "Cheese Press", "Mayonnaise Machine", "Loom" });
+        var artisanMachines = new List<object>();
+        foreach ((string machineId, MachineData machineData) in machines)
+        {
+            string unqualifiedMachineId = Unqualify(machineId);
+            BigCraftableData? machine = bigCraftables.GetValueOrDefault(unqualifiedMachineId);
+            if (machine is null || !supportedMachineNames.Contains(machine.Name)) continue;
+            foreach ((string rawInputId, ObjectData inputData) in objects)
+            {
+                string inputId = QualifyObject(rawInputId);
+                MachineOutputRule? rule = machineData.OutputRules?.FirstOrDefault(candidate => candidate.Triggers?.Any(trigger => trigger.Trigger == MachineOutputTrigger.ItemPlacedInMachine && MatchesInput(trigger, inputId, inputData)) == true);
+                MachineOutputTriggerRule? trigger = rule?.Triggers?.FirstOrDefault(candidate => candidate.Trigger == MachineOutputTrigger.ItemPlacedInMachine && MatchesInput(candidate, inputId, inputData));
+                MachineItemOutput? outputRule = rule?.OutputItem?.FirstOrDefault(candidate => string.IsNullOrWhiteSpace(candidate.Condition));
+                if (rule is null || trigger is null || outputRule is null || !string.IsNullOrWhiteSpace(outputRule.OutputMethod) || string.IsNullOrWhiteSpace(outputRule.ItemId)) continue;
+                (string outputId, string priceFormula) = OutputIdentity(outputRule.ItemId);
+                ObjectData? outputData = ObjectFor(outputId);
+                if (string.IsNullOrWhiteSpace(outputId) || outputData is null) continue;
+                int minimumOutput = outputRule.MinStack > 0 ? outputRule.MinStack : 1;
+                int maximumOutput = outputRule.MaxStack > 0 ? outputRule.MaxStack : minimumOutput;
+                int requiredInput = trigger.RequiredCount > 0 ? trigger.RequiredCount : 1;
+                int cycleMinutes = rule.DaysUntilReady > 0 ? rule.DaysUntilReady * 1600 : Math.Max(1, rule.MinutesUntilReady);
+                var additionalInputs = (machineData.AdditionalConsumedItems ?? new List<MachineItemAdditionalConsumedItems>())
+                    .Select(item => new { item = DescribeItem(item.ItemId), quantity = Math.Max(1, item.RequiredCount) }).ToArray();
+                int additionalInputCost = (machineData.AdditionalConsumedItems ?? new List<MachineItemAdditionalConsumedItems>())
+                    .Sum(item => (ObjectFor(item.ItemId)?.Price ?? 0) * Math.Max(1, item.RequiredCount));
+                bool hasUnmodeledModifiers = outputRule.PriceModifiers?.Count > 0 || outputRule.StackModifiers?.Count > 0 || outputRule.QualityModifiers?.Count > 0;
+                artisanMachines.Add(new
+                {
+                    id = $"machine:{machineId}:{rule.Id}:{inputId}",
+                    machine = new
+                    {
+                        id = machineId,
+                        machine.Name,
+                        machine.SpriteIndex,
+                        materials = RecipeMaterials(machine.Name),
+                        opportunityCost = RecipeOpportunityCost(machine.Name),
+                    },
+                    input = DescribeItem(inputId),
+                    output = DescribeItem(outputId),
+                    inputCount = requiredInput,
+                    outputCount = new { min = minimumOutput, expected = (minimumOutput + maximumOutput) / 2d, max = maximumOutput },
+                    outputQuality = outputRule.Quality > 0 ? outputRule.Quality : 0,
+                    cycleMinutes,
+                    priceFormula,
+                    artisanEligible = outputData.Category == GameObject.artisanGoodsCategory,
+                    additionalInputs,
+                    additionalInputCost,
+                    verified = inputData.Price > 0 && outputData.Price > 0 && !hasUnmodeledModifiers,
+                });
+            }
+        }
+
         return JsonSerializer.Serialize(
-            new { catalogVersion = 3, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment },
+            new { catalogVersion = 4, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines },
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
         );
     }
