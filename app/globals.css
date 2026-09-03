@@ -6360,6 +6360,16 @@ button {
 .production-calculator {
   border-top: 4px solid #557650;
 }
+.planner-flow {
+  display: flex;
+  flex-direction: column;
+}
+.planner-flow > .planner-quick-grid { order: 1; }
+.planner-flow > .planner-advanced { order: 2; }
+.planner-flow > .planner-results { order: 3; }
+.planner-flow > .planner-bookmark-toolbar { order: 4; }
+.planner-flow > .planner-bookmarks { order: 5; }
+.planner-flow > .planner-comparison { order: 6; }
 .planner-catalog-empty {
   padding: 15px 17px;
   display: flex;
@@ -6655,6 +6665,8 @@ button {
 }
 .forestry-materials {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 8px 10px;
   color: #f4ead5;
@@ -6663,6 +6675,21 @@ button {
 }
 .forestry-materials strong {
   color: #f0c65f;
+}
+.planner-material-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+}
+.planner-material {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.planner-material > .item-mention-artwork,
+.planner-material > .sheet-artwork {
+  flex: 0 0 auto;
 }
 .planner-bookmarks {
   margin-top: 7px;
@@ -6689,9 +6716,15 @@ button {
   min-width: 0;
   padding: 7px 9px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 3px;
   text-align: left;
+}
+.planner-bookmark-load > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 .planner-bookmark-load strong,
 .planner-bookmark-load small {

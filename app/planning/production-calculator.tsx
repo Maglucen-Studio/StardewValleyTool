@@ -817,7 +817,7 @@ export function ProductionCalculator({
           <span>{t("planner.catalogRequiredDetail")}</span>
         </div>
       ) : (
-        <>
+        <div className="planner-flow">
           <div className="planner-quick-grid">
             <div className="planner-field">
               <label htmlFor="planner-producer-search">{t("planner.producer")}</label>
@@ -952,8 +952,11 @@ export function ProductionCalculator({
                 : date({ year: bookmark.endYear, season: bookmark.endSeason, day: bookmark.endDay });
               return <article key={bookmark.id}>
                 <button type="button" className="planner-bookmark-load" onClick={() => applyCalculation(bookmark)}>
-                  <strong>{bookmark.name || named?.displayName || bookmark.selectedId}</strong>
-                  <small>{t(`planner.amount.${bookmark.mode}`)}: {number(bookmark.amount)} · {horizon}</small>
+                  {named && renderItemArtwork?.(named.entry.output.id, named.outputName, named.entry.output.spriteIndex)}
+                  <span>
+                    <strong>{bookmark.name || named?.displayName || bookmark.selectedId}</strong>
+                    <small>{t(`planner.amount.${bookmark.mode}`)}: {number(bookmark.amount)} · {horizon}</small>
+                  </span>
                 </button>
                 <input className="planner-bookmark-name" aria-label={t("planner.bookmark.rename")} value={bookmark.name || ""} placeholder={named?.displayName || bookmark.selectedId} onChange={(event) => setBookmarks((current) => current.map(item => item.id === bookmark.id ? { ...item, name: event.target.value } : item))} />
                 <label className="planner-bookmark-compare">
@@ -1022,9 +1025,9 @@ export function ProductionCalculator({
               <div><dt>{t("planner.firstIncome")}</dt><dd>{machinePlan?.firstIncomeDate ? date(machinePlan.firstIncomeDate) : animalPlan?.firstIncomeDate ? date(animalPlan.firstIncomeDate) : pondPlan?.firstIncomeDate ? date(pondPlan.firstIncomeDate) : result.harvestDates[0] ? date(result.harvestDates[0]) : t("planner.none")}</dd></div>
               <div><dt>{t("planner.breakEven")}</dt><dd>{result.breakEvenDate ? date(result.breakEvenDate) : t("planner.notInRange")}</dd></div>
             </dl>
-            {selectedIsForestry && !forestryExisting && selected.materials?.length ? <div className="forestry-materials"><strong>{t("forestry.materials")}</strong><span>{selected.materials.map(({ item, quantity }) => `${number(result.quantity * quantity)}× ${resolveGameName(item.name, item.id)}`).join(" · ")}</span></div> : null}
-            {selectedIsMachine && !machineExisting && selected.materials?.length ? <div className="forestry-materials"><strong>{t("machine.machineMaterials")}</strong><span>{selected.materials.map(({ item, quantity }) => `${number(result.quantity * quantity)}× ${resolveGameName(item.name, item.id)}`).join(" · ")}</span></div> : null}
-            {selectedIsMachine && selected.machineConversion?.additionalInputs?.length ? <div className="forestry-materials"><strong>{t("machine.additionalInputs")}</strong><span>{selected.machineConversion.additionalInputs.map(({ item, quantity }) => `${number((machinePlan?.batches || 0) * quantity)}× ${resolveGameName(item.name, item.id)}`).join(" · ")}</span></div> : null}
+            {selectedIsForestry && !forestryExisting && selected.materials?.length ? <div className="forestry-materials"><strong>{t("forestry.materials")}</strong><span className="planner-material-list">{selected.materials.map(({ item, quantity }) => <span className="planner-material" key={item.id}>{renderItemArtwork?.(item.id, resolveGameName(item.name, item.id), item.spriteIndex)}<span>{number(result.quantity * quantity)}× {resolveGameName(item.name, item.id)}</span></span>)}</span></div> : null}
+            {selectedIsMachine && !machineExisting && selected.materials?.length ? <div className="forestry-materials"><strong>{t("machine.machineMaterials")}</strong><span className="planner-material-list">{selected.materials.map(({ item, quantity }) => <span className="planner-material" key={item.id}>{renderItemArtwork?.(item.id, resolveGameName(item.name, item.id), item.spriteIndex)}<span>{number(result.quantity * quantity)}× {resolveGameName(item.name, item.id)}</span></span>)}</span></div> : null}
+            {selectedIsMachine && selected.machineConversion?.additionalInputs?.length ? <div className="forestry-materials"><strong>{t("machine.additionalInputs")}</strong><span className="planner-material-list">{selected.machineConversion.additionalInputs.map(({ item, quantity }) => <span className="planner-material" key={item.id}>{renderItemArtwork?.(item.id, resolveGameName(item.name, item.id), item.spriteIndex)}<span>{number((machinePlan?.batches || 0) * quantity)}× {resolveGameName(item.name, item.id)}</span></span>)}</span></div> : null}
             <div className="planner-scenarios">
               {(["conservative", "expected", "optimistic"] as const).map((scenario) => <article key={scenario}>
                 <span>{t(`planner.scenario.${scenario}`)}</span>
@@ -1188,13 +1191,13 @@ export function ProductionCalculator({
             {selectedIsPond && <label className="planner-check"><input type="checkbox" checked={pondExisting} onChange={(event) => setPondExisting(event.target.checked)} /><span>{t("pond.existing")}</span></label>}
             {selectedIsPond && <label>{t("pond.unlockedPopulation")}<input type="number" min={pondPopulation} max={selected.pond?.maxPopulation || 10} value={pondUnlockedPopulation} onChange={(event) => setPondUnlockedPopulation(Math.max(pondPopulation, Number(event.target.value)))} /></label>}
             {selectedIsPond && <label className="planner-check"><input type="checkbox" checked={pondProcessRoe} onChange={(event) => setPondProcessRoe(event.target.checked)} /><span>{t("pond.processRoe")}</span></label>}
-            {selectedIsPond && selected.pond?.populationGates && <div className="forestry-materials"><strong>{t("pond.requests")}</strong><span>{Object.entries(selected.pond.populationGates).map(([population, items]) => t("pond.request", { population, items: items.map(raw => {
+            {selectedIsPond && selected.pond?.populationGates && <div className="forestry-materials pond-required-materials"><strong>{t("pond.requests")}</strong><span className="planner-material-list">{Object.entries(selected.pond.populationGates).flatMap(([population, items]) => items.map(raw => {
               const [id, quantity = "1"] = raw.split(" ");
-              return `${quantity}× ${resolveGameName(id, id)}`;
-            }).join(" + ") })).join(" · ")}</span></div>}
+              return <span className="planner-material" key={`${population}-${raw}`}>{renderItemArtwork?.(id, resolveGameName(id, id))}<span>{t("pond.request", { population, items: `${quantity}× ${resolveGameName(id, id)}` })}</span></span>;
+            }))}</span></div>}
             <p>{t(selectedIsMachine ? "machine.assumptions" : selectedIsForestry ? "forestry.assumptions" : "planner.assumptions")}</p>
           </details>
-        </>
+        </div>
       )}
     </section>
   );
