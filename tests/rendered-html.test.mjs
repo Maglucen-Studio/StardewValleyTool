@@ -2033,6 +2033,10 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /className="planner-result-identity"/);
   assert.match(calculator, /className="planner-comparison-identity"/);
   assert.match(calculator, /className="planner-producer-menu"/);
+  assert.match(calculator, /className="planner-producer-search"/);
+  assert.match(calculator, /normalize\("NFD"\)/);
+  assert.match(calculator, /queryTerms\.every\(term => searchable\.includes\(term\)\)/);
+  assert.match(calculator, /producerSearch\.current\?\.focus\(\)/);
   assert.match(calculator, /document\.addEventListener\("pointerdown", closeOnOutsideClick\)/);
   assert.match(calculator, /window\.localStorage\.setItem\(storageKey/);
   assert.match(calculator, /className="planner-bookmarks"/);

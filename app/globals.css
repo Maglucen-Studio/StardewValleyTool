@@ -6415,9 +6415,6 @@ button {
   text-transform: none;
   letter-spacing: normal;
 }
-.planner-field input {
-  margin-bottom: 4px;
-}
 .planner-producer-menu {
   position: relative;
   color: #183729;
@@ -6470,6 +6467,25 @@ button {
   background: #fff9ed;
   border: 1px solid #baa989;
   box-shadow: 0 10px 24px rgba(27, 35, 26, 0.22);
+}
+.planner-producer-search {
+  position: sticky;
+  z-index: 2;
+  top: -6px;
+  margin: -6px -6px 6px;
+  padding: 7px;
+  background: #fff9ed;
+  border-bottom: 1px solid #d9cdb7;
+}
+.planner-producer-search input {
+  width: 100%;
+  min-height: 34px;
+  margin: 0;
+  padding: 7px 9px;
+  color: #183729;
+  background: white;
+  border: 1px solid #bca989;
+  font: 11px Arial, sans-serif;
 }
 .planner-producer-options section + section {
   margin-top: 7px;

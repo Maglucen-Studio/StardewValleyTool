@@ -87,6 +87,10 @@ type ForestrySettings = {
   mossy: number;
 };
 
+function normalizeSearchValue(value: string, locale: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase(locale);
+}
+
 const MUSHROOM_OUTPUT_KEYS: Record<string, "common" | "red" | "purple" | "morel" | "chanterelle"> = {
   "(O)404": "common", "(O)420": "red", "(O)422": "purple", "(O)257": "morel", "(O)281": "chanterelle",
 };
@@ -315,6 +319,7 @@ export function ProductionCalculator({
   const [loadedStorageKey, setLoadedStorageKey] = useState("");
   const [bookmarkSaved, setBookmarkSaved] = useState(false);
   const producerMenu = useRef<HTMLDetailsElement>(null);
+  const producerSearch = useRef<HTMLInputElement>(null);
   const bookmarkNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storageKey = `maglucen.production-calculator.${profileId || "default"}`;
   const forestrySettings = useMemo<ForestrySettings>(() => ({ existing: forestryExisting, heavy: forestryHeavy, fertilized: forestryFertilized, species: mushroomSpecies, mossy: mushroomMossy }), [forestryExisting, forestryFertilized, forestryHeavy, mushroomMossy, mushroomSpecies]);
@@ -332,9 +337,12 @@ export function ProductionCalculator({
       ? resolveGameName(entry.machineConversion.machine.name, entry.machineConversion.machine.id)
       : "",
   })).sort((left, right) => left.displayName.localeCompare(right.displayName, locale)), [entries, locale, resolveGameName]);
-  const normalizedQuery = query.trim().toLocaleLowerCase(locale);
-  const filtered = namedEntries.filter(({ displayName, outputName, detailName }) =>
-    `${displayName} ${outputName} ${detailName}`.toLocaleLowerCase(locale).includes(normalizedQuery));
+  const normalizedQuery = normalizeSearchValue(query.trim(), locale);
+  const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+  const filtered = namedEntries.filter(({ displayName, outputName, detailName }) => {
+    const searchable = normalizeSearchValue(`${displayName} ${outputName} ${detailName}`, locale);
+    return queryTerms.every(term => searchable.includes(term));
+  });
   const selected = entries.find((entry) => entry.id === selectedId) || entries[0];
   const selectedIsForestry = selected?.family === "forestry";
   const selectedIsMachine = selected?.family === "machine";
@@ -636,13 +644,22 @@ export function ProductionCalculator({
           <div className="planner-quick-grid">
             <div className="planner-field">
               <label htmlFor="planner-producer-search">{t("planner.producer")}</label>
-              <input id="planner-producer-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("planner.searchPlaceholder")} />
-              <details className="planner-producer-menu" ref={producerMenu}>
+              <details className="planner-producer-menu" ref={producerMenu} onToggle={(event) => {
+                if (event.currentTarget.open) window.requestAnimationFrame(() => producerSearch.current?.focus());
+                else setQuery("");
+              }}>
                 <summary aria-label={t("planner.chooseProducer")}>
                   {selected && renderItemArtwork?.(selected.output.id, selectedNamed?.outputName || selected.output.name, selected.output.spriteIndex)}
                   <span><strong>{selectedNamed?.displayName}</strong>{selected?.kind === "fruit-tree" && <small>{selectedNamed?.outputName}</small>}{selected?.family === "forestry" && <small>{t(producerGroupKey(selected.kind))}</small>}{selected?.family === "machine" && <small>{selectedNamed?.detailName}</small>}</span>
                 </summary>
                 <div className="planner-producer-options">
+                  <div className="planner-producer-search">
+                    <input ref={producerSearch} id="planner-producer-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => {
+                      if (event.key !== "Escape") return;
+                      producerMenu.current?.removeAttribute("open");
+                      producerMenu.current?.querySelector("summary")?.focus();
+                    }} placeholder={t("planner.searchPlaceholder")} autoComplete="off" />
+                  </div>
                   {(["crop", "fruit-tree", "tapped-tree", "mushroom-log", "machine"] as const).map((kind) => {
                     const options = filtered.filter(({ entry }) => entry.kind === kind);
                     if (!options.length) return null;
@@ -659,6 +676,7 @@ export function ProductionCalculator({
                           setMachineInitialInput(savedInputCount(entry.machineConversion));
                           setMachineInputQuality(0);
                         }
+                        setQuery("");
                         producerMenu.current?.removeAttribute("open");
                       }} key={entry.id}>
                         {entry.machineConversion
