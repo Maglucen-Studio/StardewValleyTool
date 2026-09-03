@@ -115,6 +115,7 @@ function quantityFor(mode, amount, producer, harvestCount, plantingCount, setupC
   const startupCost = Math.max(0, Number(producer.startupCost) || 0);
   const initialCost = startupCost + setupCostPerProducer;
   const space = Math.max(1, Number(producer.space) || 1);
+  if (mode === "units") return Math.floor(requested);
   if (mode === "tiles") return Math.floor(requested / space);
   if (mode === "target") {
     const expectedRevenue = harvestCount * safeYield(producer, "expected") * Math.max(0, Number(producer.outputValueByScenario?.expected ?? producer.outputValue) || 0);
@@ -133,7 +134,7 @@ export function calculateProductionPlan(input) {
   const plantingOffset = plantingOffsetFor(producer, horizon, location, forcePlantToday);
   const plantingDate = plantingOffset === null ? null : addStardewDays(horizon.startDate, plantingOffset);
   const offsets = productionOffsets(producer, horizon, location, replant, plantingOffset);
-  const mode = ["budget", "tiles", "target"].includes(input.mode) ? input.mode : "budget";
+  const mode = ["budget", "tiles", "target", "units"].includes(input.mode) ? input.mode : "budget";
   const startupCost = Math.max(0, Number(producer.startupCost) || 0);
   const setupCostPerProducer = Math.max(0, Number(input.setupCostPerProducer) || 0);
   const canStart = producer.kind !== "crop" || canProduceOn(producer, horizon.startDate, location);

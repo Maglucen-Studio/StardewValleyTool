@@ -2,7 +2,7 @@ export type StardewSeason = "spring" | "summer" | "fall" | "winter";
 export type StardewDate = { year: number; season: StardewSeason; day: number };
 export type ProductionProducer = {
   id: string;
-  kind: "crop" | "fruit-tree";
+  kind: "crop" | "fruit-tree" | "tapped-tree" | "mushroom-log";
   name: string;
   seasons: StardewSeason[];
   firstOutputDays: number;
@@ -17,7 +17,7 @@ export type ProductionProducer = {
 };
 export type ProductionPlan = {
   producerId: string;
-  mode: "budget" | "tiles" | "target";
+  mode: "budget" | "tiles" | "target" | "units";
   requestedAmount: number;
   location: string;
   replant: boolean;
@@ -62,7 +62,7 @@ export function resolvePlanningHorizon(input: { startDate: StardewDate; duration
 };
 export function calculateProductionPlan(input: {
   producer: ProductionProducer;
-  mode: "budget" | "tiles" | "target";
+  mode: "budget" | "tiles" | "target" | "units";
   amount: number;
   startDate: StardewDate;
   durationDays?: number;

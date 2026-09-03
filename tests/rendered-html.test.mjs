@@ -1121,6 +1121,8 @@ test("Farm and Plan remember separate sections while bundle links open Community
   );
   assert.match(page, /<PlanningView key="farm"[^>]*mode="farm"/);
   assert.match(page, /<PlanningView key="plan"[^>]*mode="plan"/);
+  assert.match(page, /\["calculators", t\("planning\.calculators"\)\]/);
+  assert.match(page, /section === "calculators"/);
 });
 
 test("content pages use the app-wide scrollbar while Map keeps its fixed workspace", async () => {
@@ -1604,8 +1606,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 7/);
-  assert.match(desktop, /catalogVersion !== 7/);
+  assert.match(extractor, /catalogVersion: 9/);
+  assert.match(desktop, /catalogVersion !== 9/);
   assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
   assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);
@@ -2003,6 +2005,9 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(page, /productionCatalog\?: ProductionCatalog/);
   assert.match(page, /<ProductionCalculator/);
   assert.match(calculator, /calculateProductionPlan/);
+  assert.match(calculator, /buildCalculatorEntries/);
+  assert.match(calculator, /"tapped-tree", "mushroom-log"/);
+  assert.match(calculator, /<option value="units">/);
   assert.match(calculator, /horizonMode === "days"/);
   assert.match(calculator, /horizonMode === "date"/);
   assert.match(calculator, /<span>\{t\("planner\.endDay"\)\}<\/span>/);
@@ -2017,7 +2022,9 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /acceleratedGrowthDays/);
   assert.match(calculator, /tillerApplies/);
   assert.match(calculator, /entry\.kind === "crop"[\s\S]*resolveGameName\(entry\.output\.name, entry\.output\.id\)/);
-  assert.match(calculator, /renderItemArtwork\?\.\(entry\.output\.id, outputName\)/);
+  assert.match(calculator, /renderItemArtwork\?\.\(entry\.output\.id, outputName, entry\.output\.spriteIndex\)/);
+  assert.match(calculator, /className="planner-result-identity"/);
+  assert.match(calculator, /className="planner-comparison-identity"/);
   assert.match(calculator, /className="planner-producer-menu"/);
   assert.match(calculator, /document\.addEventListener\("pointerdown", closeOnOutsideClick\)/);
   assert.match(calculator, /window\.localStorage\.setItem\(storageKey/);
@@ -2027,9 +2034,13 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /className="planner-comparison-chart"/);
   assert.match(calculator, /comparisonIds\.length >= 3/);
   assert.match(calculator, /comparisonRows/);
+  assert.match(calculator, /savedEntries = buildCalculatorEntries/);
+  assert.match(calculator, /selectedIsForestry \? "forestry\.initialCost"/);
+  assert.match(calculator, /selectedIsForestry \? "forestry\.collectionCycles"/);
+  assert.match(calculator, /!selectedIsForestry \|\| !forestryExisting/);
   assert.match(calculator, /resetCalculation/);
   assert.match(calculator, /forcePlantToday/);
-  assert.match(page, /renderItemArtwork=\{.{0,120}<ItemMentionArtwork/);
+  assert.match(page, /renderItemArtwork=\{.{0,160}<SheetArtwork/);
   assert.match(extractor, /StardewDataExtractor\.exe/);
   assert.match(gameReader, /Data\/Crops/);
   assert.match(gameReader, /Data\/Objects/);
@@ -2038,6 +2049,11 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(gameReader, /growthPhases = pair\.Value\.DaysInPhase/);
   assert.match(gameReader, /category = data\?\.Category/);
   assert.match(gameReader, /fertilizerCatalog/);
+  assert.match(gameReader, /Data\/WildTrees/);
+  assert.match(gameReader, /Data\/Machines/);
+  assert.match(gameReader, /tappedTreeCatalog/);
+  assert.match(gameReader, /mushroomLogRules/);
+  assert.match(gameReader, /forestryEquipment/);
   assert.match(generator, /"professionIds"/);
   assert.match(gameReader, /source = "local-game"/);
   assert.match(generator, /"productionCatalog": game_data\.get\("productionCatalog"\)/);

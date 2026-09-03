@@ -6460,6 +6460,7 @@ function CommunityRoomArtwork({ room }: { room: CommunityRoom }) {
 
 type PlanningSection =
   | "community"
+  | "calculators"
   | "crops"
   | "buildings"
   | "production"
@@ -6486,9 +6487,10 @@ function PlanningView({
   const [section, setSection] = useState<PlanningSection>(() => {
     if (typeof window === "undefined") return mode === "farm" ? "crops" : "community";
     const saved = window.localStorage.getItem(`stardew-tool-${mode}-section`);
-    const allowed = mode === "farm" ? ["crops", "production", "animals", "storage"] : ["community", "crops", "buildings", "friends", "goals"];
+    const allowed = mode === "farm" ? ["crops", "production", "animals", "storage"] : ["community", "calculators", "crops", "buildings", "friends", "goals"];
     if (!allowed.includes(String(saved))) return mode === "farm" ? "crops" : "community";
     return saved === "community" ||
+      saved === "calculators" ||
       saved === "crops" ||
       saved === "buildings" ||
       saved === "production" ||
@@ -7406,6 +7408,7 @@ function PlanningView({
               ]
             : [
             ["community", t("planning.community")],
+            ["calculators", t("planning.calculators")],
             ["crops", t("planning.planting")],
             ["buildings", t("planning.buildings")],
             ["friends", t("planning.friendships")],
@@ -7581,9 +7584,9 @@ function PlanningView({
         </div>
       )}
 
-      {section === "crops" && (
-        <div className="crop-planning-sections">
-          {mode === "plan" && <ProductionCalculator
+      {section === "calculators" && mode === "plan" && (
+        <div className="crop-planning-sections calculator-planning-sections">
+          <ProductionCalculator
             catalog={current.productionCatalog}
             currentDate={{ year: current.year, season: current.season as "spring" | "summer" | "fall" | "winter", day: current.day }}
             currentMoney={current.money}
@@ -7591,8 +7594,13 @@ function PlanningView({
             currentProfessionIds={current.professionIds || []}
             profileId={current.profileId || `${current.farmName}-${current.farmer}`}
             resolveGameName={gameName}
-            renderItemArtwork={(id, name) => <ItemMentionArtwork id={id.replace(/^\(O\)/, "")} name={name} locatable={false} />}
-          />}
+            renderItemArtwork={(id, name, spriteIndex) => <SheetArtwork id={String(spriteIndex ?? id.replace(/^\((?:O|BC)\)/, ""))} kind={id.startsWith("(BC)") ? "craftable" : "object"} label={name} fit />}
+          />
+        </div>
+      )}
+
+      {section === "crops" && (
+        <div className="crop-planning-sections">
           {mode === "farm" && <section className="planted-section">
             <div className="crop-section-title">
               <div>

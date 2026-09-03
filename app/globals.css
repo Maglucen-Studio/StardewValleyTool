@@ -6575,6 +6575,71 @@ button {
   color: #766957;
   font: 9px Arial, sans-serif;
 }
+.forestry-options {
+  margin-top: 8px;
+  padding: 9px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px 18px;
+  background: #eee8da;
+  border-left: 3px solid #6c8a62;
+}
+.planner-producer-menu .sheet-artwork.craftable {
+  width: 16px;
+  height: 32px;
+}
+.planner-producer-menu .sheet-artwork.craftable img {
+  transform: scale(1);
+}
+.forestry-options > .planner-check {
+  margin-right: 18px;
+}
+.forestry-options > fieldset {
+  flex: 1 1 100%;
+}
+.forestry-options fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.forestry-options legend,
+.forestry-species-grid label {
+  color: #8b5d31;
+  font: 700 8px Arial, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.forestry-species-grid {
+  margin-top: 6px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+}
+.forestry-species-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.forestry-species-grid input {
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 7px;
+  color: #183729;
+  background: #fffbf2;
+  border: 1px solid #cdbd9f;
+}
+.forestry-materials {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  color: #f4ead5;
+  background: #355641;
+  font: 10px/1.4 Arial, sans-serif;
+}
+.forestry-materials strong {
+  color: #f0c65f;
+}
 .planner-bookmarks {
   margin-top: 7px;
   display: grid;
@@ -6648,6 +6713,16 @@ button {
   justify-content: space-between;
   gap: 20px;
   align-items: center;
+}
+.planner-result-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.planner-result-identity > .item-mention-artwork,
+.planner-result-identity > .sheet-artwork {
+  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.25));
 }
 .planner-result-head h3 {
   margin: 3px 0 4px;
@@ -6800,6 +6875,24 @@ button {
   font: 700 7px Arial, sans-serif;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.planner-comparison-identity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.planner-comparison-identity > span {
+  display: flex;
+  flex-direction: column;
+}
+.planner-comparison-chart-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.planner-comparison-chart-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .planner-comparison .positive {
   color: #3f7047;
