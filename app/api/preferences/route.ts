@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +35,37 @@ function mergeTodayTaskDay(current: unknown, incoming: unknown) {
   return { version: 1, days: Object.fromEntries(Object.entries(days).slice(-14)) };
 }
 
+function sanitizeProductionPlanning(incoming: unknown) {
+  if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) return null;
+  const candidate = incoming as {
+    current?: unknown;
+    bookmarks?: unknown;
+    comparisonIds?: unknown;
+    comparisonView?: unknown;
+    portfolios?: unknown;
+  };
+  const current = candidate.current && typeof candidate.current === "object" && !Array.isArray(candidate.current)
+    ? candidate.current
+    : {};
+  const bookmarks = Array.isArray(candidate.bookmarks)
+    ? candidate.bookmarks.filter(item => item && typeof item === "object" && !Array.isArray(item)).slice(0, 12)
+    : [];
+  const comparisonIds = Array.isArray(candidate.comparisonIds)
+    ? candidate.comparisonIds.filter(id => typeof id === "string").slice(0, 3)
+    : [];
+  const portfolios = Array.isArray(candidate.portfolios)
+    ? candidate.portfolios.filter(item => item && typeof item === "object" && !Array.isArray(item)).slice(0, 12)
+    : [];
+  return {
+    version: 1,
+    current,
+    bookmarks,
+    comparisonIds,
+    comparisonView: candidate.comparisonView === "chart" ? "chart" : "table",
+    portfolios,
+  };
+}
+
 export async function GET() {
   return Response.json(await readPreferences(), { headers: { "cache-control": "no-store" } });
 }
@@ -42,6 +73,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const incoming = await request.json();
   const current = await readPreferences();
+  const productionPlanning = sanitizeProductionPlanning(incoming.productionPlanning);
   const next = {
     ...current,
     ...(Array.isArray(incoming.suggestions) ? { suggestions: incoming.suggestions.slice(0, 200) } : {}),
@@ -49,11 +81,12 @@ export async function POST(request: Request) {
     ...(incoming.proposalResolutions && typeof incoming.proposalResolutions === "object" && !Array.isArray(incoming.proposalResolutions) ? { proposalResolutions: incoming.proposalResolutions } : {}),
     ...(incoming.map && typeof incoming.map === "object" ? { map: incoming.map } : {}),
     ...(Array.isArray(incoming.goals) ? { goals: incoming.goals.slice(0, 100) } : {}),
+    ...(productionPlanning ? { productionPlanning } : {}),
     ...(incoming.todayTaskDay ? {
       todayTasks: mergeTodayTaskDay(current.todayTasks, incoming.todayTaskDay),
     } : {}),
   };
-  await mkdir(directory, { recursive: true });
+  await mkdir(dirname(file), { recursive: true });
   await writeFile(file, JSON.stringify(next, null, 2), "utf8");
   return Response.json({ ok: true });
 }

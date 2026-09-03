@@ -1,8 +1,10 @@
+import { spawnSync } from "node:child_process";
 import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { unpackToFiles } from "xnb";
 import JSON5 from "json5";
-import { loadConfig, runtimeRoot, runtimePaths, validateConfig } from "./config.mjs";
+import { loadConfig, projectRoot, runtimeRoot, runtimePaths, validateConfig } from "./config.mjs";
 import { ensureRuntimeDirectories, syncRuntimePublic } from "./runtime-files.mjs";
 import { renderCommunityRooms } from "./render-community-rooms.mjs";
 import { localizedXnbPath } from "./localization.mjs";
@@ -84,8 +86,25 @@ const nameCatalogs = [
   ["Strings/Pants.xnb", key => key.endsWith("_Name")],
   ["Strings/Shirts.xnb", key => key.endsWith("_Name")],
   ["Strings/Furniture.xnb", () => true],
+  ["Strings/FarmAnimals.xnb", key => key.includes("DisplayType_")],
 ];
 const fish = await unpack("Data/Fish.xnb");
+function extractProductionCatalog() {
+  const executable = resolve(projectRoot, "desktop", "resources", "game-data-extractor", "StardewDataExtractor.exe");
+  if (!existsSync(executable))
+    throw new Error("The local game data extractor is missing. Run npm run desktop:game-data.");
+  const result = spawnSync(executable, [config.stardewPath], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    windowsHide: true,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0)
+    throw new Error(`The local game data extractor exited with code ${result.status}: ${result.stderr || "unknown error"}`);
+  return JSON.parse(result.stdout);
+}
+const productionCatalog = extractProductionCatalog();
 async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, catalogSuffix) {
   const localizedObjectNamesByEnglish = Object.assign(
     {},
@@ -124,7 +143,7 @@ async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, cata
   return {
     language: catalogLanguage,
     locale: catalogLocale,
-    catalogVersion: 6,
+    catalogVersion: 9,
     objectNames,
     localizedObjectNamesByEnglish,
     localizedNamesByQualifiedId,
@@ -148,13 +167,14 @@ const gameLocalizationCatalogs = Object.fromEntries(
 const activeLocalization = gameLocalizationCatalogs.en;
 
 const gameData = {
-  _localization: { language: "neutral", catalogVersion: 6 },
+  _localization: { language: "neutral", catalogVersion: 9 },
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
   craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),
   cookingChannel: await unpack("Data/TV/CookingChannel.xnb"),
   tipChannel: await unpack("Data/TV/TipChannel.xnb"),
   fish,
+  productionCatalog,
   hair: await unpack("Data/HairData.xnb"),
   hats: await unpack("Data/hats.xnb"),
   furniture: await unpack("Data/Furniture.xnb"),
@@ -229,6 +249,17 @@ const textures = {
   "Maps/JojaRuins_TileSheet.xnb": "assetbuild/unpacked/JojaRuins_TileSheet.png",
 };
 
+const animalsByTexture = new Map();
+for (const animal of productionCatalog.farmAnimals || []) {
+  if (!animal.texture) continue;
+  const assetKey = String(animal.id || animal.name || animal.texture).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "animal";
+  const destination = `public/assets/animals/${assetKey}.png`;
+  const source = `${String(animal.texture).replace(/\\/g, "/")}.xnb`;
+  textures[source] = destination;
+  animal.artworkUrl = `/${destination.replace(/^public\//, "")}`;
+  animalsByTexture.set(source, [...(animalsByTexture.get(source) || []), animal]);
+}
+
 const friendshipCharacters = [
   "Abigail", "Alex", "Caroline", "Clint", "Demetrius", "Dwarf", "Elliott", "Emily", "Evelyn", "George", "Gus",
   "Haley", "Harvey", "Jas", "Jodi", "Kent", "Krobus", "Leah", "Leo", "Lewis", "Linus", "Marnie", "Maru", "Pam", "Penny",
@@ -246,6 +277,12 @@ for (const name of friendshipCharacters) {
 for (const [source, destination] of Object.entries(textures)) {
   try { await unpackTexture(source, destination); }
   catch (error) {
+    const animals = animalsByTexture.get(source);
+    if (animals) {
+      for (const animal of animals) delete animal.artworkUrl;
+      console.warn(`Animal artwork unavailable for ${source}; using the generated placeholder.`);
+      continue;
+    }
     const character = /^(?:Characters|Portraits)\/([^/]+)\.xnb$/i.exec(source)?.[1];
     if (!character || !optionalFriendshipCharacters.has(character) || error?.code !== "ENOENT") throw error;
   }

@@ -71,6 +71,10 @@ __pycache__/
 /bridge/**/bin/
 /bridge/**/obj/
 /bridge/**/publish/
+/tools/**/bin/
+/tools/**/obj/
+/tools/**/publish/
+/desktop/resources/game-data-extractor/
 /desktop/resources/bridge/*.pdb
 /desktop/resources/python/
 /desktop/resources/bridge/*.dll

@@ -1121,6 +1121,8 @@ test("Farm and Plan remember separate sections while bundle links open Community
   );
   assert.match(page, /<PlanningView key="farm"[^>]*mode="farm"/);
   assert.match(page, /<PlanningView key="plan"[^>]*mode="plan"/);
+  assert.match(page, /\["calculators", t\("planning\.calculators"\)\]/);
+  assert.match(page, /section === "calculators"/);
 });
 
 test("content pages use the app-wide scrollbar while Map keeps its fixed workspace", async () => {
@@ -1604,8 +1606,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 6/);
-  assert.match(desktop, /catalogVersion !== 6/);
+  assert.match(extractor, /catalogVersion: 9/);
+  assert.match(desktop, /catalogVersion !== 9/);
   assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
   assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);
@@ -1736,7 +1738,7 @@ test("desktop development reloads the interface and restarts Electron runtime ch
     ]);
   assert.equal(
     JSON.parse(packageSource).scripts["desktop:dev"],
-    "npm run desktop:bridge && node scripts/prepare-portable-python.mjs && npm run electron:prepare && node scripts/desktop-development.mjs",
+    "npm run desktop:bridge && npm run desktop:game-data && node scripts/prepare-portable-python.mjs && npm run electron:prepare && node scripts/desktop-development.mjs",
   );
   assert.match(
     desktop,
@@ -1989,4 +1991,102 @@ test("Today checklist persists per farm and resolves eligible tasks from LIVE ev
   assert.match(page, /today-personal-goals/);
   assert.match(styles, /\.checklist-actions/);
   assert.match(styles, /\.checklist-history/);
+});
+
+test("production planner works offline with a catalog derived from the local game", async () => {
+  const [page, calculator, engine, machineEngine, extractor, gameReader, generator, preferences] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/planning/production-calculator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/planning/production-engine.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../app/planning/machine-engine.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/extract_game_data.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../tools/StardewDataExtractor/Program.cs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/preferences/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /productionCatalog\?: ProductionCatalog/);
+  assert.match(page, /<ProductionCalculator/);
+  assert.match(calculator, /calculateProductionPlan/);
+  assert.match(calculator, /buildCalculatorEntries/);
+  assert.match(calculator, /"tapped-tree", "mushroom-log"/);
+  assert.match(calculator, /"tapped-tree", "mushroom-log", "machine"/);
+  assert.match(calculator, /calculateMachinePlan/);
+  assert.match(calculator, /currentInventory/);
+  assert.match(calculator, /currentMachines/);
+  assert.match(machineEngine, /directSaleValue/);
+  assert.match(machineEngine, /machine-input-bottleneck/);
+  assert.match(calculator, /<option value="units">/);
+  assert.match(calculator, /horizonMode === "days"/);
+  assert.match(calculator, /horizonMode === "date"/);
+  assert.match(calculator, /<span>\{t\("planner\.endDay"\)\}<\/span>/);
+  assert.match(calculator, /<span>\{t\("planner\.endYear"\)\}<\/span>/);
+  assert.match(engine, /export function resolvePlanningHorizon/);
+  assert.match(engine, /export function calculateProductionPlan/);
+  assert.match(page, /catalog=\{current\.productionCatalog\}/);
+  assert.doesNotMatch(page, /catalog=\{live\.productionCatalog\}/);
+  assert.match(calculator, /currentFarmingLevel/);
+  assert.match(calculator, /currentProfessionIds/);
+  assert.match(calculator, /qualityPriceMultipliers/);
+  assert.match(calculator, /acceleratedGrowthDays/);
+  assert.match(calculator, /tillerApplies/);
+  assert.match(calculator, /entry\.kind === "crop"[\s\S]*resolveGameName\(entry\.output\.name, entry\.output\.id\)/);
+  assert.match(calculator, /renderItemArtwork\?\.\(entry\.output\.id, outputName, entry\.output\.spriteIndex\)/);
+  assert.match(calculator, /className="planner-result-identity"/);
+  assert.match(calculator, /className="planner-comparison-identity"/);
+  assert.match(calculator, /className="planner-producer-menu"/);
+  assert.match(calculator, /className="planner-producer-search"/);
+  assert.match(calculator, /normalize\("NFD"\)/);
+  assert.match(calculator, /queryTerms\.every\(term => searchable\.includes\(term\)\)/);
+  assert.match(calculator, /producerSearch\.current\?\.focus\(\)/);
+  assert.match(calculator, /document\.addEventListener\("pointerdown", closeOnOutsideClick\)/);
+  assert.doesNotMatch(calculator, /window\.localStorage\.setItem\(storageKey/);
+  assert.match(calculator, /fetch\("\/api\/preferences"/);
+  assert.match(calculator, /productionPlanning: \{ current: calculation, bookmarks, comparisonIds, comparisonView, portfolios \}/);
+  assert.match(preferences, /sanitizeProductionPlanning/);
+  assert.match(preferences, /productionPlanning/);
+  assert.match(calculator, /className="planner-bookmarks"/);
+  assert.match(calculator, /planner-applied-assumptions/);
+  assert.match(calculator, /className="planner-comparison-table"/);
+  assert.match(calculator, /className="planner-comparison-chart"/);
+  assert.match(calculator, /comparisonIds\.length >= 3/);
+  assert.match(calculator, /comparisonRows/);
+  assert.match(calculator, /machineUpstreamId/);
+  assert.match(calculator, /bookmarkOutput/);
+  assert.match(calculator, /inputEvents: selectedUpstream\?\.events/);
+  assert.match(machineEngine, /outputEvents/);
+  assert.match(calculator, /pondProcessorCount/);
+  assert.match(calculator, /pondPlan\?\.outputs/);
+  assert.match(calculator, /animalPlan\?\.outputs/);
+  assert.match(calculator, /renderAnimalArtwork/);
+  assert.match(extractor, /public\/assets\/animals/);
+  assert.match(gameReader, /processedRoe = DescribeItem/);
+  assert.match(calculator, /savePortfolio/);
+  assert.match(calculator, /planner-saved-portfolios/);
+  assert.ok(calculator.indexOf('className="planner-advanced"') < calculator.indexOf('className="planner-results"'));
+  assert.ok(calculator.indexOf('className="planner-results"') < calculator.indexOf('className="planner-bookmark-toolbar"'));
+  assert.match(calculator, /savedEntries = buildCalculatorEntries/);
+  assert.match(calculator, /selectedIsForestry \? "forestry\.initialCost"/);
+  assert.match(calculator, /selectedIsForestry \? "forestry\.collectionCycles"/);
+  assert.match(calculator, /!selectedIsForestry \|\| !forestryExisting/);
+  assert.match(calculator, /resetCalculation/);
+  assert.match(calculator, /forcePlantToday/);
+  assert.match(page, /renderItemArtwork=\{.{0,160}<SheetArtwork/);
+  assert.match(extractor, /StardewDataExtractor\.exe/);
+  assert.match(gameReader, /Data\/Crops/);
+  assert.match(gameReader, /Data\/Objects/);
+  assert.match(gameReader, /Data\/FruitTrees/);
+  assert.match(gameReader, /Data\/Shops/);
+  assert.match(gameReader, /growthPhases = pair\.Value\.DaysInPhase/);
+  assert.match(gameReader, /category = data\?\.Category/);
+  assert.match(gameReader, /fertilizerCatalog/);
+  assert.match(gameReader, /Data\/WildTrees/);
+  assert.match(gameReader, /Data\/Machines/);
+  assert.match(gameReader, /artisanMachines/);
+  assert.match(gameReader, /GeneratedCategoryTags/);
+  assert.match(gameReader, /tappedTreeCatalog/);
+  assert.match(gameReader, /mushroomLogRules/);
+  assert.match(gameReader, /forestryEquipment/);
+  assert.match(generator, /"professionIds"/);
+  assert.match(gameReader, /source = "local-game"/);
+  assert.match(generator, /"productionCatalog": game_data\.get\("productionCatalog"\)/);
 });
