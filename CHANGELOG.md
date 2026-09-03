@@ -2,6 +2,26 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.11.0 — 2026-09-03
+
+### New
+
+- Added a unified production calculator for crops, fruit trees, passive forestry, artisan machines, animals, and fish ponds using data from the local game installation.
+- Added searchable producer selection, exact date or duration horizons, budget and quantity modes, saved calculations, and side-by-side plan comparison.
+- Added complete production portfolios that reserve shared money, materials, space, inputs, and machines without modifying the Stardew Valley save.
+
+### Improved
+
+- Connected production chains now propagate real dated batches across steps such as crop to keg, wine, and cask instead of relying on average daily rates.
+- Estimates now account for professions, fertilizer, seasonal planting windows, animal maturity and feed, fish-pond population gates, processing capacity, and material setup costs where local rules are available.
+- Animal and product artwork, names, prices, recipes, and production rules are read from the user's local game installation, with generated placeholders when optional artwork is unavailable.
+
+### Fixed
+
+- Fish-pond forecasts now identify every expected raw and processed resource and limit roe processing to the selected preserves-jar capacity.
+- Animal forecasts now show the animal itself in the selector and identify the expected raw or processed products in the result.
+- Required materials, calculation controls, bookmarks, comparison tables, and keyboard navigation now follow a consistent visual and document order.
+
 ## 1.10.0 — 2026-09-02
 
 ### New
