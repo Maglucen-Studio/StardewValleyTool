@@ -4188,6 +4188,33 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+.route-assumptions {
+  margin: 0 0 9px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.route-assumptions span {
+  padding: 4px 7px;
+  border: 1px solid #c5cdbb;
+  background: #edf0e7;
+  color: #52634e;
+  font: 700 8px/1.2 Arial, sans-serif;
+}
+.route-access-warning,
+.route-access-note {
+  margin: 0 0 9px;
+  padding: 7px 9px;
+  border-left: 3px solid #ae7427;
+  background: #f6e5c3;
+  color: #704b22;
+  font: 9px/1.4 Arial, sans-serif;
+}
+.route-access-note {
+  border-left-color: #718666;
+  background: #e6eadf;
+  color: #52634e;
+}
 .world-list {
   display: flex;
   flex-direction: column;
