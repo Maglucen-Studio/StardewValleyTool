@@ -59,6 +59,7 @@ let gameWasRunning = false;
 let windowStateSaveTimer = null;
 let setupWindowStateSaveTimer = null;
 let farmSwitching = false;
+let manualFarmSelectionDuringGame = null;
 let resolvedSourcePython = null;
 let updateState = { status: "idle", currentVersion: app.getVersion() };
 const backendToken = randomBytes(32).toString("hex");
@@ -1299,12 +1300,13 @@ function isGameRunning() {
 function monitorGame() {
   setInterval(() => {
     const running = isGameRunning();
+    if (!running) manualFarmSelectionDuringGame = null;
     if (running && !gameWasRunning && validConfig(readConfig())) {
       startBackgroundTracking().catch((error) =>
         log(error?.stack || String(error)),
       );
     }
-    if (running && readConfig()?.autoFollowActiveSave !== false && !farmSwitching) {
+    if (running && !manualFarmSelectionDuringGame && readConfig()?.autoFollowActiveSave !== false && !farmSwitching) {
       const fresh = detectSaves().find(
         (save) => save.liveUpdatedAt && Date.now() - save.liveUpdatedAt < 9000,
       );
@@ -1416,9 +1418,18 @@ function installIpc() {
   });
   ipcMain.handle("farms:switch", async (event, incomingPath) => {
     requireDashboardSender(event);
-    return switchFarmConfig(incomingPath, (message) =>
-      event.sender.send("setup:progress", message),
-    );
+    const previousManualSelection = manualFarmSelectionDuringGame;
+    manualFarmSelectionDuringGame = isGameRunning()
+      ? resolve(String(incomingPath || ""))
+      : null;
+    try {
+      return await switchFarmConfig(incomingPath, (message) =>
+        event.sender.send("setup:progress", message),
+      );
+    } catch (error) {
+      manualFarmSelectionDuringGame = previousManualSelection;
+      throw error;
+    }
   });
   ipcMain.handle("settings:open", (event) => {
     requireDashboardSender(event);
