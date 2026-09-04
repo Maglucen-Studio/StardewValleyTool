@@ -1385,6 +1385,8 @@
   "live.noTool": "no tool equipped",
   "live.toolReadyAtClint": "tool ready at Clint's",
   "live.healthyConnection": "healthy connection",
+  "live.partialConnection": "LIVE is updating, but these sections could not be read: {sections}.",
+  "live.partialConnectionStatus": "partial connection",
   "live.safeMode": "safe mode",
   "live.liveDataScope": "money, backpack, collections, and route",
   "live.snapshot": "snapshot {date}",

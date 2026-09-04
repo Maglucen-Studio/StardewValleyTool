@@ -1385,6 +1385,8 @@
   "live.noTool": "ninguna herramienta equipada",
   "live.toolReadyAtClint": "herramienta lista en casa de Clint",
   "live.healthyConnection": "conexión correcta",
+  "live.partialConnection": "LIVE se está actualizando, pero no se han podido leer estas secciones: {sections}.",
+  "live.partialConnectionStatus": "conexión parcial",
   "live.safeMode": "modo seguro",
   "live.liveDataScope": "dinero, mochila, colecciones y ruta",
   "live.snapshot": "instantánea {date}",

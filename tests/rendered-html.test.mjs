@@ -681,8 +681,8 @@ test("farm history is checkpointed, backed up, and recovered across migrations",
   assert.match(bridge, /"pending\.checkpoint"/);
   assert.match(bridge, /keepBackup: true/);
   assert.match(bridge, /farmName = player\.farmName\.Value/);
-  assert.equal(JSON.parse(sourceManifest).Version, "5.0.0");
-  assert.equal(JSON.parse(bundledManifest).Version, "5.0.0");
+  assert.equal(JSON.parse(sourceManifest).Version, "5.1.0");
+  assert.equal(JSON.parse(bundledManifest).Version, "5.1.0");
 });
 
 test("the SMAPI bridge stays invisible while exporting read-only LIVE state", async () => {
@@ -704,6 +704,11 @@ test("the SMAPI bridge stays invisible while exporting read-only LIVE state", as
   assert.doesNotMatch(entry, /HarmonyPatch|GameMenu|SButton\.F7/);
   assert.match(entry, /ExportLiveState/);
   assert.match(entry, /\.stardew-tool-live\.json/);
+  assert.match(entry, /CaptureLiveSection/);
+  assert.match(entry, /ReportLiveSectionFailure/);
+  assert.match(entry, /bridgeWarnings = liveSectionErrors\.Keys/);
+  assert.match(entry, /The remaining LIVE data will continue updating/);
+  assert.doesNotMatch(entry, /No se pudo exportar el estado en vivo: \{ex\.Message\}/);
   assert.doesNotMatch(project, /0Harmony\.dll/);
 });
 
@@ -744,6 +749,9 @@ test("live mode avoids recursive copies and recovers from missed filesystem even
   assert.match(desktop, /bridgeDllFound/);
   assert.match(page, /t\("web\.home\.bridgeOutput"\)/);
   assert.match(page, /t\("diagnostics\.notCreated"\)/);
+  assert.match(page, /live\.bridgeWarnings/);
+  assert.match(page, /t\("live\.partialConnection"/);
+  assert.match(page, /liveWarnings: live\.bridgeWarnings \|\| \[\]/);
 });
 
 test("Today lists every active journal quest with opt-in spoiler guidance", async () => {

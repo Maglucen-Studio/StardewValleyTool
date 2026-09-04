@@ -24,6 +24,7 @@ public sealed class ModEntry : Mod
     private object? cachedStorage;
     private object? cachedMachines;
     private object? cachedAnimals;
+    private readonly Dictionary<string, string> liveSectionErrors = new(StringComparer.Ordinal);
     private int liveTicks;
     private static readonly HashSet<string> ProductionMachineNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -117,15 +118,32 @@ public sealed class ModEntry : Mod
         if (!Context.IsWorldReady || string.IsNullOrWhiteSpace(Constants.CurrentSavePath)) return;
         try
         {
-            Farmer player = Game1.player;
-            object[] acceptedQuests = DescribeActiveQuests(player);
-            Quest? questOfTheDay = Game1.questOfTheDay;
-            object? boardQuest = questOfTheDay is not null && !questOfTheDay.accepted.Value
-                ? Describe(questOfTheDay)
-                : null;
-            bool hasActiveDailyQuest = player.questLog.Any(quest => quest.dailyQuest.Value && !quest.completed.Value && !quest.destroy.Value);
-            bool dailyQuestCompleted = questOfTheDay is not null && questOfTheDay.accepted.Value && !hasActiveDailyQuest;
-            var specialOrders = player.team.specialOrders
+            Farmer? player = Game1.player;
+            if (player is null)
+            {
+                ReportLiveSectionFailure("player", new InvalidOperationException("Game1.player was unavailable while the world was ready."));
+                return;
+            }
+
+            object acceptedQuests = CaptureLiveSection<object>(
+                "quests.accepted",
+                () => DescribeActiveQuests(player),
+                Array.Empty<object>());
+            Quest? questOfTheDay = CaptureLiveSection<Quest?>("quests.daily", () => Game1.questOfTheDay, null);
+            object? boardQuest = CaptureLiveSection<object?>(
+                "quests.board",
+                () => questOfTheDay is not null && !questOfTheDay.accepted.Value ? Describe(questOfTheDay) : null,
+                null);
+            bool hasActiveDailyQuest = CaptureLiveSection(
+                "quests.status",
+                () => player.questLog.Where(quest => quest is not null).Any(quest => quest.dailyQuest.Value && !quest.completed.Value && !quest.destroy.Value),
+                false);
+            bool dailyQuestCompleted = CaptureLiveSection(
+                "quests.completion",
+                () => questOfTheDay is not null && questOfTheDay.accepted.Value && !hasActiveDailyQuest,
+                false);
+            object specialOrders = CaptureLiveSection<object>("special-orders", () => player.team.specialOrders
+                .Where(order => order is not null)
                 .Where(order => !order.IsHidden())
                 .Select(order =>
                 {
@@ -140,15 +158,15 @@ public sealed class ModEntry : Mod
                         daysLeft = Math.Max(0, order.GetDaysLeft()),
                         duration = order.questDuration.Value.ToString(),
                         reward = moneyReward > 0 ? $"{moneyReward:N0}g" : "",
-                        objectives = order.objectives.Select((objective, index) => new
+                        objectives = order.objectives.Where(objective => objective is not null).Select((objective, index) => new
                         {
                             description = index < descriptions.Count ? descriptions[index] : objective.GetDescription(),
                             progress = objective.GetCount(),
                             target = objective.GetMaxCount(),
                         }).ToArray(),
                     };
-                }).ToArray();
-            var inventory = player.Items.Where(item => item is not null).Select(item => new
+                }).ToArray(), Array.Empty<object>());
+            object inventory = CaptureLiveSection<object>("inventory", () => player.Items.Where(item => item is not null).Select(item => new
             {
                 id = item!.QualifiedItemId,
                 name = item.DisplayName,
@@ -158,8 +176,10 @@ public sealed class ModEntry : Mod
                 spriteIndex = SpriteIndex(item),
                 spriteWidth = SpriteWidth(item),
                 spriteHeight = SpriteHeight(item),
-            }).ToArray();
-            var friendships = player.friendshipData.Pairs.Where(pair => VanillaFriendshipNpcs.Contains(pair.Key)).Select(pair => new
+            }).ToArray(), Array.Empty<object>());
+            object friendships = CaptureLiveSection<object>("friendships", () => player.friendshipData.Pairs
+                .Where(pair => pair.Value is not null && VanillaFriendshipNpcs.Contains(pair.Key))
+                .Select(pair => new
             {
                 name = pair.Key,
                 points = pair.Value.Points,
@@ -167,52 +187,72 @@ public sealed class ModEntry : Mod
                 talkedToday = pair.Value.TalkedToToday,
                 giftsToday = pair.Value.GiftsToday,
                 giftsThisWeek = pair.Value.GiftsThisWeek,
-            }).OrderByDescending(friendship => friendship.points).ToArray();
-            Farm farm = Game1.getFarm();
-            int readyCrops = farm.terrainFeatures.Values.OfType<HoeDirt>().Count(dirt => dirt.crop?.fullyGrown.Value == true && dirt.crop.dayOfCurrentPhase.Value <= 0);
-            int readyMachines = farm.Objects.Values.Count(obj => obj.readyForHarvest.Value);
-            bool toolPickupReady = player.toolBeingUpgraded.Value is not null && player.daysLeftForToolUpgrade.Value <= 0;
+            }).OrderByDescending(friendship => friendship.points).ToArray(), Array.Empty<object>());
+            Farm? farm = CaptureLiveSection<Farm?>("farm", () => Game1.getFarm(), null);
+            int readyCrops = CaptureLiveSection(
+                "farm.ready-crops",
+                () => farm?.terrainFeatures.Values.OfType<HoeDirt>().Count(dirt => dirt.crop?.fullyGrown.Value == true && dirt.crop.dayOfCurrentPhase.Value <= 0) ?? 0,
+                0);
+            int readyMachines = CaptureLiveSection(
+                "farm.ready-machines",
+                () => farm?.Objects.Values.Where(obj => obj is not null).Count(obj => obj.readyForHarvest.Value) ?? 0,
+                0);
+            bool toolPickupReady = CaptureLiveSection(
+                "player.tool-upgrade",
+                () => player.toolBeingUpgraded.Value is not null && player.daysLeftForToolUpgrade.Value <= 0,
+                false);
             if (refreshSlowState || cachedFarmMap is null || cachedWorldTasks is null || cachedCollections is null || cachedStorage is null || cachedMachines is null || cachedAnimals is null)
             {
                 string[] routeLocationNames = { "Farm", "FarmCave", "Beach", "Town", "Mountain", "Forest", "BusStop", "Backwoods" };
-                cachedWorldTasks = Game1.locations
+                cachedWorldTasks = CaptureLiveSection<object>("world-tasks", () => Game1.locations
+                    .Where(location => location is not null)
                     .Where(location => routeLocationNames.Contains(location.NameOrUniqueName))
                     .Select(location => new
                     {
                         location = location.NameOrUniqueName,
                         items = DescribeRouteItems(location, player),
-                    }).ToArray();
-                cachedFarmMap = DescribeFarmMap(farm);
-                string[] caughtFish = player.fishCaught.Keys.Select(NormalizeId).ToArray();
-                var bundleProgress = Game1.netWorldState.Value.Bundles.Pairs.Select(pair => new
+                    }).ToArray(), cachedWorldTasks ?? Array.Empty<object>());
+                cachedFarmMap = CaptureLiveSection<object>(
+                    "farm-map",
+                    () => farm is not null ? DescribeFarmMap(farm) : new { terrain = Array.Empty<object>(), objects = Array.Empty<object>(), buildings = Array.Empty<object>() },
+                    cachedFarmMap ?? new { terrain = Array.Empty<object>(), objects = Array.Empty<object>(), buildings = Array.Empty<object>() });
+                cachedCollections = CaptureLiveSection<object>("collections", () =>
                 {
-                    id = pair.Key,
-                    donated = pair.Value.ToArray(),
-                }).ToArray();
-                string[] museumItems = Game1.netWorldState.Value.MuseumPieces.Values.Select(NormalizeId).Distinct().ToArray();
-                var shipping = Game1.objectData.Keys
-                    .Select(itemId => ItemRegistry.GetDataOrErrorItem($"(O){itemId}"))
-                    .Where(item => StardewValley.Object.isPotentialBasicShipped(item.ItemId, item.Category, item.ObjectType))
-                    .Select(item => new
+                    string[] caughtFish = player.fishCaught.Keys.Where(id => id is not null).Select(NormalizeId).ToArray();
+                    var bundleProgress = Game1.netWorldState.Value.Bundles.Pairs.Select(pair => new
                     {
-                        id = item.ItemId,
-                        name = item.DisplayName,
-                        complete = player.basicShipped.ContainsKey(item.ItemId),
-                        count = player.basicShipped.TryGetValue(item.ItemId, out int shippedCount) ? shippedCount : 0,
-                        learned = true,
-                        spriteKind = int.TryParse(item.ItemId, out _) ? "object" : "object2",
-                        spriteIndex = item.SpriteIndex.ToString(),
-                    })
-                    .OrderBy(item => item.name)
-                    .ToArray();
-                cachedCollections = new { caughtFish, bundleProgress, museumItems, shipping };
-                GameLocation[] trackedLocations = GetTrackedLocations(farm)
+                        id = pair.Key,
+                        donated = pair.Value?.ToArray() ?? Array.Empty<bool>(),
+                    }).ToArray();
+                    string[] museumItems = Game1.netWorldState.Value.MuseumPieces.Values.Where(id => id is not null).Select(NormalizeId).Distinct().ToArray();
+                    var shipping = Game1.objectData.Keys
+                        .Where(itemId => itemId is not null)
+                        .Select(itemId => ItemRegistry.GetDataOrErrorItem($"(O){itemId}"))
+                        .Where(item => item is not null && StardewValley.Object.isPotentialBasicShipped(item.ItemId, item.Category, item.ObjectType))
+                        .Select(item => new
+                        {
+                            id = item.ItemId,
+                            name = item.DisplayName,
+                            complete = player.basicShipped.ContainsKey(item.ItemId),
+                            count = player.basicShipped.TryGetValue(item.ItemId, out int shippedCount) ? shippedCount : 0,
+                            learned = true,
+                            spriteKind = int.TryParse(item.ItemId, out _) ? "object" : "object2",
+                            spriteIndex = item.SpriteIndex.ToString(),
+                        })
+                        .OrderBy(item => item.name)
+                        .ToArray();
+                    return new { caughtFish, bundleProgress, museumItems, shipping };
+                }, cachedCollections ?? new { caughtFish = Array.Empty<string>(), bundleProgress = Array.Empty<object>(), museumItems = Array.Empty<string>(), shipping = Array.Empty<object>() });
+                GameLocation[] trackedLocations = farm is null ? Array.Empty<GameLocation>() : CaptureLiveSection(
+                    "locations",
+                    () => GetTrackedLocations(farm)
+                    .Where(location => location is not null)
                     .Where(location => IsAccessibleLocation(location, player))
                     .Distinct()
-                    .ToArray();
-                cachedStorage = trackedLocations.SelectMany(location =>
+                    .ToArray(), Array.Empty<GameLocation>());
+                cachedStorage = CaptureLiveSection<object>("storage", () => trackedLocations.SelectMany(location =>
                 {
-                    string locationKey = TrackedLocationKey(location, farm);
+                    string locationKey = TrackedLocationKey(location, farm!);
                     return location.Objects.Pairs
                         .Where(pair => pair.Value is Chest chest && chest.playerChest.Value)
                         .SelectMany(pair =>
@@ -243,9 +283,9 @@ public sealed class ModEntry : Mod
                                     containerY = (int)pair.Key.Y,
                                 });
                         });
-                }).ToArray();
-                cachedMachines = trackedLocations.SelectMany(location => location.Objects.Pairs
-                    .Where(pair => IsProductionMachine(pair.Value))
+                }).ToArray(), cachedStorage ?? Array.Empty<object>());
+                cachedMachines = CaptureLiveSection<object>("machines", () => trackedLocations.SelectMany(location => location.Objects.Pairs
+                    .Where(pair => pair.Value is not null && IsProductionMachine(pair.Value))
                     .Select(pair => new
                     {
                         id = pair.Value.QualifiedItemId,
@@ -256,8 +296,10 @@ public sealed class ModEntry : Mod
                         output = pair.Value.heldObject.Value?.DisplayName,
                         input = pair.Value.lastInputItem.Value?.DisplayName,
                         minutesUntilReady = Math.Max(0, pair.Value.MinutesUntilReady),
-                    })).ToArray();
-                cachedAnimals = trackedLocations.SelectMany(location => location.animals.Values.Select(animal => new
+                    })).ToArray(), cachedMachines ?? Array.Empty<object>());
+                cachedAnimals = CaptureLiveSection<object>("animals", () => trackedLocations.SelectMany(location => location.animals.Values
+                    .Where(animal => animal is not null)
+                    .Select(animal => new
                 {
                     id = animal.myID.Value.ToString(),
                     name = animal.Name,
@@ -269,7 +311,7 @@ public sealed class ModEntry : Mod
                     petted = animal.wasPet.Value,
                     produceQuality = animal.produceQuality.Value,
                     currentProduce = animal.currentProduce.Value.ToString(),
-                })).ToArray();
+                })).ToArray(), cachedAnimals ?? Array.Empty<object>());
             }
             string dateKey = $"{Game1.year}-{Game1.currentSeason.ToString().ToLowerInvariant()}-{Game1.dayOfMonth:00}";
             long heartbeat = DateTimeOffset.Now.ToUnixTimeMilliseconds() / 4000 * 4000;
@@ -293,7 +335,7 @@ public sealed class ModEntry : Mod
                 maxHealth = player.maxHealth,
                 money = player.Money,
                 fishingLevel = player.FishingLevel,
-                grandpaScore = farm.grandpaScore.Value,
+                grandpaScore = farm?.grandpaScore.Value ?? 0,
                 currentTool = player.CurrentTool?.DisplayName,
                 boardQuest,
                 dailyQuestCompleted,
@@ -307,6 +349,7 @@ public sealed class ModEntry : Mod
                 routeState = new { worldTasks = cachedWorldTasks, readyCrops, readyMachines, toolPickupReady },
                 collections = cachedCollections,
                 farmMap = cachedFarmMap,
+                bridgeWarnings = liveSectionErrors.Keys.OrderBy(section => section).ToArray(),
             });
             if (payload == lastLivePayload) return;
             WriteAtomic(Path.Combine(Constants.CurrentSavePath, ".stardew-tool-live.json"), payload);
@@ -314,8 +357,32 @@ public sealed class ModEntry : Mod
         }
         catch (Exception ex)
         {
-            Monitor.Log($"No se pudo exportar el estado en vivo: {ex.Message}", LogLevel.Warn);
+            ReportLiveSectionFailure("core", ex);
         }
+    }
+
+    private T CaptureLiveSection<T>(string section, Func<T> capture, T fallback)
+    {
+        try
+        {
+            T value = capture();
+            if (liveSectionErrors.Remove(section))
+                Monitor.Log($"LIVE section '{section}' recovered.", LogLevel.Info);
+            return value;
+        }
+        catch (Exception ex)
+        {
+            ReportLiveSectionFailure(section, ex);
+            return fallback;
+        }
+    }
+
+    private void ReportLiveSectionFailure(string section, Exception ex)
+    {
+        string signature = ex.ToString();
+        if (liveSectionErrors.TryGetValue(section, out string? previous) && previous == signature) return;
+        liveSectionErrors[section] = signature;
+        Monitor.Log($"Could not export LIVE section '{section}'. The remaining LIVE data will continue updating.\n{signature}", LogLevel.Warn);
     }
 
     private static string SpriteKind(Item item)
@@ -355,7 +422,9 @@ public sealed class ModEntry : Mod
 
     private static object DescribeFarmMap(Farm farm)
     {
-        var terrain = farm.terrainFeatures.Pairs.Select(pair => new
+        var terrain = farm.terrainFeatures.Pairs
+            .Where(pair => pair.Value is not null)
+            .Select(pair => new
         {
             x = (int)pair.Key.X,
             y = (int)pair.Key.Y,
@@ -364,7 +433,9 @@ public sealed class ModEntry : Mod
             watered = pair.Value is HoeDirt wateredDirt && wateredDirt.state.Value > 0,
             ready = pair.Value is HoeDirt cropDirt && cropDirt.crop?.fullyGrown.Value == true && cropDirt.crop.dayOfCurrentPhase.Value <= 0,
         }).ToArray();
-        var objects = farm.Objects.Pairs.Select(pair => new
+        var objects = farm.Objects.Pairs
+            .Where(pair => pair.Value is not null)
+            .Select(pair => new
         {
             x = (int)pair.Key.X,
             y = (int)pair.Key.Y,
@@ -384,7 +455,9 @@ public sealed class ModEntry : Mod
                 ? $"#{chest.playerChoiceColor.Value.R:x2}{chest.playerChoiceColor.Value.G:x2}{chest.playerChoiceColor.Value.B:x2}"
                 : null,
         }).ToArray();
-        var buildings = farm.buildings.Select(building => new
+        var buildings = farm.buildings
+            .Where(building => building is not null)
+            .Select(building => new
         {
             x = building.tileX.Value,
             y = building.tileY.Value,
@@ -414,6 +487,7 @@ public sealed class ModEntry : Mod
         foreach (GameLocation location in Game1.locations) yield return location;
         foreach (var building in farm.buildings)
         {
+            if (building is null) continue;
             GameLocation? indoors = building.GetIndoors();
             if (indoors is not null) yield return indoors;
         }
@@ -422,7 +496,7 @@ public sealed class ModEntry : Mod
     private static string TrackedLocationKey(GameLocation location, Farm farm)
     {
         foreach (var building in farm.buildings)
-            if (ReferenceEquals(building.GetIndoors(), location))
+            if (building is not null && ReferenceEquals(building.GetIndoors(), location))
                 return $"{building.buildingType.Value}-{building.tileX.Value}-{building.tileY.Value}";
         return location.NameOrUniqueName;
     }
@@ -527,14 +601,14 @@ public sealed class ModEntry : Mod
         {
             if (player.caveChoice.Value == 1)
                 return location.Objects.Pairs
-                    .Where(pair => pair.Value.IsSpawnedObject)
+                    .Where(pair => pair.Value is not null && pair.Value.IsSpawnedObject)
                     .GroupBy(pair => pair.Value.DisplayName)
                     .Select(group => new RouteItem(group.Key, group.Sum(pair => pair.Value.Stack)))
                     .OrderBy(item => item.name)
                     .ToArray();
             if (player.caveChoice.Value == 2)
                 return location.Objects.Pairs
-                    .Where(pair => pair.Value.Name == "Mushroom Box" && pair.Value.readyForHarvest.Value && pair.Value.heldObject.Value is not null)
+                    .Where(pair => pair.Value is not null && pair.Value.Name == "Mushroom Box" && pair.Value.readyForHarvest.Value && pair.Value.heldObject.Value is not null)
                     .GroupBy(pair => pair.Value.heldObject.Value!.DisplayName)
                     .Select(group => new RouteItem(group.Key, group.Sum(pair => pair.Value.heldObject.Value!.Stack)))
                     .OrderBy(item => item.name)
@@ -542,7 +616,7 @@ public sealed class ModEntry : Mod
             return Array.Empty<RouteItem>();
         }
         return location.Objects.Pairs
-            .Where(pair => pair.Value.IsSpawnedObject || pair.Value.Name is "Artifact Spot" or "Seed Spot")
+            .Where(pair => pair.Value is not null && (pair.Value.IsSpawnedObject || pair.Value.Name is "Artifact Spot" or "Seed Spot"))
             .GroupBy(pair => pair.Value.Name)
             .Select(group => new RouteItem(group.Key, group.Count()))
             .OrderBy(item => item.name)
@@ -560,7 +634,7 @@ public sealed class ModEntry : Mod
     private static string NormalizeId(string id) => id.StartsWith("(O)", StringComparison.Ordinal) ? id[3..] : id;
 
     private static object[] DescribeActiveQuests(Farmer player) => player.questLog
-        .Where(quest => !quest.completed.Value && !quest.destroy.Value)
+        .Where(quest => quest is not null && !quest.completed.Value && !quest.destroy.Value)
         .Select(quest =>
         {
             quest.reloadDescription();
