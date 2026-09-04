@@ -293,6 +293,11 @@ type DailyBrief = {
   specialOrders?: SpecialOrderBrief[];
   specialOrdersUnlocked?: boolean;
   boardQuest?: DailyQuest | null;
+  routeContext?: {
+    weekday: string;
+    access: Record<string, boolean>;
+    transport: Record<"minecarts" | "bus" | "boat" | "horse", boolean>;
+  };
   inventoryItemsChecked: number;
   summary: LocalizedValue;
 };
@@ -9196,6 +9201,10 @@ function DailyBriefView({
   const routeSource = brief.world
     .filter((stop) => stop.location !== "Farm Cave")
     .map((stop) => ({ ...stop, items: [...stop.items] }));
+  for (const [location, items] of liveWorldItems) {
+    if (location === "Farm Cave" || routeSource.some((stop) => stop.location === location)) continue;
+    routeSource.push({ location, items });
+  }
   const liveFarmTasks =
     (live.routeState?.readyCrops || 0) + (live.routeState?.readyMachines || 0);
   if (
@@ -9211,11 +9220,28 @@ function DailyBriefView({
     !routeSource.some((stop) => stop.location === "Town")
   )
     routeSource.push({ location: "Town", items: [] });
-  const routeWorld = routeSource.sort((a, b) => {
+  const routeAccess = brief.routeContext?.access || {};
+  const unavailableRouteStops = routeSource.filter(
+    (stop) => routeAccess[stop.location] === false,
+  );
+  const routeWorld = routeSource.filter(
+    (stop) => routeAccess[stop.location] !== false,
+  ).sort((a, b) => {
     const ai = routeOrder.indexOf(a.location),
       bi = routeOrder.indexOf(b.location);
     return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
   });
+  const activeRouteTransport = Object.entries(brief.routeContext?.transport || {})
+    .filter(([, unlocked]) => unlocked)
+    .map(([transport]) => t(`today.route.transport.${transport}`));
+  const unknownRouteStops = routeWorld.filter(
+    (stop) => !routeOrder.includes(stop.location) && routeAccess[stop.location] === undefined,
+  );
+  const routeEstimateMinutes = routeWorld.length
+    ? Math.max(20, Math.round((routeWorld.length * 30 + Math.max(0, routeWorld.length - 1) * 20) *
+        (brief.routeContext?.transport.horse ? 0.8 : 1) *
+        (brief.routeContext?.transport.minecarts ? 0.9 : 1) / 10) * 10)
+    : 0;
   const liveAcceptedQuests = live.active
     ? (live.acceptedQuests || []).map((quest) =>
         liveQuestStatus(
@@ -9326,7 +9352,7 @@ function DailyBriefView({
         .map((location) => location.location);
     },
   );
-  const automaticallyCompletedWorld = useMemo(() => {
+  const automaticallyCompletedWorld = (() => {
     if (!live.active || !live.routeState) return [];
     const remainingByLocation = new Map(
       live.routeState.worldTasks.map((stop) => [
@@ -9361,13 +9387,10 @@ function DailyBriefView({
       }
     }
     return automaticallyCompleted;
-  }, [brief.fruitCave.count, live.active, live.routeState, routeWorld]);
-  const completedWorld = useMemo(
-    () => [
-      ...new Set([...manualCompletedWorld, ...automaticallyCompletedWorld]),
-    ],
-    [automaticallyCompletedWorld, manualCompletedWorld],
-  );
+  })();
+  const completedWorld = [
+    ...new Set([...manualCompletedWorld, ...automaticallyCompletedWorld]),
+  ];
   const worldTaskCount = routeWorld.length;
   const unwateredCrops =
     live.active && live.farmMap
@@ -10127,6 +10150,24 @@ function DailyBriefView({
               <span>{t("web.dailyBrief.stopsCompleted")}</span>
             </div>
           </div>
+          <div className="route-assumptions" aria-label={t("today.route.assumptionsLabel")}>
+            <span>{t("today.route.roughEstimate", { minutes: routeEstimateMinutes })}</span>
+            {activeRouteTransport.map((transport) => <span key={transport}>{transport}</span>)}
+          </div>
+          {unavailableRouteStops.length > 0 && (
+            <p className="route-access-warning">
+              {t("today.route.inaccessibleSkipped", {
+                locations: unavailableRouteStops.map((stop) => routeLocationName(stop.location, t)).join(" · "),
+              })}
+            </p>
+          )}
+          {unknownRouteStops.length > 0 && (
+            <p className="route-access-note">
+              {t("today.route.unknownAccess", {
+                locations: unknownRouteStops.map((stop) => routeLocationName(stop.location, t)).join(" · "),
+              })}
+            </p>
+          )}
           <div className="world-list route-list">
             {routeWorld.map((location, index) => {
               const checked = completedWorld.includes(location.location);

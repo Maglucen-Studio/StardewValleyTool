@@ -1677,6 +1677,38 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
     elif weekday == 2:
         tv.append({"id": "queen", "channel": localized_message("today.tv.queen.channel"), "title": localized_message("today.tv.queen.rerun"), "detail": localized_message("today.tv.queen.rerunDetail")})
 
+    received_mail = {value.text for value in player.findall("mailReceived/string") if value.text}
+    farm_location = next((location for location in locations if location.findtext("name") == "Farm"), None)
+    farm_buildings = farm_location.find("buildings") if farm_location is not None else None
+    building_types = {
+        building.findtext("buildingType", "")
+        for building in (farm_buildings if farm_buildings is not None else [])
+    }
+    axe_level = max(
+        (number(item, "upgradeLevel") for item in player.findall("items/Item") if item.attrib.get(XSI_TYPE) == "Axe"),
+        default=0,
+    )
+    desert_open = any(flag in received_mail for flag in ("ccVault", "jojaVault", "ccVaultFin"))
+    # Island locations can be serialized as templates before the boat is
+    # repaired, so only the game's progression flag proves real access.
+    island_open = "willyBoatFixed" in received_mail
+    route_context = {
+        "weekday": ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")[weekday],
+        "access": {
+            "Secret Woods": axe_level >= 2,
+            "Desert": desert_open,
+            "Sewers": bool_value(player, "hasRustyKey"),
+            "Ginger Island": island_open,
+            "Railroad": day_index >= 31,
+        },
+        "transport": {
+            "minecarts": any(flag in received_mail for flag in ("ccBoilerRoom", "jojaBoilerRoom")),
+            "bus": desert_open,
+            "boat": island_open,
+            "horse": "Stable" in building_types,
+        },
+    }
+
     # User-authored and modded names remain untouched unless the local game
     # provides a qualified vanilla identity for them.
     item_names: dict[str, str] = {}
@@ -1781,6 +1813,7 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
         # The town board is introduced on Fall 2, Year 1. Accepted Qi orders
         # still appear above regardless of this flag when that later board exists.
         "specialOrdersUnlocked": day_index >= 58,
+        "routeContext": route_context,
         "inventoryItemsChecked": len(available),
         # Beach forage already appears at the relevant stop in Today's route;
         # repeating only its type count in the greeting is noise, not a task.

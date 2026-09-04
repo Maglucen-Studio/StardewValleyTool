@@ -876,14 +876,15 @@ test("Today and both Progress pages persist visible sections and their order", a
 });
 
 test("route checks distinguish manual decisions from reversible LIVE completion", async () => {
-  const page = await readFile(
-    new URL("../app/page.tsx", import.meta.url),
-    "utf8",
-  );
+  const [page, generator, styles] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
   assert.match(page, /manualWorldStorageKey/);
   assert.match(page, /manualCompletedWorld/);
   assert.match(page, /automaticallyCompletedWorld/);
-  assert.match(page, /const automaticallyCompletedWorld = useMemo\(\(\) => \{/);
+  assert.match(page, /const automaticallyCompletedWorld = \(\(\) => \{/);
   assert.match(page, /if \(!live\.active \|\| !live\.routeState\) return \[\]/);
   assert.match(page, /t\("today\.route\.completedLive"\)/);
   assert.match(page, /t\("today\.route\.completedManual"\)/);
@@ -893,6 +894,16 @@ test("route checks distinguish manual decisions from reversible LIVE completion"
   assert.match(page, /route-player-marker/);
   assert.match(page, /t\("today\.route\.youAreHere", \{ time:/);
   assert.match(page, /name=\{birthday\.id \|\| birthday\.person\}/);
+  assert.match(generator, /"routeContext": route_context/);
+  assert.match(generator, /"Secret Woods": axe_level >= 2/);
+  assert.match(generator, /"minecarts": any\(flag in received_mail/);
+  assert.match(page, /routeAccess\[stop\.location\] !== false/);
+  assert.match(page, /for \(const \[location, items\] of liveWorldItems\)/);
+  assert.match(page, /today\.route\.inaccessibleSkipped/);
+  assert.match(page, /today\.route\.unknownAccess/);
+  assert.match(page, /today\.route\.roughEstimate/);
+  assert.match(styles, /\.route-assumptions/);
+  assert.match(styles, /\.route-access-warning/);
 });
 
 test("Farm Cave tasks ignore placed containers and only expose ready cave rewards", async () => {
