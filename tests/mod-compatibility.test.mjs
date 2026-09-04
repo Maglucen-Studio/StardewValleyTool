@@ -81,6 +81,34 @@ test("supported local crop, object, and shop additions are catalog-aware", async
   }
 });
 
+test("safe fish, recipe, building, and location additions are catalog-aware", async () => {
+  const files = fixture();
+  try {
+    files.addMod("World Pack", {
+      UniqueID: "Example.World",
+      ContentPackFor: { UniqueID: "Pathoschild.ContentPatcher" },
+    }, { Changes: [
+      { Action: "EditData", Target: "Data/Fish", Entries: { "Example.Fish": "Example Fish/40/mixed/12/20/600 1200/spring/sunny/0/.4/0" } },
+      { Action: "EditData", Target: "Data/CookingRecipes", Entries: { "Example Meal": "24 1/10 1/Example.Meal" } },
+      { Action: "EditData", Target: "Data/Buildings", Entries: { "Example Shed": { Name: "Example Shed", BuildCost: 100 } } },
+      { Action: "EditData", Target: "Data/Locations", Entries: { "Example Lake": { DisplayName: "Example Lake", Fish: [] } } },
+      { Action: "EditData", Target: "Data/Locations", TargetField: ["Example Lake", "Fish"], Entries: { "Example.Spawn": { ItemId: "Example.Fish" } } },
+    ] });
+    const summary = scanModCompatibility(files.root);
+    assert.equal(summary.status, "mod-aware");
+    assert.deepEqual(summary.supportedDomains, ["fish", "recipes", "buildings", "locations"]);
+    assert.deepEqual(summary.uncertainDomains, []);
+    const overlay = await buildContentPatcherCatalogOverlay(files.root);
+    assert.equal(overlay.fish["Example.Fish"].startsWith("Example Fish/"), true);
+    assert.equal(overlay.cookingRecipes["Example Meal"], "24 1/10 1/Example.Meal");
+    assert.equal(overlay.buildings["Example Shed"].BuildCost, 100);
+    assert.equal(overlay.locations["Example Lake"].DisplayName, "Example Lake");
+    assert.equal(overlay.locationFish[0].items[0].ItemId, "Example.Fish");
+  } finally {
+    files.cleanup();
+  }
+});
+
 test("conditional or tokenized crop edits and code mods produce explicit uncertainty", async () => {
   const files = fixture();
   try {

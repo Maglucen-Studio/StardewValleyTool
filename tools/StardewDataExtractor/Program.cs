@@ -11,6 +11,7 @@ using StardewValley.GameData.FruitTrees;
 using StardewValley.GameData.FarmAnimals;
 using StardewValley.GameData.FishPonds;
 using StardewValley.GameData.Machines;
+using StardewValley.GameData.Locations;
 using StardewValley.GameData.Objects;
 using StardewValley.GameData.Shops;
 using StardewValley.GameData.WildTrees;
@@ -47,27 +48,80 @@ static class GameCatalogReader
         Dictionary<string, MachineData> machines = content.Load<Dictionary<string, MachineData>>("Data/Machines");
         Dictionary<string, BigCraftableData> bigCraftables = content.Load<Dictionary<string, BigCraftableData>>("Data/BigCraftables");
         Dictionary<string, BuildingData> buildings = content.Load<Dictionary<string, BuildingData>>("Data/Buildings");
+        Dictionary<string, LocationData> locations = content.Load<Dictionary<string, LocationData>>("Data/Locations");
+        Dictionary<string, string> fish = content.Load<Dictionary<string, string>>("Data/Fish");
         Dictionary<string, string> craftingRecipes = content.Load<Dictionary<string, string>>("Data/CraftingRecipes");
+        Dictionary<string, string> cookingRecipes = content.Load<Dictionary<string, string>>("Data/CookingRecipes");
         int skippedObjectEdits = 0;
         int skippedCropEdits = 0;
         int skippedShopEdits = 0;
+        int skippedFishEdits = 0;
+        int skippedRecipeEdits = 0;
+        int skippedBuildingEdits = 0;
+        int skippedLocationEdits = 0;
+        var moddedFishIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (!string.IsNullOrWhiteSpace(overlayPath) && File.Exists(overlayPath))
         {
             var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, IncludeFields = true };
             jsonOptions.Converters.Add(new JsonStringEnumConverter());
             CatalogOverlay? overlay = JsonSerializer.Deserialize<CatalogOverlay>(File.ReadAllText(overlayPath), jsonOptions);
+            if (overlay?.Fish is not null) moddedFishIds.UnionWith(overlay.Fish.Keys);
+            T? DeserializeEntry<T>(JsonElement entry) where T : class
+            {
+                try { return entry.Deserialize<T>(jsonOptions); }
+                catch { return null; }
+            }
             foreach ((string id, JsonElement entry) in overlay?.Objects ?? new())
             {
                 if (objects.ContainsKey(id)) { skippedObjectEdits += 1; continue; }
-                ObjectData? value = entry.Deserialize<ObjectData>(jsonOptions);
-                if (value is not null) objects[id] = value;
+                ObjectData? value = DeserializeEntry<ObjectData>(entry);
+                if (value is not null) objects[id] = value; else skippedObjectEdits += 1;
             }
             foreach ((string id, JsonElement entry) in overlay?.Crops ?? new())
             {
                 if (crops.ContainsKey(id)) { skippedCropEdits += 1; continue; }
-                CropData? value = entry.Deserialize<CropData>(jsonOptions);
-                if (value is not null) crops[id] = value;
+                CropData? value = DeserializeEntry<CropData>(entry);
+                if (value is not null) crops[id] = value; else skippedCropEdits += 1;
+            }
+            foreach ((string id, string entry) in overlay?.Fish ?? new())
+            {
+                if (fish.ContainsKey(id)) { skippedFishEdits += 1; continue; }
+                fish[id] = entry;
+            }
+            foreach ((string id, string entry) in overlay?.CookingRecipes ?? new())
+            {
+                if (cookingRecipes.ContainsKey(id)) { skippedRecipeEdits += 1; continue; }
+                cookingRecipes[id] = entry;
+            }
+            foreach ((string id, string entry) in overlay?.CraftingRecipes ?? new())
+            {
+                if (craftingRecipes.ContainsKey(id)) { skippedRecipeEdits += 1; continue; }
+                craftingRecipes[id] = entry;
+            }
+            foreach ((string id, JsonElement entry) in overlay?.Buildings ?? new())
+            {
+                if (buildings.ContainsKey(id)) { skippedBuildingEdits += 1; continue; }
+                BuildingData? value = DeserializeEntry<BuildingData>(entry);
+                if (value is not null) buildings[id] = value; else skippedBuildingEdits += 1;
+            }
+            foreach ((string id, JsonElement entry) in overlay?.Locations ?? new())
+            {
+                if (locations.ContainsKey(id)) { skippedLocationEdits += 1; continue; }
+                LocationData? value = DeserializeEntry<LocationData>(entry);
+                if (value is not null) locations[id] = value; else skippedLocationEdits += 1;
+            }
+            foreach (LocationFishOverlay addition in overlay?.LocationFish ?? new())
+            {
+                if (!locations.TryGetValue(addition.LocationId, out LocationData? location)) { skippedLocationEdits += addition.Items.Count; continue; }
+                location.Fish ??= new List<SpawnFishData>();
+                foreach (JsonElement entry in addition.Items)
+                {
+                    SpawnFishData? value = DeserializeEntry<SpawnFishData>(entry);
+                    if (value is null) { skippedLocationEdits += 1; continue; }
+                    if (location.Fish.Any(item => item.Id == value.Id)) { skippedLocationEdits += 1; continue; }
+                    location.Fish.Add(value);
+                }
             }
             foreach (ShopItemOverlay addition in overlay?.ShopItems ?? new())
             {
@@ -117,6 +171,55 @@ static class GameCatalogReader
             ObjectData? data = ObjectFor(qualifiedId);
             return new { id = qualifiedId, name = data?.Name ?? qualifiedId, price = data?.Price ?? 0, category = data?.Category, spriteIndex = data?.SpriteIndex, texture = data?.Texture };
         }
+
+        static int[] FishTimes(string[] parts)
+        {
+            if (parts.Length <= 5) return Array.Empty<int>();
+            return parts[5].Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(value => int.TryParse(value, out int parsed) ? parsed : -1)
+                .Where(value => value >= 0)
+                .ToArray();
+        }
+
+        var fishingCatalog = fish.Select(pair =>
+        {
+            string[] parts = pair.Value.Split('/');
+            string fishId = QualifyObject(pair.Key);
+            ObjectData? item = ObjectFor(fishId);
+            int[] times = FishTimes(parts);
+            var windows = Enumerable.Range(0, times.Length / 2)
+                .Select(index => new[] { times[index * 2], times[index * 2 + 1] }).ToArray();
+            var spawnLocations = locations
+                .SelectMany(location => (location.Value.Fish ?? new List<SpawnFishData>())
+                    .Where(spawn => QualifyObject(spawn.ItemId) == fishId)
+                    .Select(spawn => new
+                    {
+                        id = location.Key,
+                        displayName = location.Value.DisplayName,
+                        fishAreaId = spawn.FishAreaId,
+                        minFishingLevel = spawn.MinFishingLevel,
+                        condition = spawn.Condition,
+                        verified = string.IsNullOrWhiteSpace(spawn.Condition) && spawn.RandomItemId?.Count is not > 0,
+                    }))
+                .ToArray();
+            int.TryParse(parts.ElementAtOrDefault(1), out int difficulty);
+            return new
+            {
+                id = fishId,
+                name = item?.Name ?? parts.ElementAtOrDefault(0) ?? fishId,
+                difficulty,
+                behavior = parts.ElementAtOrDefault(2) ?? "mixed",
+                windows,
+                seasons = (parts.ElementAtOrDefault(6) ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries),
+                weather = parts.ElementAtOrDefault(7) ?? "both",
+                basePrice = item?.Price ?? 0,
+                spriteIndex = item?.SpriteIndex,
+                texture = item?.Texture,
+                locations = spawnLocations,
+                modded = moddedFishIds.Contains(pair.Key),
+                verified = item is not null && parts.Length >= 8 && windows.Length > 0 && spawnLocations.Any(location => location.verified),
+            };
+        }).Where(entry => entry.basePrice > 0).ToArray();
         object[] RecipeMaterials(string name)
         {
             string ingredients = craftingRecipes.GetValueOrDefault(name)?.Split('/').FirstOrDefault() ?? "";
@@ -484,7 +587,7 @@ static class GameCatalogReader
             .ToArray();
 
         return JsonSerializer.Serialize(
-            new { catalogVersion = 6, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, feedUnitCost = PurchasePrice("(O)178"), overlayDiagnostics = new { skipped = new { items = skippedObjectEdits + skippedShopEdits, crops = skippedCropEdits } } },
+            new { catalogVersion = 7, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, fishing = fishingCatalog, feedUnitCost = PurchasePrice("(O)178"), overlayDiagnostics = new { skipped = new { items = skippedObjectEdits + skippedShopEdits, crops = skippedCropEdits, fish = skippedFishEdits, recipes = skippedRecipeEdits, buildings = skippedBuildingEdits, locations = skippedLocationEdits } } },
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
         );
     }
@@ -498,7 +601,19 @@ static class GameCatalogReader
     {
         public Dictionary<string, JsonElement> Objects { get; set; } = new();
         public Dictionary<string, JsonElement> Crops { get; set; } = new();
+        public Dictionary<string, string> Fish { get; set; } = new();
+        public Dictionary<string, string> CookingRecipes { get; set; } = new();
+        public Dictionary<string, string> CraftingRecipes { get; set; } = new();
+        public Dictionary<string, JsonElement> Buildings { get; set; } = new();
+        public Dictionary<string, JsonElement> Locations { get; set; } = new();
+        public List<LocationFishOverlay> LocationFish { get; set; } = new();
         public List<ShopItemOverlay> ShopItems { get; set; } = new();
+    }
+
+    private sealed class LocationFishOverlay
+    {
+        public string LocationId { get; set; } = "";
+        public List<JsonElement> Items { get; set; } = new();
     }
 
     private sealed class ShopItemOverlay

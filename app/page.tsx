@@ -340,6 +340,11 @@ type FishingFish = {
   basePrice: number;
   minFishingLevel: number;
   caught: boolean;
+  modded?: boolean;
+  verified?: boolean;
+  spriteIndex?: number;
+  artworkUrl?: string;
+  artworkColumns?: number;
 };
 type DisplayFishingFish = FishingFish & { displayName: string };
 type FishingBrief = {
@@ -5945,6 +5950,9 @@ function FishingView({
     } as Record<string, string>)[name];
     return key ? t(`fishing.location.${key}`) : name;
   };
+  const fishArtwork = (fish: FishingFish, label: string) => fish.artworkUrl
+    ? <ModdedItemArtwork url={fish.artworkUrl} label={label} spriteIndex={fish.spriteIndex} columns={fish.artworkColumns} />
+    : <SheetArtwork id={fish.id} kind="object" label={label} />;
   const [hour, setHour] = useState(600);
   const [useLiveTime, setUseLiveTime] = useState(true);
   const [fishListMode, setFishListMode] = useState<"collection" | "all">(() =>
@@ -6231,6 +6239,11 @@ function FishingView({
                           : t("fishing.weather.sunny")}
                     </span>
                     <span>{t("fishing.difficulty", { difficulty: fish.difficulty })}</span>
+                    {fish.modded && !fish.verified && (
+                      <span className="mod-rule-badge" title={t("fishing.modRuleDetail")}>
+                        {t("fishing.modRuleUnverified")}
+                      </span>
+                    )}
                     {atLiveLocation(fish) && (
                       <span className="current-area-chip">
                         {t("fishing.availableHere")}
@@ -6299,11 +6312,7 @@ function FishingView({
                     className={`fish-row ${fish.caught ? "caught" : "missing"} ${mission ? "mission-fish" : ""} ${here ? "current-location-fish" : ""}`}
                     key={fish.id}
                   >
-                    <SheetArtwork
-                      id={fish.id}
-                      kind="object"
-                      label={fish.displayName}
-                    />
+                    {fishArtwork(fish, fish.displayName)}
                     <div>
                       <strong>
                         {fish.displayName}
@@ -6311,6 +6320,11 @@ function FishingView({
                         {here && <em className="here-badge">{t("fishing.here")}</em>}
                         {fishListMode === "all" && fish.caught && (
                           <em className="caught-badge">{t("fishing.caught")}</em>
+                        )}
+                        {fish.modded && !fish.verified && (
+                          <em className="mod-rule-badge" title={t("fishing.modRuleDetail")}>
+                            {t("fishing.modRuleUnverified")}
+                          </em>
                         )}
                       </strong>
                       <small>{fish.accessibleLocations.map(locationName).join(" · ")}</small>
@@ -6341,7 +6355,7 @@ function FishingView({
                   className={questForFish(fish) ? "mission-fish" : ""}
                   key={fish.id}
                 >
-                  <SheetArtwork id={fish.id} kind="object" label={fish.displayName} />
+                  {fishArtwork(fish, fish.displayName)}
                   <b>{fish.displayName}</b>
                   {questForFish(fish) && <em>{t("fishing.mission")}</em>} · {fishWindow(fish)}{" "}
                   · {locationName(fish.accessibleLocations[0])}

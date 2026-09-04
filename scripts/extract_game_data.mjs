@@ -94,7 +94,16 @@ const nameCatalogs = [
   ["Strings/FarmAnimals.xnb", key => key.includes("DisplayType_")],
 ];
 const fish = await unpack("Data/Fish.xnb");
+const cookingRecipes = await unpack("Data/CookingRecipes.xnb");
+const craftingRecipes = await unpack("Data/CraftingRecipes.xnb");
 const festivalDates = await unpack("Data/Festivals/FestivalDates.xnb");
+function addMissingEntries(target, additions) {
+  for (const [id, entry] of Object.entries(additions || {}))
+    if (!(id in target)) target[id] = entry;
+}
+addMissingEntries(fish, contentPatcherOverlay.fish);
+addMissingEntries(cookingRecipes, contentPatcherOverlay.cookingRecipes);
+addMissingEntries(craftingRecipes, contentPatcherOverlay.craftingRecipes);
 async function extractProductionCatalog() {
   const executable = resolve(projectRoot, "desktop", "resources", "game-data-extractor", "StardewDataExtractor.exe");
   if (!existsSync(executable))
@@ -208,8 +217,8 @@ const gameData = {
   _localization: { language: "neutral", catalogVersion: 11 },
   modCompatibility,
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
-  cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
-  craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),
+  cookingRecipes,
+  craftingRecipes,
   cookingChannel: await unpack("Data/TV/CookingChannel.xnb"),
   tipChannel: await unpack("Data/TV/TipChannel.xnb"),
   fish,
