@@ -1852,6 +1852,11 @@ test("desktop loading screen uses the complete original brand lockup and localiz
   assert.match(loadingScript, /messages\["loading\.title"\]/);
   assert.match(desktop, /t\("loading\.extractingAssets"\)/);
   assert.match(desktop, /t\("loading\.optimizing"\)/);
+  assert.match(desktop, /function loadingWindowBounds\(\)/);
+  assert.match(desktop, /const saved = loadWindowState\(\)/);
+  assert.match(desktop, /screen\.getDisplayNearestPoint\(/);
+  assert.match(desktop, /const area = display\.workArea/);
+  assert.match(desktop, /\.\.\.loadingWindowBounds\(\)/);
   assert.doesNotMatch(desktop, /progress\("Preparing your farmers/);
 });
 

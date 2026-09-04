@@ -357,6 +357,27 @@ function loadSetupWindowState() {
   return loadVisibleWindowState(setupWindowStatePath(), fallback, 720, 650);
 }
 
+function loadingWindowBounds() {
+  const width = 560;
+  const height = 430;
+  const saved = loadWindowState();
+  if (!Number.isFinite(saved.x) || !Number.isFinite(saved.y))
+    return { width, height };
+  const display = screen.getDisplayNearestPoint({
+    x: Math.round(saved.x + saved.width / 2),
+    y: Math.round(saved.y + saved.height / 2),
+  });
+  const area = display.workArea;
+  const centeredX = Math.round(saved.x + (saved.width - width) / 2);
+  const centeredY = Math.round(saved.y + (saved.height - height) / 2);
+  return {
+    width,
+    height,
+    x: Math.max(area.x, Math.min(centeredX, area.x + area.width - width)),
+    y: Math.max(area.y, Math.min(centeredY, area.y + area.height - height)),
+  };
+}
+
 function saveWindowState(window, path = windowStatePath()) {
   if (!window || window.isDestroyed()) return;
   const bounds = window.isMaximized()
@@ -1131,8 +1152,7 @@ function createLoadingWindow() {
   if (loadingWindow) return;
   loadingWindow = new BrowserWindow(
     secureWindowOptions({
-      width: 560,
-      height: 430,
+      ...loadingWindowBounds(),
       resizable: false,
       frame: false,
       webPreferences: { preload: join(projectRoot, "desktop", "preload.cjs") },
