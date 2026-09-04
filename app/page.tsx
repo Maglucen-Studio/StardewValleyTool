@@ -14,7 +14,7 @@ import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
 import { type ModCompatibilitySummary } from "./compatibility";
 import { furnitureDestination } from "./furniture-layout.mjs";
-import { estimateRouteMinutes, normalizeRouteProfile, orderRouteStops, ROUTE_PROFILES, type RouteProfile } from "./route-planner.mjs";
+import { estimateRouteMinutes, fishingQuestRouteStop, normalizeRouteProfile, orderRouteStops, ROUTE_PROFILES, type RouteProfile } from "./route-planner.mjs";
 import { ProductionCalculator, type ProductionAnimal, type ProductionCatalog } from "./planning/production-calculator";
 import {
   useI18n,
@@ -9221,6 +9221,35 @@ function DailyBriefView({
       })),
     ]),
   );
+  const bundleDeliveries = liveReadyBundleDeliveries(
+    current.planningBrief.communityCenter,
+    live,
+  );
+  const liveInventoryCounts = new Map<string, number>();
+  for (const item of live.inventory || []) {
+    const id = inventoryItemId(item);
+    liveInventoryCounts.set(id, (liveInventoryCounts.get(id) || 0) + item.count);
+  }
+  const routeBundleDeliveries = live.active
+    ? bundleDeliveries.filter((item) => (liveInventoryCounts.get(normalizeObjectId(item.id)) || 0) >= item.count)
+    : bundleDeliveries;
+  const routeQuestCandidates = live.active
+    ? live.acceptedQuests || []
+    : [brief.dailyQuest, ...(brief.acceptedQuests || [])];
+  const routeFishingQuest = routeQuestCandidates.find((quest) =>
+    quest.type.toLocaleLowerCase("en-US").includes("fishing") &&
+    (quest.progress || 0) < (quest.target || 1),
+  );
+  const routeFish = routeFishingQuest
+    ? current.fishingBrief.fish.find((fish) =>
+        fish.id === String(routeFishingQuest.requestedId || "").replace(/^\(O\)/, "") ||
+        fish.name === routeFishingQuest.requestedName)
+    : undefined;
+  const fishingRouteOpportunity = fishingQuestRouteStop(routeFish, {
+    season: live.active ? live.season || current.season : current.season,
+    weather: live.active ? (live.raining ? "rainy" : "sunny") : current.fishingBrief.weather,
+    time: live.active ? live.timeOfDay || 600 : 600,
+  });
   const routeSource = brief.world
     .filter((stop) => stop.location !== "Farm Cave")
     .map((stop) => ({ ...stop, items: [...stop.items] }));
@@ -9249,6 +9278,10 @@ function DailyBriefView({
     !routeSource.some((stop) => stop.location === "Town")
   )
     routeSource.push({ location: "Town", items: [] });
+  if (routeBundleDeliveries.length && !routeSource.some((stop) => stop.location === "Town"))
+    routeSource.push({ location: "Town", items: [] });
+  if (fishingRouteOpportunity && !routeSource.some((stop) => stop.location === fishingRouteOpportunity.location))
+    routeSource.push({ location: fishingRouteOpportunity.location, items: [] });
   const routeAccess = brief.routeContext?.access || {};
   const unavailableRouteStops = routeSource.filter(
     (stop) => routeAccess[stop.location] === false,
@@ -9319,6 +9352,8 @@ function DailyBriefView({
         notes.push(t("today.route.machinesReady", { count: readyMachinesCount }));
     }
     if (location === "Town") {
+      if (routeBundleDeliveries.length)
+        notes.push(t("today.route.bundleDeliveries", { count: routeBundleDeliveries.length }));
       if ((live.active ? liveBoardQuest : brief.boardQuest)?.available)
         notes.push(t("today.route.helpWantedAvailable"));
       if (activeDailyQuest.accepted) notes.push(t("today.route.helpWantedAccepted"));
@@ -9331,6 +9366,17 @@ function DailyBriefView({
             : t("today.route.toolWaiting", { tool: brief.toolUpgrade.displayName || brief.toolUpgrade.name }),
         );
     }
+    if (location === fishingRouteOpportunity?.location && routeFish)
+      notes.push(t("today.route.fishingQuestWindow", {
+        fish: routeFish.displayName || resolveGameDisplayName(
+          current.localizedNamesByQualifiedId || {},
+          current.localizedObjectNamesByEnglish || {},
+          routeFish.name,
+          `(O)${routeFish.id}`,
+        ),
+        start: fishTime(fishingRouteOpportunity.start),
+        end: fishTime(fishingRouteOpportunity.end),
+      }));
     return notes;
   };
   const displayedQuest = live.active
@@ -9426,10 +9472,6 @@ function DailyBriefView({
           (sum, crop) => sum + Math.max(0, crop.count - crop.watered),
           0,
         );
-  const bundleDeliveries = liveReadyBundleDeliveries(
-    current.planningBrief.communityCenter,
-    live,
-  );
   const bundleDeliveryDetail = bundleDeliveries
     .map(
       (item) => `${formatBundleRequirement(item, t, locale)} → ${communityRoomName(item.roomId, t)} · ${communityBundleName(item.bundleId, item.bundle, t)}`,

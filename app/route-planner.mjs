@@ -35,3 +35,25 @@ export function estimateRouteMinutes(stopCount, { horse = false, minecarts = fal
   const adjusted = base * (horse ? 0.8 : 1) * (minecarts ? 0.9 : 1);
   return Math.max(20, Math.round(adjusted / 10) * 10);
 }
+
+const FISHING_ROUTE_LOCATIONS = [
+  [/ocean|beach/i, "Beach"],
+  [/mountain|lake|mine/i, "Mountain"],
+  [/forest|cindersap/i, "Cindersap Forest"],
+  [/town|river/i, "Town"],
+  [/secret woods/i, "Secret Woods"],
+  [/desert/i, "Desert"],
+  [/ginger|island/i, "Ginger Island"],
+];
+
+export function fishingQuestRouteStop(fish, { season, weather, time = 600 } = {}) {
+  if (!fish || !fish.seasons?.includes(season)) return null;
+  if (fish.weather && fish.weather !== "both" && fish.weather !== weather) return null;
+  const futureWindow = (fish.windows || []).find(([, end]) => end > time);
+  if (!futureWindow) return null;
+  for (const rawLocation of fish.accessibleLocations || []) {
+    const match = FISHING_ROUTE_LOCATIONS.find(([pattern]) => pattern.test(rawLocation));
+    if (match) return { location: match[1], start: Math.max(time, futureWindow[0]), end: futureWindow[1] };
+  }
+  return null;
+}

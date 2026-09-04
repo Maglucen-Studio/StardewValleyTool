@@ -406,6 +406,8 @@
   "today.route.profile.mining.detail": "Prioritizes the mountain, railroad, and desert side of the route.",
   "today.route.profile.relaxed": "Relaxed",
   "today.route.profile.relaxed.detail": "Keeps every task but uses a more generous pace estimate.",
+  "today.route.bundleDeliveries": "{count} bundle deliveries ready",
+  "today.route.fishingQuestWindow": "Catch {fish} for the active request · {start}–{end}",
   "today.priority.waterCrops": "Water {count} crops",
   "today.priority.gettingLate": "It is getting late; do it before sleeping.",
   "today.priority.needWater": "They will not grow tonight without water.",
