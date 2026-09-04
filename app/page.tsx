@@ -506,7 +506,7 @@ type HistoryEntry = {
   petFriendship?: number;
   annotations?: LocalizedValue[];
 };
-type FarmHistory = { farmName: string; entries: HistoryEntry[] };
+type FarmHistory = { profileId: string; farmName: string; entries: HistoryEntry[] };
 type SessionSummary = {
   profileId: string;
   capturedAt: number;
@@ -640,6 +640,7 @@ type LiveQuest = {
 };
 type LiveState = {
   active: boolean;
+  profileId?: string;
   updatedAt?: string | number;
   dateKey?: string;
   timeOfDay?: number;
@@ -1704,6 +1705,7 @@ export default function Home() {
   const [data, setData] = useState<Snapshot | null>(null);
   const [previousDay, setPreviousDay] = useState<Snapshot | null>(null);
   const [history, setHistory] = useState<FarmHistory>({
+    profileId: "",
     farmName: "Farm",
     entries: [],
   });
@@ -2332,6 +2334,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const expectedProfileId = data?.profileId;
     const loadLive = () => {
       if (document.hidden) return Promise.resolve();
       return fetch(`/data/live-state.json?live=${Date.now()}`, {
@@ -2347,10 +2350,16 @@ export default function Home() {
           setLive((previous) => {
             const next = {
               ...payload,
-              active: Boolean(payload.active && fresh),
+              active: Boolean(
+                payload.active &&
+                fresh &&
+                expectedProfileId &&
+                payload.profileId === expectedProfileId
+              ),
             };
             return previous.updatedAt === next.updatedAt &&
-              previous.active === next.active
+              previous.active === next.active &&
+              previous.profileId === next.profileId
               ? previous
               : next;
           });
@@ -2364,7 +2373,7 @@ export default function Home() {
     loadLive();
     const timer = window.setInterval(loadLive, 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [data?.profileId]);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -2411,9 +2420,12 @@ export default function Home() {
         .then(([snapshot, farmHistory]: [Snapshot, FarmHistory]) => {
           snapshot = localizeSnapshotGameNames(snapshot, t, gameCatalog);
           const profileId = snapshot.profileId || "default";
+          if (farmHistory.profileId !== profileId) return;
           const sessionStorageKey = `stardew-tool-last-session-${profileId}`;
           if (sessionProfileRef.current !== profileId) {
             sessionProfileRef.current = profileId;
+            setPreviousDay(null);
+            setLive({ active: false, profileId });
             try {
               const saved = JSON.parse(
                 window.localStorage.getItem(sessionStorageKey) || "null",
@@ -2492,18 +2504,25 @@ export default function Home() {
   }, [data, live]);
 
   useEffect(() => {
-    if (!data) return;
+    if (!data || history.profileId !== data.profileId) {
+      const frame = window.requestAnimationFrame(() => setPreviousDay(null));
+      return () => window.cancelAnimationFrame(frame);
+    }
     const previous = history.entries
       .filter((entry) => entry.dayIndex < data.dayIndex)
       .at(-1);
-    if (!previous) return;
+    if (!previous) {
+      const frame = window.requestAnimationFrame(() => setPreviousDay(null));
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const expectedProfileId = data.profileId;
     fetch(`/data/days/${data.profileId || "default"}--${previous.dateKey}.json?save=${Date.now()}`, {
       cache: "no-store",
     })
       .then((response) => (response.ok ? response.json() : null))
       .then((snapshot) =>
         setPreviousDay(
-          snapshot
+          snapshot && snapshot.profileId === expectedProfileId
             ? localizeSnapshotGameNames(
                 { ...snapshot, seasonLabel: seasonName(snapshot.season) },
                 t,
@@ -2525,7 +2544,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!data?.dailyBrief) return;
-    const storageKey = `stardew-tool-daily-brief-${data.farmName}`;
+    const storageKey = `stardew-tool-daily-brief-${data.profileId}`;
     if (window.localStorage.getItem(storageKey) !== data.dateKey) {
       const frame = window.requestAnimationFrame(() => {
         window.localStorage.setItem(storageKey, data.dateKey);
@@ -8949,7 +8968,7 @@ function SectionVisibilityMenu({
 
 function DailyBriefView({
   current,
-  previous,
+  previous: candidatePrevious,
   history,
   live,
   sessionBaseline,
@@ -8963,6 +8982,9 @@ function DailyBriefView({
   onOpenCommunityCenter: () => void;
 }) {
   const { t, text, date, locale } = useI18n();
+  const previous = candidatePrevious?.profileId === current.profileId
+    ? candidatePrevious
+    : null;
   const todaySectionOptions = [
     { id: "overview", label: t("today.section.overview") },
     { id: "priorities", label: t("today.section.priorities") },
@@ -10485,6 +10507,9 @@ function GrowthView({
   live: LiveState;
 }) {
   const { t, text, locale } = useI18n();
+  previousSnapshot = previousSnapshot?.profileId === current.profileId
+    ? previousSnapshot
+    : null;
   const growthSectionOptions = [
     { id: "metrics", label: t("growth.section.metrics") },
     { id: "milestones", label: t("growth.section.milestones") },
@@ -10499,7 +10524,7 @@ function GrowthView({
       "stardew-tool-visible-sections-growth-v1",
       growthSectionOptions.map((option) => option.id),
     );
-  const entries = history.entries;
+  const entries = history.profileId === current.profileId ? history.entries : [];
   const annotatedEntries = entries
     .filter((entry) => entry.annotations?.length)
     .slice(-12)

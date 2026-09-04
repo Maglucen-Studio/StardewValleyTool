@@ -2266,7 +2266,7 @@ def history_entry(snapshot: dict) -> dict:
 def update_history(snapshots: list[dict]) -> None:
     history_path = PROFILE_DATA / "farm-history.json"
     farm_name = snapshots[-1]["farmName"]
-    history = {"farmName": farm_name, "entries": []}
+    history = {"profileId": PROFILE_ID, "farmName": farm_name, "entries": []}
     season_labels = {"spring": "Spring", "summer": "Summer", "fall": "Fall", "winter": "Winter"}
     progress_defaults = {
         "farming": 0, "mining": 0, "foraging": 0, "fishing": 0, "combat": 0,
@@ -2303,12 +2303,20 @@ def update_history(snapshots: list[dict]) -> None:
             if checkpoint and checkpoint.get("farmName", farm_name) == farm_name:
                 add_entry(checkpoint)
 
-    history_sources = [history_path]
-    history_sources.extend(sorted(HISTORY_BACKUPS.glob("farm-history-*.json")) if HISTORY_BACKUPS.is_dir() else [])
-    history_sources.extend(root / "farm-history.json" for root in history_data_roots())
-    for source in history_sources:
+    profile_history_sources = [history_path]
+    profile_history_sources.extend(sorted(HISTORY_BACKUPS.glob("farm-history-*.json")) if HISTORY_BACKUPS.is_dir() else [])
+    legacy_history_sources = [root / "farm-history.json" for root in history_data_roots()]
+    for source, profile_scoped in [
+        *((item, True) for item in profile_history_sources),
+        *((item, False) for item in legacy_history_sources),
+    ]:
         recovered = read_json(source)
-        if not recovered or recovered.get("farmName", farm_name) != farm_name:
+        if (
+            not recovered
+            or recovered.get("farmName", farm_name) != farm_name
+            or (not profile_scoped and recovered.get("profileId") != PROFILE_ID)
+            or (recovered.get("profileId") not in {None, PROFILE_ID})
+        ):
             continue
         for entry in recovered.get("entries", []):
             add_entry(entry)
@@ -2316,12 +2324,18 @@ def update_history(snapshots: list[dict]) -> None:
     days_path = PROFILE_DATA / "days"
     days_path.mkdir(parents=True, exist_ok=True)
     for root in [PROFILE_DATA, *history_data_roots()]:
+        profile_scoped = root.resolve() == PROFILE_DATA.resolve()
         source_days = root / "days"
         if not source_days.is_dir():
             continue
         for snapshot_path in sorted(source_days.glob("*.json")):
             recovered_snapshot = read_json(snapshot_path)
-            if not recovered_snapshot or recovered_snapshot.get("farmName", farm_name) != farm_name:
+            if (
+                not recovered_snapshot
+                or recovered_snapshot.get("farmName", farm_name) != farm_name
+                or (not profile_scoped and recovered_snapshot.get("profileId") != PROFILE_ID)
+                or (recovered_snapshot.get("profileId") not in {None, PROFILE_ID})
+            ):
                 continue
             try:
                 add_entry(history_entry(recovered_snapshot))
@@ -2382,6 +2396,7 @@ def update_history(snapshots: list[dict]) -> None:
                     annotations.append(localized_message("history.annotation.friendshipHearts", friend=friend.get("name", "Friendship"), hearts=friend.get("points", 0) // 250))
             entry["annotations"] = annotations[:12]
         previous = entry
+    history["profileId"] = PROFILE_ID
     history["farmName"] = farm_name
     history["entries"] = entries
     atomic_write_json(history_path, history, backup=True)

@@ -670,6 +670,9 @@ test("farm history is checkpointed, backed up, and recovered across migrations",
   assert.match(generator, /source_days\.glob\("\*\.json"\)/);
   assert.match(generator, /destination = days_path \/ f'\{recovered_snapshot\["dateKey"\]\}\.json'/);
   assert.match(generator, /f'\{PROFILE_ID\}--\{snapshot\["dateKey"\]\}\.json'/);
+  assert.match(generator, /history = \{"profileId": PROFILE_ID, "farmName": farm_name/);
+  assert.match(generator, /recovered\.get\("profileId"\) != PROFILE_ID/);
+  assert.match(generator, /recovered_snapshot\.get\("profileId"\) != PROFILE_ID/);
   assert.match(generator, /checkpoint_root\.glob\("\*\.json\.bak"\)/);
   assert.match(desktop, /legacyDataDirs/);
   assert.match(desktop, /STARDEW_TOOL_LEGACY_DATA_DIRS/);
@@ -683,6 +686,26 @@ test("farm history is checkpointed, backed up, and recovered across migrations",
   assert.match(bridge, /farmName = player\.farmName\.Value/);
   assert.equal(JSON.parse(sourceManifest).Version, "5.1.0");
   assert.equal(JSON.parse(bundledManifest).Version, "5.1.0");
+});
+
+test("farm switching isolates previous-day, history, and LIVE state by profile", async () => {
+  const [page, desktop, localServer] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/dev-local.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /type FarmHistory = \{ profileId: string;/);
+  assert.match(page, /if \(farmHistory\.profileId !== profileId\) return;/);
+  assert.match(page, /setPreviousDay\(null\);[\s\S]*setLive\(\{ active: false, profileId \}\);/);
+  assert.match(page, /history\.profileId !== data\.profileId/);
+  assert.match(page, /snapshot && snapshot\.profileId === expectedProfileId/);
+  assert.match(page, /candidatePrevious\?\.profileId === current\.profileId/);
+  assert.match(page, /payload\.profileId === expectedProfileId/);
+  assert.match(localServer, /JSON\.stringify\(\{ \.\.\.payload, profileId: activeProfileId \}\)/);
+  assert.match(desktop, /let manualFarmSelectionDuringGame = null;/);
+  assert.match(desktop, /if \(!running\) manualFarmSelectionDuringGame = null;/);
+  assert.match(desktop, /running && !manualFarmSelectionDuringGame && readConfig\(\)\?\.autoFollowActiveSave !== false/);
+  assert.match(desktop, /manualFarmSelectionDuringGame = isGameRunning\(\)/);
 });
 
 test("the SMAPI bridge stays invisible while exporting read-only LIVE state", async () => {
