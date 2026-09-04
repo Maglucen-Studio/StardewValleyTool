@@ -115,7 +115,10 @@ static class GameCatalogReader
         {
             string qualifiedId = QualifyObject(id);
             ObjectData? data = ObjectFor(qualifiedId);
-            return new { id = qualifiedId, name = data?.Name ?? qualifiedId, price = data?.Price ?? 0, category = data?.Category, spriteIndex = data?.SpriteIndex };
+            int? spriteIndex = data?.Texture?.StartsWith("Mods/", StringComparison.OrdinalIgnoreCase) == true
+                ? null
+                : data?.SpriteIndex;
+            return new { id = qualifiedId, name = data?.Name ?? qualifiedId, price = data?.Price ?? 0, category = data?.Category, spriteIndex };
         }
         object[] RecipeMaterials(string name)
         {

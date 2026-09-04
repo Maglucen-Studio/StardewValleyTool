@@ -433,7 +433,7 @@ function extractedAssetsAreStale(config, requiredAssets) {
   if (!existsSync(gameData)) return true;
   const extracted = readJson(gameData, {});
   if (
-    extracted?._localization?.catalogVersion !== 9
+    extracted?._localization?.catalogVersion !== 10
   )
     return true;
   return (
