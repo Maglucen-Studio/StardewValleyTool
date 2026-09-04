@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("stardewDesktop", {
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   downloadUpdate: () => ipcRenderer.invoke("updates:download"),
   installUpdate: () => ipcRenderer.invoke("updates:install"),
+  getReleaseNotesState: () => ipcRenderer.invoke("release-notes:get"),
+  acknowledgeReleaseNotes: () => ipcRenderer.invoke("release-notes:acknowledge"),
   onUpdateState: callback => {
     const listener = (_event, state) => callback(state);
     ipcRenderer.on("updates:state", listener);

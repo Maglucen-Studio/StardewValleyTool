@@ -8,7 +8,7 @@ type ChangelogSection = {
   entries: string[];
 };
 
-type ChangelogRelease = {
+export type ChangelogRelease = {
   version: string;
   date: string;
   sections: ChangelogSection[];
@@ -59,13 +59,55 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
 
 export const CHANGELOG_RELEASES = parseChangelog(changelogMarkdown);
 
-export function ChangelogHistory() {
+function versionParts(version: string) {
+  return version.split(".").map((part) => Number.parseInt(part, 10) || 0);
+}
+
+function compareVersions(left: string, right: string) {
+  const leftParts = versionParts(left);
+  const rightParts = versionParts(right);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (difference !== 0) return difference;
+  }
+  return 0;
+}
+
+export function selectChangelogReleases(
+  releases: ChangelogRelease[],
+  fromVersion?: string | null,
+  throughVersion?: string,
+) {
+  if (!fromVersion && !throughVersion) return releases;
+  const selected = releases.filter((release) => {
+    if (throughVersion && compareVersions(release.version, throughVersion) > 0) return false;
+    if (fromVersion && compareVersions(release.version, fromVersion) <= 0) return false;
+    return !throughVersion || fromVersion || compareVersions(release.version, throughVersion) === 0;
+  });
+  return selected.length > 0 ? selected : releases.slice(0, 1);
+}
+
+type ChangelogHistoryProps = {
+  fromVersion?: string | null;
+  throughVersion?: string;
+  headingId?: string;
+  compact?: boolean;
+};
+
+export function ChangelogHistory({
+  fromVersion,
+  throughVersion,
+  headingId = "help-changelog-title",
+  compact = false,
+}: ChangelogHistoryProps = {}) {
   const { t } = useI18n();
+  const releases = selectChangelogReleases(CHANGELOG_RELEASES, fromVersion, throughVersion);
 
   return (
-    <section className="help-changelog" aria-labelledby="help-changelog-title">
+    <section className={`help-changelog${compact ? " compact" : ""}`} aria-labelledby={headingId}>
       <div className="help-changelog-heading">
-        <h3 id="help-changelog-title">{t("web.home.changelog")}</h3>
+        <h3 id={headingId}>{t("web.home.changelog")}</h3>
         <a href={GITHUB_CHANGELOG_URL} target="_blank" rel="noreferrer">
           {t("web.home.viewChangelogOnGitHub")} <span aria-hidden="true">↗</span>
         </a>
@@ -74,7 +116,7 @@ export function ChangelogHistory() {
         {t("web.home.changelogIsAvailableOfflineAndReleaseNotesAreWrittenInEnglish")}
       </p>
       <div className="help-changelog-releases">
-        {CHANGELOG_RELEASES.map((release, releaseIndex) => (
+        {releases.map((release, releaseIndex) => (
           <details className="help-changelog-release" open={releaseIndex === 0} key={release.version}>
             <summary>
               <span>{t("web.home.version")} {release.version}</span>

@@ -30,6 +30,7 @@ import {
   createTranslator,
   resolveLanguage,
 } from "../scripts/localization.mjs";
+import { releaseNotesDecision } from "./release-notes.mjs";
 
 const desktopDevelopment = process.env.STARDEW_TOOL_DESKTOP_DEV === "1";
 const APP_ID = "io.github.maglucenstudio.stardewvalleycompanion";
@@ -45,6 +46,7 @@ let workRoot;
 let desktopDataRoot;
 let runtimeRoot;
 let configPath;
+let existingInstallationAtLaunch = false;
 let mainWindow = null;
 let setupWindow = null;
 let loadingWindow = null;
@@ -170,6 +172,35 @@ function migrateLegacyDesktopData(target) {
 
 function readConfig() {
   return readJson(configPath, null);
+}
+
+function releaseNotesStatePath() {
+  return join(desktopDataRoot, "release-notes-state.json");
+}
+
+function acknowledgeReleaseNotes(version = app.getVersion()) {
+  mkdirSync(desktopDataRoot, { recursive: true });
+  writeFileSync(
+    releaseNotesStatePath(),
+    JSON.stringify({ schemaVersion: 1, lastSeenVersion: version }, null, 2),
+    "utf8",
+  );
+}
+
+function currentReleaseNotesState() {
+  const saved = readJson(releaseNotesStatePath(), {});
+  const decision = releaseNotesDecision({
+    packaged: app.isPackaged,
+    development: desktopDevelopment,
+    currentVersion: app.getVersion(),
+    lastSeenVersion: typeof saved.lastSeenVersion === "string"
+      ? saved.lastSeenVersion
+      : null,
+    existingInstallation: existingInstallationAtLaunch,
+  });
+  if (decision.shouldAcknowledge)
+    acknowledgeReleaseNotes(decision.currentVersion);
+  return decision;
 }
 
 function localizationState(config = readConfig() || {}) {
@@ -1312,6 +1343,15 @@ function installIpc() {
     requireDashboardSender(event);
     return updateState;
   });
+  ipcMain.handle("release-notes:get", (event) => {
+    requireDashboardSender(event);
+    return currentReleaseNotesState();
+  });
+  ipcMain.handle("release-notes:acknowledge", (event) => {
+    requireDashboardSender(event);
+    acknowledgeReleaseNotes();
+    return { ok: true };
+  });
   ipcMain.handle("localization:get-state", (event) => {
     requireDashboardSender(event);
     return localizationPayload();
@@ -1564,6 +1604,7 @@ else {
     configPath = app.isPackaged
       ? join(desktopDataRoot, "config.json")
       : join(projectRoot, "config.local.json");
+    existingInstallationAtLaunch = existsSync(configPath);
     installIpc();
     configureAutoUpdates();
     Menu.setApplicationMenu(createApplicationMenu());
