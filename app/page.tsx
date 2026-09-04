@@ -668,6 +668,7 @@ type LiveState = {
   collections?: LiveCollections;
   farmMap?: LiveFarmMap;
   specialOrders?: SpecialOrderBrief[];
+  bridgeWarnings?: string[];
 };
 
 type DisplayNamedGameValue = { id?: string; name: string; displayName?: string };
@@ -3770,7 +3771,7 @@ export default function Home() {
                   <span>{t("web.home.liveFreshness")}<b>{live.active ? t("diagnostics.connectedAt", { time: formatLiveTime(live.timeOfDay) }) : t("diagnostics.offline")}</b></span>
                   <span>{t("web.home.environment")}<b>{diagnostics.development ? t("setup.development") : t("diagnostics.installed")}</b></span>
                   <button type="button" onClick={async () => {
-                    const text = JSON.stringify({ ...diagnostics, live: live.active, liveLocation: live.locationId || null }, null, 2);
+                    const text = JSON.stringify({ ...diagnostics, live: live.active, liveLocation: live.locationId || null, liveWarnings: live.bridgeWarnings || [] }, null, 2);
                     await (window as Window & { stardewDesktop?: DesktopUpdates }).stardewDesktop?.copyText(text);
                     setDiagnosticsCopied(true);
                   }}>{diagnosticsCopied ? t("diagnostics.copied") : t("diagnostics.copy")}</button>
@@ -4569,6 +4570,11 @@ function LiveDataPanel({
         <p className="live-offline">{t("web.liveDataPanel.whileTheGameIsClosedTheLatestSaveIs")}</p>
       ) : (
         <>
+          {Boolean(live.bridgeWarnings?.length) && (
+            <p className="live-offline">
+              {t("live.partialConnection", { sections: live.bridgeWarnings!.join(", ") })}
+            </p>
+          )}
           <div className="live-stat-grid">
             <div>
               <span>{t("web.liveDataPanel.time")}</span>
@@ -4700,7 +4706,7 @@ function LiveDataPanel({
       <section className="live-panel-section data-health">
         <div className="live-section-title">
           <strong>{t("web.liveDataPanel.dataStatus")}</strong>
-          <span>{live.active ? t("live.healthyConnection") : t("live.safeMode")}</span>
+          <span>{live.active ? live.bridgeWarnings?.length ? t("live.partialConnectionStatus") : t("live.healthyConnection") : t("live.safeMode")}</span>
         </div>
         <div className="live-route-state">
           <span>
