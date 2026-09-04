@@ -1820,6 +1820,7 @@
   "compatibility.modAwareDetail": "Companion detected supported local content-pack changes and incorporated the domains it understands.",
   "compatibility.uncertain": "Mod compatibility uncertain",
   "compatibility.uncertainDetail": "Installed mods may alter rules that Companion cannot verify. Review assumptions before relying on recommendations.",
+  "compatibility.contextual": "Some values in this result use modded rules that Companion cannot verify: {domains}.",
   "compatibility.modsDetected": "Installed mods",
   "compatibility.contentPacks": "Content packs",
   "compatibility.unclassifiedMods": "Unverified code mods",

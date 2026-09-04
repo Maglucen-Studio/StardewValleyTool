@@ -1820,6 +1820,7 @@
   "compatibility.modAwareDetail": "Companion ha detectado cambios compatibles de paquetes locales y ha incorporado los dominios que comprende.",
   "compatibility.uncertain": "Compatibilidad con mods incierta",
   "compatibility.uncertainDetail": "Los mods instalados pueden modificar reglas que Companion no puede verificar. Revisa las suposiciones antes de confiar en las recomendaciones.",
+  "compatibility.contextual": "Algunos valores de este resultado usan reglas modificadas que Companion no puede verificar: {domains}.",
   "compatibility.modsDetected": "Mods instalados",
   "compatibility.contentPacks": "Paquetes de contenido",
   "compatibility.unclassifiedMods": "Mods de código sin verificar",

@@ -12,7 +12,7 @@ import {
 } from "react";
 import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
-import { CompatibilityBadge, type ModCompatibilitySummary } from "./compatibility";
+import { type ModCompatibilitySummary } from "./compatibility";
 import { furnitureDestination } from "./furniture-layout.mjs";
 import { ProductionCalculator, type ProductionAnimal, type ProductionCatalog } from "./planning/production-calculator";
 import {
@@ -3619,7 +3619,6 @@ export default function Home() {
             {t("nav.progress")} <kbd>6</kbd>
           </button>
         </nav>
-        <CompatibilityBadge summary={data.modCompatibility} />
         <button
           className={`save-note ${live.active ? "is-live" : ""}`}
           onMouseEnter={openLivePanel}

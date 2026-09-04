@@ -15,17 +15,29 @@ export type ModCompatibilitySummary = {
   parseFailureCount: number;
 };
 
-export function CompatibilityBadge({ summary }: { summary?: ModCompatibilitySummary }) {
+export function CompatibilityNotice({
+  summary,
+  domains,
+}: {
+  summary?: ModCompatibilitySummary;
+  domains: string[];
+}) {
   const { t } = useI18n();
-  if (!summary || summary.status === "vanilla") return null;
-  const uncertain = summary.status === "uncertain";
+  const uncertainDomains = (summary?.uncertainDomains || []).filter((domain) =>
+    domains.includes(domain),
+  );
+  if (!uncertainDomains.length) return null;
   return (
-    <span
-      className={`compatibility-badge ${uncertain ? "uncertain" : "mod-aware"}`}
-      title={t(uncertain ? "compatibility.uncertainDetail" : "compatibility.modAwareDetail")}
+    <p
+      className="compatibility-notice"
+      title={t("compatibility.uncertainDetail")}
     >
-      <span aria-hidden="true">{uncertain ? "!" : "✓"}</span>
-      <b>{t(uncertain ? "compatibility.uncertain" : "compatibility.modAware")}</b>
-    </span>
+      <span aria-hidden="true">!</span>
+      <span>{t("compatibility.contextual", {
+        domains: uncertainDomains
+          .map((domain) => t(`compatibility.domain.${domain}`))
+          .join(", "),
+      })}</span>
+    </p>
   );
 }

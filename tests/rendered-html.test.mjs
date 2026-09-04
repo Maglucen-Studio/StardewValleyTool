@@ -1133,9 +1133,11 @@ test("the desktop refreshes extracted NPC assets after a mod changes", async () 
   assert.match(desktop, /extractedAssetsAreStale\(config, requiredAssets\)/);
 });
 
-test("mod compatibility is explicit and copied diagnostics exclude farm identity", async () => {
-  const [page, desktop, scanner, snapshot] = await Promise.all([
+test("mod compatibility is contextual and copied diagnostics exclude farm identity", async () => {
+  const [page, calculator, compatibility, desktop, scanner, snapshot] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/planning/production-calculator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/compatibility.tsx", import.meta.url), "utf8"),
     readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
     readFile(new URL("../scripts/mod-compatibility.mjs", import.meta.url), "utf8"),
     readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
@@ -1144,7 +1146,13 @@ test("mod compatibility is explicit and copied diagnostics exclude farm identity
   assert.match(scanner, /uncertainDomains/);
   assert.match(scanner, /SAFE_CODE_MODS/);
   assert.match(snapshot, /"modCompatibility": game_data\.get/);
-  assert.match(page, /<CompatibilityBadge summary=\{data\.modCompatibility\}/);
+  assert.doesNotMatch(page, /<CompatibilityBadge summary=\{data\.modCompatibility\}/);
+  assert.doesNotMatch(page, /<CompatibilityNotice/);
+  assert.match(calculator, /<CompatibilityNotice summary=\{modCompatibility\} domains=\{compatibilityDomains\}/);
+  assert.match(calculator, /selectedIsAnimal[\s\S]*?\["animals", "items", "buildings"/);
+  assert.match(calculator, /selectedIsPond[\s\S]*?\["fish", "items", "buildings"/);
+  assert.match(compatibility, /summary\?\.uncertainDomains/);
+  assert.match(compatibility, /domains\.includes\(domain\)/);
   assert.match(page, /modCompatibility: diagnostics\.modCompatibility/);
   assert.doesNotMatch(page, /JSON\.stringify\(\{ \.\.\.diagnostics/);
   assert.doesNotMatch(desktop, /profileId: profileIdForSave\(config\?\.savePath\)/);

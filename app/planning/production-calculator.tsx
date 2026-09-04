@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useI18n } from "../i18n";
-import { CompatibilityBadge, type ModCompatibilitySummary } from "../compatibility";
+import { CompatibilityNotice, type ModCompatibilitySummary } from "../compatibility";
 import {
   STARDEW_SEASONS,
   addStardewDays,
@@ -442,6 +442,15 @@ export function ProductionCalculator({
   const animalProcessors = (catalog?.artisanMachines || []).filter(conversion => animalInputIds.has(conversion.input.id));
   const animalProcessorConversion = animalProcessors.find(conversion => conversion.id === animalProcessorId);
   const pondProcessorConversion = (catalog?.artisanMachines || []).find(conversion => conversion.machine.name === "Preserves Jar");
+  const compatibilityDomains = selectedIsAnimal
+    ? ["animals", "items", "buildings", ...(animalProcessorConversion ? ["machines"] : [])]
+    : selectedIsPond
+      ? ["fish", "items", "buildings", ...(pondProcessRoe ? ["machines"] : [])]
+      : selectedIsMachine
+        ? ["machines", "items", "recipes", "other"]
+        : selectedIsForestry
+          ? ["crops", "items", "other"]
+          : ["crops", "items", "other"];
   const selectedNamed = namedEntries.find(({ entry }) => entry.id === selected?.id);
   const calculation = useMemo<Omit<SavedCalculation, "id">>(() => ({
     selectedId: selected?.id || "",
@@ -970,7 +979,6 @@ export function ProductionCalculator({
           <p className="eyebrow">{t("planner.quick.eyebrow")}</p>
           <h2 id="production-calculator-title">{t("planner.quick.title")}</h2>
           <p>{t("planner.quick.description")}</p>
-          <CompatibilityBadge summary={modCompatibility} />
         </div>
       </div>
       {!entries.length ? (
@@ -1286,6 +1294,7 @@ export function ProductionCalculator({
             </ul>}
             {selectedIsForestry && <ul className="planner-warnings"><li>{t(selected.kind === "mushroom-log" ? "forestry.logUncertainty" : !forestryExisting ? "forestry.treeUncertainty" : "forestry.tapAssumptions")}</li></ul>}
             {selected.kind === "crop" && selectedFertilizer && !selectedFertilizer.verifiedCost && <ul className="planner-warnings"><li>{t("planner.warning.fertilizer-cost-unknown", { fertilizer: fertilizerName(selectedFertilizer) })}</li></ul>}
+            <CompatibilityNotice summary={modCompatibility} domains={compatibilityDomains} />
           </div>}
           <div className="planner-bookmark-toolbar">
             <input type="text" value={bookmarkName} onChange={(event) => setBookmarkName(event.target.value)} placeholder={t("planner.bookmark.namePlaceholder")} aria-label={t("planner.bookmark.name")} />
