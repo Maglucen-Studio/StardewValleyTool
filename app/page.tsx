@@ -14,6 +14,7 @@ import packageMetadata from "../package.json";
 import { ChangelogHistory } from "./changelog";
 import { type ModCompatibilitySummary } from "./compatibility";
 import { furnitureDestination } from "./furniture-layout.mjs";
+import { estimateRouteMinutes, normalizeRouteProfile, orderRouteStops, ROUTE_PROFILES, type RouteProfile } from "./route-planner.mjs";
 import { ProductionCalculator, type ProductionAnimal, type ProductionCatalog } from "./planning/production-calculator";
 import {
   useI18n,
@@ -9029,6 +9030,22 @@ function DailyBriefView({
       todaySectionOptions.map((option) => option.id),
     );
   const brief = current.dailyBrief;
+  const routeProfileId = current.profileId || current.farmName;
+  const routeProfilesStorageKey = "stardew-tool-route-profiles-v1";
+  const [routeProfiles, setRouteProfiles] = useState<Record<string, RouteProfile>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      return JSON.parse(window.localStorage.getItem(routeProfilesStorageKey) || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const routeProfile = normalizeRouteProfile(routeProfiles[routeProfileId]);
+  const chooseRouteProfile = (profile: RouteProfile) => {
+    const next = { ...routeProfiles, [routeProfileId]: profile };
+    setRouteProfiles(next);
+    window.localStorage.setItem(routeProfilesStorageKey, JSON.stringify(next));
+  };
   const [todayTaskRecords, setTodayTaskRecords] = useState<Record<string, TodayTaskRecord>>({});
   const [todayTasksDateKey, setTodayTasksDateKey] = useState<string | null>(null);
   const [pinnedGoals, setPinnedGoals] = useState<PersonalGoal[]>([]);
@@ -9236,24 +9253,21 @@ function DailyBriefView({
   const unavailableRouteStops = routeSource.filter(
     (stop) => routeAccess[stop.location] === false,
   );
-  const routeWorld = routeSource.filter(
+  const accessibleRouteStops = routeSource.filter(
     (stop) => routeAccess[stop.location] !== false,
-  ).sort((a, b) => {
-    const ai = routeOrder.indexOf(a.location),
-      bi = routeOrder.indexOf(b.location);
-    return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
-  });
+  );
+  const routeWorld = orderRouteStops(accessibleRouteStops, routeProfile, currentRouteLocation);
   const activeRouteTransport = Object.entries(brief.routeContext?.transport || {})
     .filter(([, unlocked]) => unlocked)
     .map(([transport]) => t(`today.route.transport.${transport}`));
   const unknownRouteStops = routeWorld.filter(
     (stop) => !routeOrder.includes(stop.location) && routeAccess[stop.location] === undefined,
   );
-  const routeEstimateMinutes = routeWorld.length
-    ? Math.max(20, Math.round((routeWorld.length * 30 + Math.max(0, routeWorld.length - 1) * 20) *
-        (brief.routeContext?.transport.horse ? 0.8 : 1) *
-        (brief.routeContext?.transport.minecarts ? 0.9 : 1) / 10) * 10)
-    : 0;
+  const routeEstimateMinutes = estimateRouteMinutes(
+    routeWorld.length,
+    brief.routeContext?.transport,
+    routeProfile,
+  );
   const liveAcceptedQuests = live.active
     ? (live.acceptedQuests || []).map((quest) =>
         liveQuestStatus(
@@ -10161,6 +10175,15 @@ function DailyBriefView({
               </strong>
               <span>{t("web.dailyBrief.stopsCompleted")}</span>
             </div>
+          </div>
+          <div className="route-profile-control">
+            <label htmlFor="route-profile">{t("today.route.profile.label")}</label>
+            <select id="route-profile" value={routeProfile} onChange={(event) => chooseRouteProfile(event.target.value as RouteProfile)}>
+              {ROUTE_PROFILES.map((profile) => (
+                <option key={profile} value={profile}>{t(`today.route.profile.${profile}`)}</option>
+              ))}
+            </select>
+            <small>{t(`today.route.profile.${routeProfile}.detail`)}</small>
           </div>
           <div className="route-assumptions" aria-label={t("today.route.assumptionsLabel")}>
             <span>{t("today.route.roughEstimate", { minutes: routeEstimateMinutes })}</span>
