@@ -1110,6 +1110,23 @@ test("the desktop refreshes extracted NPC assets after a mod changes", async () 
   assert.match(desktop, /extractedAssetsAreStale\(config, requiredAssets\)/);
 });
 
+test("mod compatibility is explicit and copied diagnostics exclude farm identity", async () => {
+  const [page, desktop, scanner, snapshot] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/mod-compatibility.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+  ]);
+  assert.match(scanner, /scanModCompatibility/);
+  assert.match(scanner, /uncertainDomains/);
+  assert.match(scanner, /SAFE_CODE_MODS/);
+  assert.match(snapshot, /"modCompatibility": game_data\.get/);
+  assert.match(page, /<CompatibilityBadge summary=\{data\.modCompatibility\}/);
+  assert.match(page, /modCompatibility: diagnostics\.modCompatibility/);
+  assert.doesNotMatch(page, /JSON\.stringify\(\{ \.\.\.diagnostics/);
+  assert.doesNotMatch(desktop, /profileId: profileIdForSave\(config\?\.savePath\)/);
+});
+
 test("Farm and Plan remember separate sections while bundle links open Community Center", async () => {
   const page = await readFile(
     new URL("../app/page.tsx", import.meta.url),

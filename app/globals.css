@@ -306,6 +306,47 @@ button {
     sans-serif;
   color: #cbd7c7;
 }
+.compatibility-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 5px;
+  padding: 5px 7px;
+  border: 1px solid #6f8b70;
+  color: #d8e7d3;
+  background: #2d4535;
+  font: 800 8px/1 Arial, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.compatibility-badge > span {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #5c865f;
+}
+.compatibility-badge > b {
+  font: inherit;
+}
+.compatibility-badge.uncertain {
+  border-color: #c79a45;
+  color: #fff0c7;
+  background: #5d4525;
+}
+.compatibility-badge.uncertain > span {
+  background: #b77927;
+}
+.production-calculator .compatibility-badge {
+  margin-top: 7px;
+}
+@media (max-width: 1600px) {
+  .topbar > .compatibility-badge > b {
+    display: none;
+  }
+}
 .display-scale {
   display: flex;
   align-items: center;
