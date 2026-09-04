@@ -897,6 +897,10 @@ test("route checks distinguish manual decisions from reversible LIVE completion"
   assert.match(generator, /"routeContext": route_context/);
   assert.match(generator, /"Secret Woods": axe_level >= 2/);
   assert.match(generator, /"minecarts": any\(flag in received_mail/);
+  assert.match(generator, /game_data\.get\("festivalDates", \{\}\)/);
+  assert.match(generator, /"blacksmithOpenToday"/);
+  assert.match(page, /const blacksmithAvailable/);
+  assert.match(page, /today\.route\.blacksmithFestivalClosed/);
   assert.match(page, /routeAccess\[stop\.location\] !== false/);
   assert.match(page, /for \(const \[location, items\] of liveWorldItems\)/);
   assert.match(page, /today\.route\.inaccessibleSkipped/);
@@ -1673,8 +1677,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 10/);
-  assert.match(desktop, /catalogVersion !== 10/);
+  assert.match(extractor, /catalogVersion: 11/);
+  assert.match(desktop, /catalogVersion !== 11/);
   assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
   assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);

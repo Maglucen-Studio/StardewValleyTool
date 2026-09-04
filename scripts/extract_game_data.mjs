@@ -94,6 +94,7 @@ const nameCatalogs = [
   ["Strings/FarmAnimals.xnb", key => key.includes("DisplayType_")],
 ];
 const fish = await unpack("Data/Fish.xnb");
+const festivalDates = await unpack("Data/Festivals/FestivalDates.xnb");
 async function extractProductionCatalog() {
   const executable = resolve(projectRoot, "desktop", "resources", "game-data-extractor", "StardewDataExtractor.exe");
   if (!existsSync(executable))
@@ -180,7 +181,7 @@ async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, cata
   return {
     language: catalogLanguage,
     locale: catalogLocale,
-    catalogVersion: 10,
+    catalogVersion: 11,
     objectNames,
     localizedObjectNamesByEnglish,
     localizedNamesByQualifiedId,
@@ -204,7 +205,7 @@ const gameLocalizationCatalogs = Object.fromEntries(
 const activeLocalization = gameLocalizationCatalogs.en;
 
 const gameData = {
-  _localization: { language: "neutral", catalogVersion: 10 },
+  _localization: { language: "neutral", catalogVersion: 11 },
   modCompatibility,
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
@@ -212,6 +213,7 @@ const gameData = {
   cookingChannel: await unpack("Data/TV/CookingChannel.xnb"),
   tipChannel: await unpack("Data/TV/TipChannel.xnb"),
   fish,
+  festivalDates,
   productionCatalog,
   hair: await unpack("Data/HairData.xnb"),
   hats: await unpack("Data/hats.xnb"),
