@@ -4194,6 +4194,31 @@ button {
   flex-wrap: wrap;
   gap: 5px;
 }
+.route-profile-control {
+  margin: 0 0 9px;
+  display: grid;
+  grid-template-columns: auto minmax(130px, 210px) 1fr;
+  gap: 8px;
+  align-items: center;
+}
+.route-profile-control label {
+  color: #775e3a;
+  font: 700 8px Arial, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.route-profile-control select {
+  min-height: 30px;
+  padding: 5px 24px 5px 7px;
+  border: 1px solid #c8baa3;
+  background: #fff9ed;
+  color: #263d2d;
+  font: 10px Arial, sans-serif;
+}
+.route-profile-control small {
+  color: #766b5c;
+  font: 8px/1.35 Arial, sans-serif;
+}
 .route-assumptions span {
   padding: 4px 7px;
   border: 1px solid #c5cdbb;
