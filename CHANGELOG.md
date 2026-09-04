@@ -2,6 +2,19 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.11.1 — 2026-09-04
+
+### Improved
+
+- Companion now shows the relevant release notes once after an application update, including every release skipped by the previous installed version.
+- New installations and development sessions remain uninterrupted, while the complete offline changelog stays available from Help.
+
+### Fixed
+
+- The read-only LIVE bridge now isolates failures in quests, locations, storage, machines, animals, collections, and farm-map data so one incompatible or incomplete value cannot stop the remaining snapshot from updating.
+- Repeated bridge failures are deduplicated, previously valid slow-changing sections are preserved, and Companion identifies partial LIVE data without modifying the game or save.
+- Added null-safe handling for modded or partially removed game data that can remain in established saves after a mod changes or is uninstalled.
+
 ## 1.11.0 — 2026-09-03
 
 ### New
