@@ -668,6 +668,7 @@ type LiveState = {
   collections?: LiveCollections;
   farmMap?: LiveFarmMap;
   specialOrders?: SpecialOrderBrief[];
+  bridgeWarnings?: string[];
 };
 
 type DisplayNamedGameValue = { id?: string; name: string; displayName?: string };
@@ -1135,6 +1136,12 @@ type DesktopUpdates = {
   downloadUpdate: () => Promise<UpdateState>;
   installUpdate: () => Promise<{ ok: boolean }>;
   onUpdateState: (callback: (state: UpdateState) => void) => () => void;
+  getReleaseNotesState?: () => Promise<{
+    shouldShow: boolean;
+    currentVersion: string;
+    previousVersion: string | null;
+  }>;
+  acknowledgeReleaseNotes?: () => Promise<{ ok: boolean }>;
   listFarms: () => Promise<{
     activePath: string;
     farms: FarmOption[];
@@ -1736,6 +1743,10 @@ export default function Home() {
   const languageSwitchingRef = useRef(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [releaseNotes, setReleaseNotes] = useState<{
+    currentVersion: string;
+    previousVersion: string | null;
+  } | null>(null);
   const [showAppSearch, setShowAppSearch] = useState(false);
   const [appSearchQuery, setAppSearchQuery] = useState("");
   const appSearchInputRef = useRef<HTMLInputElement>(null);
@@ -1886,6 +1897,28 @@ export default function Home() {
   useEffect(() => {
     const desktop = (window as Window & { stardewDesktop?: DesktopUpdates })
       .stardewDesktop;
+    desktop?.getReleaseNotesState?.()
+      .then((state) => {
+        if (state.shouldShow) {
+          setReleaseNotes({
+            currentVersion: state.currentVersion,
+            previousVersion: state.previousVersion,
+          });
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const closeReleaseNotes = useCallback(() => {
+    setReleaseNotes(null);
+    const desktop = (window as Window & { stardewDesktop?: DesktopUpdates })
+      .stardewDesktop;
+    desktop?.acknowledgeReleaseNotes?.().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const desktop = (window as Window & { stardewDesktop?: DesktopUpdates })
+      .stardewDesktop;
     if (!desktop?.listFarms) return;
     desktop
       .listFarms()
@@ -2014,6 +2047,8 @@ export default function Home() {
       } else if (showAppSearch) {
         setShowAppSearch(false);
         setAppSearchQuery("");
+      } else if (releaseNotes) {
+        closeReleaseNotes();
       } else if (showHelp) {
         setShowHelp(false);
       } else if (locatedItemName) {
@@ -2031,7 +2066,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", closePopup);
     return () => window.removeEventListener("keydown", closePopup);
-  }, [locatedItemName, showAppSearch, showDailyBrief, showFarmSwitcher, showHelp, showLanguageMenu, showLiveAlerts]);
+  }, [closeReleaseNotes, locatedItemName, releaseNotes, showAppSearch, showDailyBrief, showFarmSwitcher, showHelp, showLanguageMenu, showLiveAlerts]);
 
   useEffect(() => {
     const openSection = (event: KeyboardEvent) => {
@@ -2039,6 +2074,7 @@ export default function Home() {
       const target = event.target as HTMLElement | null;
       if (
         target?.closest("input, select, textarea, [contenteditable='true']") ||
+        releaseNotes ||
         showHelp ||
         showLiveAlerts ||
         showAppSearch ||
@@ -2069,7 +2105,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", openSection);
     return () => window.removeEventListener("keydown", openSection);
-  }, [locatedItemName, navigateTo, showAppSearch, showDailyBrief, showHelp, showLiveAlerts]);
+  }, [locatedItemName, navigateTo, releaseNotes, showAppSearch, showDailyBrief, showHelp, showLiveAlerts]);
 
   useEffect(() => {
     if (!["current", "unavailable", "error"].includes(updateState.status))
@@ -3718,6 +3754,31 @@ export default function Home() {
           </section>
         </div>
       )}
+      {releaseNotes && (
+        <div className="help-backdrop" onPointerDown={closeReleaseNotes}>
+          <section
+            className="help-dialog release-notes-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="release-notes-title"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <button className="help-close" onClick={closeReleaseNotes} aria-label={t("releaseNotes.close")}>×</button>
+            <p className="eyebrow">{t("releaseNotes.whatsNew")}</p>
+            <h2 id="release-notes-title">{t("releaseNotes.updatedTo", { version: releaseNotes.currentVersion })}</h2>
+            <p>{t("releaseNotes.intro")}</p>
+            <ChangelogHistory
+              fromVersion={releaseNotes.previousVersion}
+              throughVersion={releaseNotes.currentVersion}
+              headingId="release-notes-changelog-title"
+              compact
+            />
+            <div className="release-notes-actions">
+              <button type="button" onClick={closeReleaseNotes}>{t("releaseNotes.continue")}</button>
+            </div>
+          </section>
+        </div>
+      )}
       {showHelp && (
         <div className="help-backdrop" onPointerDown={() => setShowHelp(false)}>
           <section
@@ -3770,7 +3831,7 @@ export default function Home() {
                   <span>{t("web.home.liveFreshness")}<b>{live.active ? t("diagnostics.connectedAt", { time: formatLiveTime(live.timeOfDay) }) : t("diagnostics.offline")}</b></span>
                   <span>{t("web.home.environment")}<b>{diagnostics.development ? t("setup.development") : t("diagnostics.installed")}</b></span>
                   <button type="button" onClick={async () => {
-                    const text = JSON.stringify({ ...diagnostics, live: live.active, liveLocation: live.locationId || null }, null, 2);
+                    const text = JSON.stringify({ ...diagnostics, live: live.active, liveLocation: live.locationId || null, liveWarnings: live.bridgeWarnings || [] }, null, 2);
                     await (window as Window & { stardewDesktop?: DesktopUpdates }).stardewDesktop?.copyText(text);
                     setDiagnosticsCopied(true);
                   }}>{diagnosticsCopied ? t("diagnostics.copied") : t("diagnostics.copy")}</button>
@@ -4569,6 +4630,11 @@ function LiveDataPanel({
         <p className="live-offline">{t("web.liveDataPanel.whileTheGameIsClosedTheLatestSaveIs")}</p>
       ) : (
         <>
+          {Boolean(live.bridgeWarnings?.length) && (
+            <p className="live-offline">
+              {t("live.partialConnection", { sections: live.bridgeWarnings!.join(", ") })}
+            </p>
+          )}
           <div className="live-stat-grid">
             <div>
               <span>{t("web.liveDataPanel.time")}</span>
@@ -4700,7 +4766,7 @@ function LiveDataPanel({
       <section className="live-panel-section data-health">
         <div className="live-section-title">
           <strong>{t("web.liveDataPanel.dataStatus")}</strong>
-          <span>{live.active ? t("live.healthyConnection") : t("live.safeMode")}</span>
+          <span>{live.active ? live.bridgeWarnings?.length ? t("live.partialConnectionStatus") : t("live.healthyConnection") : t("live.safeMode")}</span>
         </div>
         <div className="live-route-state">
           <span>

@@ -22,6 +22,8 @@ test("the packaged changelog is structured and matches the application version",
   assert.match(component, /https:\/\/github\.com\/Maglucen-Studio\/StardewValleyTool\/blob\/main\/CHANGELOG\.md/);
   assert.match(component, /target="_blank" rel="noreferrer"/);
   assert.match(page, /<ChangelogHistory \/>/);
+  assert.match(page, /fromVersion=\{releaseNotes\.previousVersion\}/);
+  assert.match(component, /selectChangelogReleases/);
 });
 
 test("changelog validation rejects stale or malformed release data", () => {

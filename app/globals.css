@@ -582,6 +582,28 @@ button {
   margin: 4px 36px 5px 0;
   font: 30px/1.1 Georgia, serif;
 }
+.release-notes-dialog {
+  width: min(720px, 100%);
+}
+.release-notes-dialog > p:not(.eyebrow) {
+  margin: 8px 0 0;
+  color: #665a49;
+  font: 12px/1.5 Arial, sans-serif;
+}
+.release-notes-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+.release-notes-actions button {
+  min-width: 130px;
+  padding: 10px 18px;
+  border: 1px solid #94763e;
+  color: #fff8e8;
+  background: #48694f;
+  cursor: pointer;
+  font: 800 10px/1.35 Arial, sans-serif;
+}
 .help-close {
   position: absolute;
   top: 13px;
@@ -647,6 +669,9 @@ button {
 .help-changelog {
   margin-top: 15px;
   font: 11px/1.5 Arial, sans-serif;
+}
+.help-changelog.compact .help-changelog-intro {
+  display: none;
 }
 .help-changelog-heading,
 .help-changelog-heading h3,
