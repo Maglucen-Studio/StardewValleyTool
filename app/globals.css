@@ -8140,6 +8140,12 @@ button {
     700 12px Arial,
     sans-serif;
 }
+.modded-item-fallback {
+  display: none;
+}
+.modded-item-artwork.missing .modded-item-fallback {
+  display: block;
+}
 .animal-artwork {
   position: relative;
   flex: 0 0 40px;

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, resolve } from "node:path";
@@ -9,6 +10,7 @@ import { ensureRuntimeDirectories, syncRuntimePublic } from "./runtime-files.mjs
 import { renderCommunityRooms } from "./render-community-rooms.mjs";
 import { localizedXnbPath } from "./localization.mjs";
 import { scanModCompatibility } from "./mod-compatibility.mjs";
+import { buildContentPatcherCatalogOverlay } from "./content-patcher-catalog.mjs";
 
 const config = loadConfig();
 const errors = validateConfig(config, { requireSave: false });
@@ -16,6 +18,7 @@ if (errors.length) throw new Error(errors.join(" "));
 const project = runtimeRoot;
 const { contentRoot, modsRoot } = runtimePaths(config);
 const modCompatibility = scanModCompatibility(modsRoot);
+const contentPatcherOverlay = await buildContentPatcherCatalogOverlay(modsRoot);
 ensureRuntimeDirectories();
 
 async function unpack(relativePath) {
@@ -91,11 +94,14 @@ const nameCatalogs = [
   ["Strings/FarmAnimals.xnb", key => key.includes("DisplayType_")],
 ];
 const fish = await unpack("Data/Fish.xnb");
-function extractProductionCatalog() {
+async function extractProductionCatalog() {
   const executable = resolve(projectRoot, "desktop", "resources", "game-data-extractor", "StardewDataExtractor.exe");
   if (!existsSync(executable))
     throw new Error("The local game data extractor is missing. Run npm run desktop:game-data.");
-  const result = spawnSync(executable, [config.stardewPath], {
+  const overlayPath = resolve(project, "assetbuild/content-patcher-catalog.json");
+  await mkdir(resolve(overlayPath, ".."), { recursive: true });
+  await writeFile(overlayPath, JSON.stringify(contentPatcherOverlay), "utf8");
+  const result = spawnSync(executable, [config.stardewPath, overlayPath], {
     cwd: projectRoot,
     encoding: "utf8",
     windowsHide: true,
@@ -106,7 +112,36 @@ function extractProductionCatalog() {
     throw new Error(`The local game data extractor exited with code ${result.status}: ${result.stderr || "unknown error"}`);
   return JSON.parse(result.stdout);
 }
-const productionCatalog = extractProductionCatalog();
+const productionCatalog = await extractProductionCatalog();
+async function attachContentPatcherArtwork(catalog, overlay) {
+  const artwork = new Map();
+  for (const [target, source] of Object.entries(overlay.textures || {})) {
+    try {
+      const image = await readFile(source);
+      if (image.length < 24 || image.toString("ascii", 1, 4) !== "PNG") continue;
+      const width = image.readUInt32BE(16);
+      const name = `${createHash("sha256").update(target).digest("hex").slice(0, 20)}.png`;
+      const destination = resolve(project, "public/assets/mod-items", name);
+      await mkdir(resolve(destination, ".."), { recursive: true });
+      await copyFile(source, destination);
+      artwork.set(target.toLowerCase(), { artworkUrl: `/assets/mod-items/${name}`, artworkColumns: Math.max(1, Math.floor(width / 16)) });
+    } catch {
+      // Missing optional textures retain the generated placeholder.
+    }
+  }
+  const visit = (value) => {
+    if (!value || typeof value !== "object") return;
+    if (typeof value.texture === "string") Object.assign(value, artwork.get(value.texture.replace(/\\/g, "/").toLowerCase()) || {});
+    for (const child of Array.isArray(value) ? value : Object.values(value)) visit(child);
+  };
+  visit(catalog);
+}
+await attachContentPatcherArtwork(productionCatalog, contentPatcherOverlay);
+for (const [domain, skipped] of Object.entries(productionCatalog.overlayDiagnostics?.skipped || {})) {
+  if (!skipped) continue;
+  modCompatibility.status = "uncertain";
+  modCompatibility.uncertainDomains = [...new Set([...modCompatibility.uncertainDomains, domain])];
+}
 async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, catalogSuffix) {
   const localizedObjectNamesByEnglish = Object.assign(
     {},
@@ -145,7 +180,7 @@ async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, cata
   return {
     language: catalogLanguage,
     locale: catalogLocale,
-    catalogVersion: 9,
+    catalogVersion: 10,
     objectNames,
     localizedObjectNamesByEnglish,
     localizedNamesByQualifiedId,
@@ -169,7 +204,7 @@ const gameLocalizationCatalogs = Object.fromEntries(
 const activeLocalization = gameLocalizationCatalogs.en;
 
 const gameData = {
-  _localization: { language: "neutral", catalogVersion: 9 },
+  _localization: { language: "neutral", catalogVersion: 10 },
   modCompatibility,
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
@@ -322,7 +357,9 @@ async function readJson5(path, fallback = {}) {
 }
 
 function conditionMatches(when, configValues) {
-  return Object.entries(when || {}).every(([key, expected]) => !(key in configValues) || String(configValues[key]).toLowerCase() === String(expected).toLowerCase());
+  return Object.entries(when || {}).every(([key, expected]) =>
+    key in configValues && String(configValues[key]).toLowerCase() === String(expected).toLowerCase(),
+  );
 }
 
 function resolveTokens(value, tokens) {

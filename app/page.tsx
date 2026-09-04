@@ -5292,6 +5292,19 @@ function SheetArtwork({
   );
 }
 
+function ModdedItemArtwork({ url, label, spriteIndex = 0, columns = 1 }: { url: string; label: string; spriteIndex?: number; columns?: number }) {
+  const scale = 2;
+  return <span className="sheet-artwork object modded-item-artwork" title={label} aria-hidden="true">
+    <span className="modded-item-fallback">{label.slice(0, 1)}</span>
+    {/* Content Patcher artwork is copied from the local installation at runtime. */}
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img src={url} alt="" style={{ left: -(spriteIndex % columns) * 16 * scale, top: -Math.floor(spriteIndex / columns) * 16 * scale }} onError={(event) => {
+      event.currentTarget.hidden = true;
+      event.currentTarget.closest(".sheet-artwork")?.classList.add("missing");
+    }} />
+  </span>;
+}
+
 function AnimalArtwork({ animal, label }: { animal: ProductionAnimal; label: string }) {
   const width = Math.max(1, Number(animal.spriteWidth) || 16);
   const height = Math.max(1, Number(animal.spriteHeight) || 16);
@@ -7737,7 +7750,9 @@ function PlanningView({
             currentPonds={current.planningBrief.fishPonds}
             profileId={current.profileId || `${current.farmName}-${current.farmer}`}
             resolveGameName={gameName}
-            renderItemArtwork={(id, name, spriteIndex) => <SheetArtwork id={String(spriteIndex ?? id.replace(/^\((?:O|BC)\)/, ""))} kind={id.startsWith("(BC)") ? "craftable" : "object"} label={name} fit />}
+            renderItemArtwork={(id, name, spriteIndex, artworkUrl, artworkColumns) => artworkUrl
+              ? <ModdedItemArtwork url={artworkUrl} label={name} spriteIndex={spriteIndex} columns={artworkColumns} />
+              : <SheetArtwork id={String(spriteIndex ?? id.replace(/^\((?:O|BC)\)/, ""))} kind={id.startsWith("(BC)") ? "craftable" : "object"} label={name} fit />}
             renderAnimalArtwork={(animal) => <AnimalArtwork animal={animal} label={gameName(animal.name)} />}
             modCompatibility={current.modCompatibility}
           />

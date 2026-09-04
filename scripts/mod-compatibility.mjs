@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
 import JSON5 from "json5";
+import { supportedAssetLoad, supportedDataEdit } from "./content-patcher-catalog.mjs";
 
 const SAFE_CODE_MODS = new Set([
   "maglucen.stardewvalleytoolbridge",
@@ -9,13 +10,14 @@ const SAFE_CODE_MODS = new Set([
   "pathoschild.contentpatcher",
   "smapi.savebackup",
 ]);
-const SUPPORTED_CONTENT_PACK_DOMAINS = new Set(["npcs"]);
+const SUPPORTED_CONTENT_PACK_DOMAINS = new Set(["items", "crops", "npcs"]);
 const DOMAIN_ORDER = ["items", "crops", "fish", "recipes", "machines", "animals", "npcs", "buildings", "locations", "maps", "quests", "other"];
 
 function domainForTarget(target) {
   const normalized = String(target || "").replace(/\\/g, "/").toLowerCase();
   if (!normalized || normalized.includes("{{")) return "other";
   if (/^data\/(objects|bigcraftables|furniture|hats|shirts|pants|boots)/.test(normalized)) return "items";
+  if (/^data\/shops/.test(normalized)) return "items";
   if (/^data\/(crops|wildtrees|fruittrees)/.test(normalized)) return "crops";
   if (/^data\/(fish|fishponddata)/.test(normalized)) return "fish";
   if (/^data\/(cookingrecipes|craftingrecipes)/.test(normalized)) return "recipes";
@@ -29,11 +31,14 @@ function domainForTarget(target) {
   return "other";
 }
 
-function supportedContentChange(action, target) {
+function supportedContentChange(change, target) {
+  const action = String(change?.Action || "").toLowerCase();
   const normalized = String(target || "").replace(/\\/g, "/").toLowerCase();
+  if (supportedDataEdit(change, normalized)) return true;
   return (
+    !change?.When &&
     (action === "editdata" && ["data/characters", "data/npcgifttastes"].includes(normalized)) ||
-    (action === "load" && /^(characters|portraits)\/[^/]+$/.test(normalized))
+    (!change?.When && action === "load" && /^(characters|portraits)\/[^/]+$/.test(normalized))
   );
 }
 
@@ -99,9 +104,10 @@ function inspectContentFile(path, packRoot, state, visited, depth = 0) {
       continue;
     }
     for (const target of targets) {
+      if (supportedAssetLoad(change, target)) continue;
       const domain = domainForTarget(target);
       state.alteredDomains.add(domain);
-      if (domain === "other" || !SUPPORTED_CONTENT_PACK_DOMAINS.has(domain) || !supportedContentChange(action, target))
+      if (domain === "other" || !SUPPORTED_CONTENT_PACK_DOMAINS.has(domain) || !supportedContentChange(change, target))
         state.uncertainDomains.add(domain);
       else
         state.supportedDomains.add(domain);

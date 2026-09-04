@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Xna.Framework.Content;
 using StardewValley.GameData.BigCraftables;
 using StardewValley.GameData.Buildings;
@@ -15,8 +16,8 @@ using StardewValley.GameData.Shops;
 using StardewValley.GameData.WildTrees;
 using GameObject = StardewValley.Object;
 
-if (args.Length != 1)
-    throw new ArgumentException("Expected the local Stardew Valley installation directory.");
+if (args.Length is < 1 or > 2)
+    throw new ArgumentException("Expected the local Stardew Valley installation directory and an optional local data overlay.");
 
 string gameRoot = Path.GetFullPath(args[0]);
 AssemblyLoadContext.Default.Resolving += (_, assemblyName) =>
@@ -25,7 +26,7 @@ AssemblyLoadContext.Default.Resolving += (_, assemblyName) =>
     return File.Exists(candidate) ? AssemblyLoadContext.Default.LoadFromAssemblyPath(candidate) : null;
 };
 
-Console.Write(GameCatalogReader.Read(Path.Combine(gameRoot, "Content")));
+Console.Write(GameCatalogReader.Read(Path.Combine(gameRoot, "Content"), args.Length > 1 ? args[1] : null));
 
 static class GameCatalogReader
 {
@@ -33,7 +34,7 @@ static class GameCatalogReader
     private const int FruitTreeClearanceTiles = 9;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static string Read(string contentRoot)
+    public static string Read(string contentRoot, string? overlayPath)
     {
         using var content = new ContentManager(new EmptyServices(), contentRoot);
         Dictionary<string, CropData> crops = content.Load<Dictionary<string, CropData>>("Data/Crops");
@@ -47,6 +48,39 @@ static class GameCatalogReader
         Dictionary<string, BigCraftableData> bigCraftables = content.Load<Dictionary<string, BigCraftableData>>("Data/BigCraftables");
         Dictionary<string, BuildingData> buildings = content.Load<Dictionary<string, BuildingData>>("Data/Buildings");
         Dictionary<string, string> craftingRecipes = content.Load<Dictionary<string, string>>("Data/CraftingRecipes");
+        int skippedObjectEdits = 0;
+        int skippedCropEdits = 0;
+        int skippedShopEdits = 0;
+
+        if (!string.IsNullOrWhiteSpace(overlayPath) && File.Exists(overlayPath))
+        {
+            var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, IncludeFields = true };
+            jsonOptions.Converters.Add(new JsonStringEnumConverter());
+            CatalogOverlay? overlay = JsonSerializer.Deserialize<CatalogOverlay>(File.ReadAllText(overlayPath), jsonOptions);
+            foreach ((string id, JsonElement entry) in overlay?.Objects ?? new())
+            {
+                if (objects.ContainsKey(id)) { skippedObjectEdits += 1; continue; }
+                ObjectData? value = entry.Deserialize<ObjectData>(jsonOptions);
+                if (value is not null) objects[id] = value;
+            }
+            foreach ((string id, JsonElement entry) in overlay?.Crops ?? new())
+            {
+                if (crops.ContainsKey(id)) { skippedCropEdits += 1; continue; }
+                CropData? value = entry.Deserialize<CropData>(jsonOptions);
+                if (value is not null) crops[id] = value;
+            }
+            foreach (ShopItemOverlay addition in overlay?.ShopItems ?? new())
+            {
+                if (!shops.TryGetValue(addition.ShopId, out ShopData? shop)) continue;
+                foreach (JsonElement entry in addition.Items)
+                {
+                    ShopItemData? value = entry.Deserialize<ShopItemData>(jsonOptions);
+                    if (value is null) continue;
+                    if (shop.Items.Any(item => item.Id == value.Id)) { skippedShopEdits += 1; continue; }
+                    shop.Items.Add(value);
+                }
+            }
+        }
 
         static string QualifyObject(string? id) => string.IsNullOrWhiteSpace(id) ? "" : id.StartsWith('(') ? id : $"(O){id}";
         static string Unqualify(string? id)
@@ -81,7 +115,7 @@ static class GameCatalogReader
         {
             string qualifiedId = QualifyObject(id);
             ObjectData? data = ObjectFor(qualifiedId);
-            return new { id = qualifiedId, name = data?.Name ?? qualifiedId, price = data?.Price ?? 0, category = data?.Category, spriteIndex = data?.SpriteIndex };
+            return new { id = qualifiedId, name = data?.Name ?? qualifiedId, price = data?.Price ?? 0, category = data?.Category, spriteIndex = data?.SpriteIndex, texture = data?.Texture };
         }
         object[] RecipeMaterials(string name)
         {
@@ -450,7 +484,7 @@ static class GameCatalogReader
             .ToArray();
 
         return JsonSerializer.Serialize(
-            new { catalogVersion = 6, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, feedUnitCost = PurchasePrice("(O)178") },
+            new { catalogVersion = 6, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, feedUnitCost = PurchasePrice("(O)178"), overlayDiagnostics = new { skipped = new { items = skippedObjectEdits + skippedShopEdits, crops = skippedCropEdits } } },
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
         );
     }
@@ -458,5 +492,18 @@ static class GameCatalogReader
     private sealed class EmptyServices : IServiceProvider
     {
         public object? GetService(Type serviceType) => null;
+    }
+
+    private sealed class CatalogOverlay
+    {
+        public Dictionary<string, JsonElement> Objects { get; set; } = new();
+        public Dictionary<string, JsonElement> Crops { get; set; } = new();
+        public List<ShopItemOverlay> ShopItems { get; set; } = new();
+    }
+
+    private sealed class ShopItemOverlay
+    {
+        public string ShopId { get; set; } = "";
+        public List<JsonElement> Items { get; set; } = new();
     }
 }

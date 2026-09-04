@@ -1662,8 +1662,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 9/);
-  assert.match(desktop, /catalogVersion !== 9/);
+  assert.match(extractor, /catalogVersion: 10/);
+  assert.match(desktop, /catalogVersion !== 10/);
   assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
   assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);
@@ -2091,7 +2091,8 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /acceleratedGrowthDays/);
   assert.match(calculator, /tillerApplies/);
   assert.match(calculator, /entry\.kind === "crop"[\s\S]*resolveGameName\(entry\.output\.name, entry\.output\.id\)/);
-  assert.match(calculator, /renderItemArtwork\?\.\(entry\.output\.id, outputName, entry\.output\.spriteIndex\)/);
+  assert.match(calculator, /renderItemArtwork\?\.\(entry\.output\.id, outputName, entry\.output\.spriteIndex, entry\.output\.artworkUrl, entry\.output\.artworkColumns\)/);
+  assert.match(page, /function ModdedItemArtwork/);
   assert.match(calculator, /className="planner-result-identity"/);
   assert.match(calculator, /className="planner-comparison-identity"/);
   assert.match(calculator, /className="planner-producer-menu"/);
@@ -2131,7 +2132,9 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /!selectedIsForestry \|\| !forestryExisting/);
   assert.match(calculator, /resetCalculation/);
   assert.match(calculator, /forcePlantToday/);
-  assert.match(page, /renderItemArtwork=\{.{0,160}<SheetArtwork/);
+  assert.match(page, /renderItemArtwork=\{/);
+  assert.match(page, /<ModdedItemArtwork/);
+  assert.match(page, /: <SheetArtwork/);
   assert.match(extractor, /StardewDataExtractor\.exe/);
   assert.match(gameReader, /Data\/Crops/);
   assert.match(gameReader, /Data\/Objects/);
