@@ -43,6 +43,7 @@ yarn-error.log*
 /assetbuild/unpacked/*
 /assetbuild/storage-location-maps/
 /assetbuild/game-data.json
+/assetbuild/content-patcher-catalog.json
 !/public/assets/.gitkeep
 !/assetbuild/unpacked/.gitkeep
 
