@@ -1694,6 +1694,7 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
     island_open = "willyBoatFixed" in received_mail
     route_context = {
         "weekday": ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")[weekday],
+        "festival": game_data.get("festivalDates", {}).get(f"{season}{day}"),
         "access": {
             "Secret Woods": axe_level >= 2,
             "Desert": desert_open,
@@ -1706,6 +1707,17 @@ def daily_brief(root: ET.Element, player: ET.Element, locations: ET.Element, sea
             "bus": desert_open,
             "boat": island_open,
             "horse": "Stable" in building_types,
+        },
+        "services": {
+            # The blacksmith closes on festival days, and on Fridays after the
+            # Community Center has been restored. Opening hours are supplied
+            # separately so LIVE can decide whether today's window has passed.
+            "blacksmithOpenToday": (
+                f"{season}{day}" not in game_data.get("festivalDates", {})
+                and not (weekday == 4 and "ccIsComplete" in received_mail)
+            ),
+            "blacksmithOpensAt": 900,
+            "blacksmithClosesAt": 1600,
         },
     }
 

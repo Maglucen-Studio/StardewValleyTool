@@ -295,8 +295,14 @@ type DailyBrief = {
   boardQuest?: DailyQuest | null;
   routeContext?: {
     weekday: string;
+    festival?: string | null;
     access: Record<string, boolean>;
     transport: Record<"minecarts" | "bus" | "boat" | "horse", boolean>;
+    services: {
+      blacksmithOpenToday: boolean;
+      blacksmithOpensAt: number;
+      blacksmithClosesAt: number;
+    };
   };
   inventoryItemsChecked: number;
   summary: LocalizedValue;
@@ -9215,8 +9221,14 @@ function DailyBriefView({
     !routeSource.some((stop) => stop.location === "Farm")
   )
     routeSource.push({ location: "Farm", items: [] });
+  const blacksmith = brief.routeContext?.services;
+  const blacksmithAvailable = !blacksmith || (
+    blacksmith.blacksmithOpenToday &&
+    (!live.active || !live.timeOfDay || live.timeOfDay < blacksmith.blacksmithClosesAt)
+  );
+  const toolPickupWaiting = Boolean(brief.toolUpgrade || live.routeState?.toolPickupReady);
   if (
-    (brief.toolUpgrade || live.routeState?.toolPickupReady) &&
+    toolPickupWaiting && blacksmithAvailable &&
     !routeSource.some((stop) => stop.location === "Town")
   )
     routeSource.push({ location: "Town", items: [] });
@@ -10153,7 +10165,15 @@ function DailyBriefView({
           <div className="route-assumptions" aria-label={t("today.route.assumptionsLabel")}>
             <span>{t("today.route.roughEstimate", { minutes: routeEstimateMinutes })}</span>
             {activeRouteTransport.map((transport) => <span key={transport}>{transport}</span>)}
+            {brief.routeContext?.festival && <span>{t("today.route.festivalToday")}</span>}
           </div>
+          {toolPickupWaiting && !blacksmithAvailable && (
+            <p className="route-access-warning">{
+              brief.routeContext?.festival
+                ? t("today.route.blacksmithFestivalClosed")
+                : t("today.route.blacksmithUnavailable")
+            }</p>
+          )}
           {unavailableRouteStops.length > 0 && (
             <p className="route-access-warning">
               {t("today.route.inaccessibleSkipped", {
