@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
 import JSON5 from "json5";
-import { supportedDataEdit } from "./content-patcher-catalog.mjs";
+import { supportedAssetLoad, supportedDataEdit } from "./content-patcher-catalog.mjs";
 
 const SAFE_CODE_MODS = new Set([
   "maglucen.stardewvalleytoolbridge",
@@ -104,6 +104,7 @@ function inspectContentFile(path, packRoot, state, visited, depth = 0) {
       continue;
     }
     for (const target of targets) {
+      if (supportedAssetLoad(change, target)) continue;
       const domain = domainForTarget(target);
       state.alteredDomains.add(domain);
       if (domain === "other" || !SUPPORTED_CONTENT_PACK_DOMAINS.has(domain) || !supportedContentChange(change, target))

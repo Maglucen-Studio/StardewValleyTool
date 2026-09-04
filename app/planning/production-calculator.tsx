@@ -19,8 +19,9 @@ import { calculateAnimalPlan } from "./animal-engine.mjs";
 import { calculateFishPondPlan } from "./pond-engine.mjs";
 import { evaluateProductionPortfolio } from "./portfolio-engine.mjs";
 
+type ProductionItem = { id: string; name: string; price: number; category?: number; spriteIndex?: number; artworkUrl?: string; artworkColumns?: number };
 export type ProductionCatalogEntry = Omit<ProductionProducer, "outputValue"> & {
-  output: { id: string; name: string; price: number; category?: number; spriteIndex?: number };
+  output: ProductionItem;
   growthPhases?: number[];
   yieldRules?: { maxIncreasePerFarmingLevel: number; extraHarvestChance: number };
   clearance?: number;
@@ -352,7 +353,7 @@ export function ProductionCalculator({
   currentPonds?: Array<{ fishId: string; population: number; capacity: number }>;
   profileId: string;
   resolveGameName: (name: string, id?: string) => string;
-  renderItemArtwork?: (id: string, name: string, spriteIndex?: number) => ReactNode;
+  renderItemArtwork?: (id: string, name: string, spriteIndex?: number, artworkUrl?: string, artworkColumns?: number) => ReactNode;
   renderAnimalArtwork?: (animal: ProductionAnimal) => ReactNode;
   modCompatibility?: ModCompatibilitySummary;
 }) {
@@ -969,7 +970,7 @@ export function ProductionCalculator({
   const producerArtwork = (entry: ProductionCatalogEntry, outputName: string, machineInput = false) => {
     if (entry.animal && renderAnimalArtwork) return renderAnimalArtwork(entry.animal);
     if (machineInput && entry.machineConversion) return renderItemArtwork?.(entry.machineConversion.input.id, resolveGameName(entry.machineConversion.input.name, entry.machineConversion.input.id), entry.machineConversion.input.spriteIndex);
-    return renderItemArtwork?.(entry.output.id, outputName, entry.output.spriteIndex);
+    return renderItemArtwork?.(entry.output.id, outputName, entry.output.spriteIndex, entry.output.artworkUrl, entry.output.artworkColumns);
   };
 
   return (

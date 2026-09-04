@@ -58,6 +58,15 @@ function supportedDataEdit(change, target) {
   return target === "data/shops" && targetField.length === 2 && targetField[1].toLowerCase() === "items";
 }
 
+function supportedAssetLoad(change, target) {
+  return String(change?.Action || "").toLowerCase() === "load" &&
+    !change.When &&
+    /^mods\//i.test(target) &&
+    typeof change.FromFile === "string" &&
+    !hasRuntimeTokens(change.FromFile) &&
+    /\.png$/i.test(change.FromFile);
+}
+
 function addEdit(overlay, change, target) {
   if (!supportedDataEdit(change, target)) return false;
   if (target === "data/objects") Object.assign(overlay.objects, change.Entries);
@@ -83,12 +92,17 @@ async function inspectContentFile(path, packRoot, overlay, visited, depth = 0) {
         await inspectContentFile(resolve(dirname(resolved), include), packRoot, overlay, visited, depth + 1);
       continue;
     }
-    for (const target of targets(change?.Target)) addEdit(overlay, change, target);
+    for (const target of targets(change?.Target)) {
+      if (supportedAssetLoad(change, target)) {
+        const source = resolve(packRoot, change.FromFile);
+        if (!relative(packRoot, source).startsWith("..")) overlay.textures[target] = source;
+      } else addEdit(overlay, change, target);
+    }
   }
 }
 
 export async function buildContentPatcherCatalogOverlay(modsRoot) {
-  const overlay = { objects: {}, crops: {}, shopItems: [] };
+  const overlay = { objects: {}, crops: {}, shopItems: [], textures: {} };
   for (const manifestPath of await manifestPaths(modsRoot)) {
     try {
       const manifest = await readJson5(manifestPath);
@@ -103,4 +117,4 @@ export async function buildContentPatcherCatalogOverlay(modsRoot) {
   return overlay;
 }
 
-export { supportedDataEdit };
+export { supportedAssetLoad, supportedDataEdit };

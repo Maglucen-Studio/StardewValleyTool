@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, resolve } from "node:path";
@@ -17,6 +18,7 @@ if (errors.length) throw new Error(errors.join(" "));
 const project = runtimeRoot;
 const { contentRoot, modsRoot } = runtimePaths(config);
 const modCompatibility = scanModCompatibility(modsRoot);
+const contentPatcherOverlay = await buildContentPatcherCatalogOverlay(modsRoot);
 ensureRuntimeDirectories();
 
 async function unpack(relativePath) {
@@ -98,7 +100,7 @@ async function extractProductionCatalog() {
     throw new Error("The local game data extractor is missing. Run npm run desktop:game-data.");
   const overlayPath = resolve(project, "assetbuild/content-patcher-catalog.json");
   await mkdir(resolve(overlayPath, ".."), { recursive: true });
-  await writeFile(overlayPath, JSON.stringify(await buildContentPatcherCatalogOverlay(modsRoot)), "utf8");
+  await writeFile(overlayPath, JSON.stringify(contentPatcherOverlay), "utf8");
   const result = spawnSync(executable, [config.stardewPath, overlayPath], {
     cwd: projectRoot,
     encoding: "utf8",
@@ -111,6 +113,30 @@ async function extractProductionCatalog() {
   return JSON.parse(result.stdout);
 }
 const productionCatalog = await extractProductionCatalog();
+async function attachContentPatcherArtwork(catalog, overlay) {
+  const artwork = new Map();
+  for (const [target, source] of Object.entries(overlay.textures || {})) {
+    try {
+      const image = await readFile(source);
+      if (image.length < 24 || image.toString("ascii", 1, 4) !== "PNG") continue;
+      const width = image.readUInt32BE(16);
+      const name = `${createHash("sha256").update(target).digest("hex").slice(0, 20)}.png`;
+      const destination = resolve(project, "public/assets/mod-items", name);
+      await mkdir(resolve(destination, ".."), { recursive: true });
+      await copyFile(source, destination);
+      artwork.set(target.toLowerCase(), { artworkUrl: `/assets/mod-items/${name}`, artworkColumns: Math.max(1, Math.floor(width / 16)) });
+    } catch {
+      // Missing optional textures retain the generated placeholder.
+    }
+  }
+  const visit = (value) => {
+    if (!value || typeof value !== "object") return;
+    if (typeof value.texture === "string") Object.assign(value, artwork.get(value.texture.replace(/\\/g, "/").toLowerCase()) || {});
+    for (const child of Array.isArray(value) ? value : Object.values(value)) visit(child);
+  };
+  visit(catalog);
+}
+await attachContentPatcherArtwork(productionCatalog, contentPatcherOverlay);
 for (const [domain, skipped] of Object.entries(productionCatalog.overlayDiagnostics?.skipped || {})) {
   if (!skipped) continue;
   modCompatibility.status = "uncertain";

@@ -14,6 +14,7 @@ function fixture() {
     mkdirSync(target, { recursive: true });
     writeFileSync(join(target, "manifest.json"), JSON.stringify(manifest), "utf8");
     if (content) writeFileSync(join(target, "content.json"), JSON.stringify(content), "utf8");
+    return target;
   };
   return { root, addMod, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
@@ -56,14 +57,16 @@ test("supported Content Patcher NPC data is identified as mod-aware", () => {
 test("supported local crop, object, and shop additions are catalog-aware", async () => {
   const files = fixture();
   try {
-    files.addMod("Crop Pack", {
+    const pack = files.addMod("Crop Pack", {
       UniqueID: "Example.Crops",
       ContentPackFor: { UniqueID: "Pathoschild.ContentPatcher" },
     }, { Changes: [
       { Action: "EditData", Target: "Data/Objects", Entries: { "Example.Seed": { Name: "Example Seed", Price: 10 } } },
       { Action: "EditData", Target: "Data/Crops", Entries: { "Example.Seed": { Seasons: ["Spring"], DaysInPhase: [1], HarvestItemId: "Example.Fruit" } } },
       { Action: "EditData", Target: "Data/Shops", TargetField: ["SeedShop", "Items"], Entries: { Example: { Id: "Example", ItemId: "Example.Seed", Price: 25 } } },
+      { Action: "Load", Target: "Mods/Example.Crops/Fruit", FromFile: "fruit.png" },
     ] });
+    writeFileSync(join(pack, "fruit.png"), Buffer.from("not-a-committed-game-asset"));
     const summary = scanModCompatibility(files.root);
     assert.equal(summary.status, "mod-aware");
     assert.deepEqual(summary.supportedDomains, ["items", "crops"]);
@@ -72,6 +75,7 @@ test("supported local crop, object, and shop additions are catalog-aware", async
     assert.equal(overlay.objects["Example.Seed"].Name, "Example Seed");
     assert.equal(overlay.crops["Example.Seed"].HarvestItemId, "Example.Fruit");
     assert.deepEqual(overlay.shopItems, [{ shopId: "SeedShop", items: [{ Id: "Example", ItemId: "Example.Seed", Price: 25 }] }]);
+    assert.equal(overlay.textures["mods/example.crops/fruit"], join(pack, "fruit.png"));
   } finally {
     files.cleanup();
   }
