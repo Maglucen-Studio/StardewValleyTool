@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useI18n } from "../i18n";
+import { CompatibilityBadge, type ModCompatibilitySummary } from "../compatibility";
 import {
   STARDEW_SEASONS,
   addStardewDays,
@@ -336,6 +337,7 @@ export function ProductionCalculator({
   resolveGameName,
   renderItemArtwork,
   renderAnimalArtwork,
+  modCompatibility,
 }: {
   catalog?: ProductionCatalog;
   currentDate: StardewDate;
@@ -352,6 +354,7 @@ export function ProductionCalculator({
   resolveGameName: (name: string, id?: string) => string;
   renderItemArtwork?: (id: string, name: string, spriteIndex?: number) => ReactNode;
   renderAnimalArtwork?: (animal: ProductionAnimal) => ReactNode;
+  modCompatibility?: ModCompatibilitySummary;
 }) {
   const { t, number, date, locale } = useI18n();
   const savedHasTiller = currentProfessionIds.includes(1);
@@ -967,6 +970,7 @@ export function ProductionCalculator({
           <p className="eyebrow">{t("planner.quick.eyebrow")}</p>
           <h2 id="production-calculator-title">{t("planner.quick.title")}</h2>
           <p>{t("planner.quick.description")}</p>
+          <CompatibilityBadge summary={modCompatibility} />
         </div>
       </div>
       {!entries.length ? (

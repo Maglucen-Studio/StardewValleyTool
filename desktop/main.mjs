@@ -31,6 +31,7 @@ import {
   resolveLanguage,
 } from "../scripts/localization.mjs";
 import { releaseNotesDecision } from "./release-notes.mjs";
+import { scanModCompatibility } from "../scripts/mod-compatibility.mjs";
 
 const desktopDevelopment = process.env.STARDEW_TOOL_DESKTOP_DEV === "1";
 const APP_ID = "io.github.maglucenstudio.stardewvalleycompanion";
@@ -1450,13 +1451,15 @@ function installIpc() {
     const liveStateAgeSeconds = liveStateUpdatedAt
       ? Math.max(0, Math.round((Date.now() - liveStateUpdatedAt) / 1000))
       : null;
+    const modCompatibility = scanModCompatibility(
+      config?.stardewPath ? join(config.stardewPath, "Mods") : null,
+    );
     return {
       version: app.getVersion(),
       packaged: app.isPackaged,
       development: desktopDevelopment,
       osVersion: osRelease(),
       architecture: process.arch,
-      profileId: profileIdForSave(config?.savePath),
       gameFound: Boolean(config?.stardewPath && existsSync(join(config.stardewPath, "Stardew Valley.dll"))),
       saveFound: Boolean(config?.savePath && existsSync(config.savePath)),
       smapiFound: Boolean(config?.stardewPath && existsSync(join(config.stardewPath, "StardewModdingAPI.dll"))),
@@ -1468,6 +1471,7 @@ function installIpc() {
       liveStateFound: Boolean(liveStateUpdatedAt),
       liveStateFresh: liveStateAgeSeconds !== null && liveStateAgeSeconds < 9,
       liveStateAgeSeconds,
+      modCompatibility,
     };
   });
   ipcMain.handle("clipboard:write", (event, value) => {

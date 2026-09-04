@@ -2195,6 +2195,12 @@ def read_snapshot(save_path: Path) -> dict:
         "dailyBrief": daily_brief(root, player, locations, season, day, year, (year - 1) * 112 + season_index * 28 + day, save_path),
         "fishingBrief": fishing_brief(root, player, season, day, progress),
         "planningBrief": planning,
+        "modCompatibility": game_data.get("modCompatibility", {
+            "status": "vanilla", "installedModCount": 0, "contentPackCount": 0,
+            "codeModCount": 0, "unclassifiedCodeModCount": 0,
+            "alteredDomains": [], "supportedDomains": [], "uncertainDomains": [],
+            "unsupportedChangeCount": 0, "parseFailureCount": 0,
+        }),
         "productionCatalog": game_data.get("productionCatalog"),
         "localizedNamesByQualifiedId": localized_names_by_qualified_id(artwork_catalog, game_data),
         "localizedObjectNamesByEnglish": game_data.get("localizedObjectNamesByEnglish", {}),

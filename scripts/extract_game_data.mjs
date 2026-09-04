@@ -8,12 +8,14 @@ import { loadConfig, projectRoot, runtimeRoot, runtimePaths, validateConfig } fr
 import { ensureRuntimeDirectories, syncRuntimePublic } from "./runtime-files.mjs";
 import { renderCommunityRooms } from "./render-community-rooms.mjs";
 import { localizedXnbPath } from "./localization.mjs";
+import { scanModCompatibility } from "./mod-compatibility.mjs";
 
 const config = loadConfig();
 const errors = validateConfig(config, { requireSave: false });
 if (errors.length) throw new Error(errors.join(" "));
 const project = runtimeRoot;
 const { contentRoot, modsRoot } = runtimePaths(config);
+const modCompatibility = scanModCompatibility(modsRoot);
 ensureRuntimeDirectories();
 
 async function unpack(relativePath) {
@@ -168,6 +170,7 @@ const activeLocalization = gameLocalizationCatalogs.en;
 
 const gameData = {
   _localization: { language: "neutral", catalogVersion: 9 },
+  modCompatibility,
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
   craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),
