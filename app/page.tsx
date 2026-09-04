@@ -1136,6 +1136,12 @@ type DesktopUpdates = {
   downloadUpdate: () => Promise<UpdateState>;
   installUpdate: () => Promise<{ ok: boolean }>;
   onUpdateState: (callback: (state: UpdateState) => void) => () => void;
+  getReleaseNotesState?: () => Promise<{
+    shouldShow: boolean;
+    currentVersion: string;
+    previousVersion: string | null;
+  }>;
+  acknowledgeReleaseNotes?: () => Promise<{ ok: boolean }>;
   listFarms: () => Promise<{
     activePath: string;
     farms: FarmOption[];
@@ -1737,6 +1743,10 @@ export default function Home() {
   const languageSwitchingRef = useRef(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [releaseNotes, setReleaseNotes] = useState<{
+    currentVersion: string;
+    previousVersion: string | null;
+  } | null>(null);
   const [showAppSearch, setShowAppSearch] = useState(false);
   const [appSearchQuery, setAppSearchQuery] = useState("");
   const appSearchInputRef = useRef<HTMLInputElement>(null);
@@ -1887,6 +1897,28 @@ export default function Home() {
   useEffect(() => {
     const desktop = (window as Window & { stardewDesktop?: DesktopUpdates })
       .stardewDesktop;
+    desktop?.getReleaseNotesState?.()
+      .then((state) => {
+        if (state.shouldShow) {
+          setReleaseNotes({
+            currentVersion: state.currentVersion,
+            previousVersion: state.previousVersion,
+          });
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const closeReleaseNotes = useCallback(() => {
+    setReleaseNotes(null);
+    const desktop = (window as Window & { stardewDesktop?: DesktopUpdates })
+      .stardewDesktop;
+    desktop?.acknowledgeReleaseNotes?.().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const desktop = (window as Window & { stardewDesktop?: DesktopUpdates })
+      .stardewDesktop;
     if (!desktop?.listFarms) return;
     desktop
       .listFarms()
@@ -2015,6 +2047,8 @@ export default function Home() {
       } else if (showAppSearch) {
         setShowAppSearch(false);
         setAppSearchQuery("");
+      } else if (releaseNotes) {
+        closeReleaseNotes();
       } else if (showHelp) {
         setShowHelp(false);
       } else if (locatedItemName) {
@@ -2032,7 +2066,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", closePopup);
     return () => window.removeEventListener("keydown", closePopup);
-  }, [locatedItemName, showAppSearch, showDailyBrief, showFarmSwitcher, showHelp, showLanguageMenu, showLiveAlerts]);
+  }, [closeReleaseNotes, locatedItemName, releaseNotes, showAppSearch, showDailyBrief, showFarmSwitcher, showHelp, showLanguageMenu, showLiveAlerts]);
 
   useEffect(() => {
     const openSection = (event: KeyboardEvent) => {
@@ -2040,6 +2074,7 @@ export default function Home() {
       const target = event.target as HTMLElement | null;
       if (
         target?.closest("input, select, textarea, [contenteditable='true']") ||
+        releaseNotes ||
         showHelp ||
         showLiveAlerts ||
         showAppSearch ||
@@ -2070,7 +2105,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", openSection);
     return () => window.removeEventListener("keydown", openSection);
-  }, [locatedItemName, navigateTo, showAppSearch, showDailyBrief, showHelp, showLiveAlerts]);
+  }, [locatedItemName, navigateTo, releaseNotes, showAppSearch, showDailyBrief, showHelp, showLiveAlerts]);
 
   useEffect(() => {
     if (!["current", "unavailable", "error"].includes(updateState.status))
@@ -3716,6 +3751,31 @@ export default function Home() {
               )}
             </div>
             <footer><kbd>{t("web.home.ctrl")}</kbd> + <kbd>F</kbd>{t("web.home.opensThisSearchFromAnywhere")}</footer>
+          </section>
+        </div>
+      )}
+      {releaseNotes && (
+        <div className="help-backdrop" onPointerDown={closeReleaseNotes}>
+          <section
+            className="help-dialog release-notes-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="release-notes-title"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <button className="help-close" onClick={closeReleaseNotes} aria-label={t("releaseNotes.close")}>×</button>
+            <p className="eyebrow">{t("releaseNotes.whatsNew")}</p>
+            <h2 id="release-notes-title">{t("releaseNotes.updatedTo", { version: releaseNotes.currentVersion })}</h2>
+            <p>{t("releaseNotes.intro")}</p>
+            <ChangelogHistory
+              fromVersion={releaseNotes.previousVersion}
+              throughVersion={releaseNotes.currentVersion}
+              headingId="release-notes-changelog-title"
+              compact
+            />
+            <div className="release-notes-actions">
+              <button type="button" onClick={closeReleaseNotes}>{t("releaseNotes.continue")}</button>
+            </div>
           </section>
         </div>
       )}
