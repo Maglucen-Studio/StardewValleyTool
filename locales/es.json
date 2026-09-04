@@ -406,6 +406,8 @@
   "today.route.profile.mining.detail": "Prioriza la montaña, el ferrocarril y la zona del desierto.",
   "today.route.profile.relaxed": "Relajada",
   "today.route.profile.relaxed.detail": "Mantiene todas las tareas, pero calcula un ritmo más holgado.",
+  "today.route.bundleDeliveries": "{count} entregas de lotes listas",
+  "today.route.fishingQuestWindow": "Captura {fish} para el encargo activo · {start}–{end}",
   "today.priority.waterCrops": "Riega {count} cultivos",
   "today.priority.gettingLate": "Se está haciendo tarde; hazlo antes de dormir.",
   "today.priority.needWater": "No crecerán esta noche si no los riegas.",

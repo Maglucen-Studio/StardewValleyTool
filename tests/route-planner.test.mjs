@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { estimateRouteMinutes, normalizeRouteProfile, orderRouteStops } from "../app/route-planner.mjs";
+import { estimateRouteMinutes, fishingQuestRouteStop, normalizeRouteProfile, orderRouteStops } from "../app/route-planner.mjs";
 
 const stops = ["Beach", "Town", "Farm", "Mountain", "Custom Lagoon"].map(location => ({ location }));
 
@@ -20,4 +20,11 @@ test("route estimates expose transport savings and a slower relaxed pace", () =>
   const walking = estimateRouteMinutes(5);
   assert.ok(estimateRouteMinutes(5, { horse: true, minecarts: true }) < walking);
   assert.ok(estimateRouteMinutes(5, {}, "relaxed") > walking);
+});
+
+test("fishing quests become stops only while the requested fish is available", () => {
+  const fish = { seasons: ["summer"], weather: "sunny", windows: [[600, 1200]], accessibleLocations: ["Ocean"] };
+  assert.deepEqual(fishingQuestRouteStop(fish, { season: "summer", weather: "sunny", time: 900 }), { location: "Beach", start: 900, end: 1200 });
+  assert.equal(fishingQuestRouteStop(fish, { season: "summer", weather: "rainy", time: 900 }), null);
+  assert.equal(fishingQuestRouteStop(fish, { season: "summer", weather: "sunny", time: 1300 }), null);
 });

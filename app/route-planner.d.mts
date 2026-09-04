@@ -9,3 +9,12 @@ export function estimateRouteMinutes(
   transport?: { horse?: boolean; minecarts?: boolean },
   profile?: RouteProfile,
 ): number;
+export function fishingQuestRouteStop(
+  fish: {
+    seasons: string[];
+    weather: string;
+    windows: number[][];
+    accessibleLocations: string[];
+  } | undefined,
+  context: { season?: string; weather?: string; time?: number },
+): { location: string; start: number; end: number } | null;

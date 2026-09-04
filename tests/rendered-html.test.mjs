@@ -906,6 +906,10 @@ test("route checks distinguish manual decisions from reversible LIVE completion"
   assert.match(page, /today\.route\.inaccessibleSkipped/);
   assert.match(page, /today\.route\.unknownAccess/);
   assert.match(page, /today\.route\.roughEstimate/);
+  assert.match(page, /fishingQuestRouteStop/);
+  assert.match(page, /routeBundleDeliveries/);
+  assert.match(page, /today\.route\.fishingQuestWindow/);
+  assert.match(page, /today\.route\.bundleDeliveries/);
   assert.match(styles, /\.route-assumptions/);
   assert.match(styles, /\.route-access-warning/);
 });
