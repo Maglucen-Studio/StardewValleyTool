@@ -52,6 +52,9 @@ jobs:
           STARDEW_PATH: ${{ github.workspace }}\.stardew-reference-assemblies
         run: npm run desktop:installer
 
+      - name: Inspect packaged application before publishing
+        run: node --input-type=module -e "import { inspectLocalPackage } from './scripts/local-package.mjs'; inspectLocalPackage();"
+
       - name: Create SHA-256 checksums
         shell: pwsh
         run: |

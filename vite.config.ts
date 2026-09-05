@@ -8,8 +8,12 @@ export default defineConfig(({ command }) => ({
   // The local public directory contains private runtime data and game assets.
   // Production builds add only the explicitly approved icons afterwards.
   publicDir: command === "build" ? false : undefined,
-  server: isCodexSeatbeltSandbox
-    ? { watch: { useFsEvents: false, usePolling: true } }
-    : undefined,
+  server: {
+    watch: {
+      ...(isCodexSeatbeltSandbox ? { useFsEvents: false, usePolling: true } : {}),
+      // Windows locks compiler outputs while local .NET helpers are rebuilt.
+      ignored: ["**/.local/**", "**/obj/**", "**/bin/**", "**/release/**"],
+    },
+  },
   plugins: [vinext()],
 }));

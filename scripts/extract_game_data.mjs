@@ -1,19 +1,26 @@
 import { spawnSync } from "node:child_process";
-import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { extname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { unpackToFiles } from "xnb";
-import JSON5 from "json5";
 import { loadConfig, projectRoot, runtimeRoot, runtimePaths, validateConfig } from "./config.mjs";
 import { ensureRuntimeDirectories, syncRuntimePublic } from "./runtime-files.mjs";
 import { renderCommunityRooms } from "./render-community-rooms.mjs";
+import { extractCurrencyIcon } from "./extract-currency-icon.mjs";
 import { localizedXnbPath } from "./localization.mjs";
+import { scanModCompatibility } from "./mod-compatibility.mjs";
+import { buildContentPatcherCatalogOverlay } from "./content-patcher-catalog.mjs";
+
+import { addCatalogEntries, npcMetadata } from "./mod-consumers.mjs";
 
 const config = loadConfig();
 const errors = validateConfig(config, { requireSave: false });
 if (errors.length) throw new Error(errors.join(" "));
 const project = runtimeRoot;
 const { contentRoot, modsRoot } = runtimePaths(config);
+const modCompatibility = scanModCompatibility(modsRoot);
+const contentPatcherOverlay = await buildContentPatcherCatalogOverlay(modsRoot);
 ensureRuntimeDirectories();
 
 async function unpack(relativePath) {
@@ -89,11 +96,20 @@ const nameCatalogs = [
   ["Strings/FarmAnimals.xnb", key => key.includes("DisplayType_")],
 ];
 const fish = await unpack("Data/Fish.xnb");
-function extractProductionCatalog() {
+const cookingRecipes = await unpack("Data/CookingRecipes.xnb");
+const craftingRecipes = await unpack("Data/CraftingRecipes.xnb");
+const festivalDates = await unpack("Data/Festivals/FestivalDates.xnb");
+addCatalogEntries(fish, contentPatcherOverlay.fish, modCompatibility, "fish");
+addCatalogEntries(cookingRecipes, contentPatcherOverlay.cookingRecipes, modCompatibility, "recipes");
+addCatalogEntries(craftingRecipes, contentPatcherOverlay.craftingRecipes, modCompatibility, "recipes");
+async function extractProductionCatalog() {
   const executable = resolve(projectRoot, "desktop", "resources", "game-data-extractor", "StardewDataExtractor.exe");
   if (!existsSync(executable))
     throw new Error("The local game data extractor is missing. Run npm run desktop:game-data.");
-  const result = spawnSync(executable, [config.stardewPath], {
+  const overlayPath = resolve(project, "assetbuild/content-patcher-catalog.json");
+  await mkdir(resolve(overlayPath, ".."), { recursive: true });
+  await writeFile(overlayPath, JSON.stringify(contentPatcherOverlay), "utf8");
+  const result = spawnSync(executable, [config.stardewPath, overlayPath], {
     cwd: projectRoot,
     encoding: "utf8",
     windowsHide: true,
@@ -104,7 +120,37 @@ function extractProductionCatalog() {
     throw new Error(`The local game data extractor exited with code ${result.status}: ${result.stderr || "unknown error"}`);
   return JSON.parse(result.stdout);
 }
-const productionCatalog = extractProductionCatalog();
+const productionCatalog = await extractProductionCatalog();
+async function attachContentPatcherArtwork(catalog, overlay) {
+  const artwork = new Map();
+  for (const [target, source] of Object.entries(overlay.textures || {})) {
+    try {
+      const image = await readFile(source);
+      if (image.length < 24 || image.toString("ascii", 1, 4) !== "PNG") continue;
+      const width = image.readUInt32BE(16);
+      const name = `${createHash("sha256").update(target).digest("hex").slice(0, 20)}.png`;
+      const destination = resolve(project, "public/assets/mod-items", name);
+      await mkdir(resolve(destination, ".."), { recursive: true });
+      await copyFile(source, destination);
+      artwork.set(target.toLowerCase(), { artworkUrl: `/assets/mod-items/${name}`, artworkColumns: Math.max(1, Math.floor(width / 16)) });
+    } catch {
+      // Missing optional textures retain the generated placeholder.
+    }
+  }
+  const visit = (value) => {
+    if (!value || typeof value !== "object") return;
+    if (typeof value.texture === "string") Object.assign(value, artwork.get(value.texture.replace(/\\/g, "/").toLowerCase()) || {});
+    for (const child of Array.isArray(value) ? value : Object.values(value)) visit(child);
+  };
+  visit(catalog);
+}
+await attachContentPatcherArtwork(productionCatalog, contentPatcherOverlay);
+for (const [domain, skipped] of Object.entries(productionCatalog.overlayDiagnostics?.skipped || {})) {
+  if (!skipped) continue;
+  modCompatibility.status = "uncertain";
+  modCompatibility.supportedDomains = modCompatibility.supportedDomains.filter((value) => value !== domain);
+  modCompatibility.uncertainDomains = [...new Set([...modCompatibility.uncertainDomains, domain])];
+}
 async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, catalogSuffix) {
   const localizedObjectNamesByEnglish = Object.assign(
     {},
@@ -143,7 +189,7 @@ async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, cata
   return {
     language: catalogLanguage,
     locale: catalogLocale,
-    catalogVersion: 9,
+    catalogVersion: 12,
     objectNames,
     localizedObjectNamesByEnglish,
     localizedNamesByQualifiedId,
@@ -167,13 +213,15 @@ const gameLocalizationCatalogs = Object.fromEntries(
 const activeLocalization = gameLocalizationCatalogs.en;
 
 const gameData = {
-  _localization: { language: "neutral", catalogVersion: 9 },
+  _localization: { language: "neutral", catalogVersion: 12 },
+  modCompatibility,
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
-  cookingRecipes: await unpack("Data/CookingRecipes.xnb"),
-  craftingRecipes: await unpack("Data/CraftingRecipes.xnb"),
+  cookingRecipes,
+  craftingRecipes,
   cookingChannel: await unpack("Data/TV/CookingChannel.xnb"),
   tipChannel: await unpack("Data/TV/TipChannel.xnb"),
   fish,
+  festivalDates,
   productionCatalog,
   hair: await unpack("Data/HairData.xnb"),
   hats: await unpack("Data/hats.xnb"),
@@ -214,6 +262,7 @@ const textures = {
   "Characters/Farmer/skinColors.xnb": "assetbuild/unpacked/farmer/skinColors.png",
   "Characters/Farmer/shoeColors.xnb": "assetbuild/unpacked/farmer/shoeColors.png",
   "LooseSprites/Cursors.xnb": "assetbuild/unpacked/Cursors.png",
+  "TileSheets/debris.xnb": "assetbuild/unpacked/debris.png",
   "LooseSprites/map.xnb": "public/assets/maps/world-spring.png",
   "LooseSprites/map_summer.xnb": "public/assets/maps/world-summer.png",
   "LooseSprites/map_fall.xnb": "public/assets/maps/world-fall.png",
@@ -291,6 +340,7 @@ await Promise.all([
   copyFile(resolve(project, "assetbuild/unpacked/farmer/hats.png"), resolve(project, "public/assets/sprites/hats.png")),
   copyFile(resolve(project, "assetbuild/unpacked/farmer/shirts.png"), resolve(project, "public/assets/sprites/shirts.png")),
 ]);
+await extractCurrencyIcon(project);
 
 await Promise.all([
   unpackBinary("Maps/CommunityCenter_Refurbished.xnb", "tbin", "assetbuild/unpacked/CommunityCenter_Refurbished.tbin"),
@@ -299,91 +349,33 @@ await Promise.all([
 ]);
 await renderCommunityRooms(project);
 
-async function findContentPacks(directory) {
-  const found = [];
-  try {
-    for (const entry of await readdir(directory, { withFileTypes: true })) {
-      const path = resolve(directory, entry.name);
-      if (entry.isDirectory()) found.push(...await findContentPacks(path));
-      else if (entry.name.toLowerCase() === "content.json") found.push(path);
-    }
-  } catch {
-    // A missing or unreadable Mods directory simply means there are no content packs to inspect.
+const characters = Object.fromEntries((productionCatalog.characterIds || []).map((id) => [id, null]));
+addCatalogEntries(characters, contentPatcherOverlay.characters, modCompatibility, "npcs");
+gameData.moddedCharacters = npcMetadata(Object.fromEntries(Object.entries(characters).filter(([, entry]) => entry !== null)));
+// Recipe collection progress can be read without claiming unlock/ingredient rules.
+if (Object.keys(contentPatcherOverlay.cookingRecipes || {}).length || Object.keys(contentPatcherOverlay.craftingRecipes || {}).length) {
+  modCompatibility.status = "uncertain";
+  modCompatibility.supportedDomains = modCompatibility.supportedDomains.filter((domain) => domain !== "recipes");
+  modCompatibility.uncertainDomains = [...new Set([...modCompatibility.uncertainDomains, "recipes"])];
+}
+if (Object.values(gameData.moddedCharacters).some((entry) => entry.displayName.startsWith("["))) {
+  modCompatibility.status = "uncertain";
+  modCompatibility.supportedDomains = modCompatibility.supportedDomains.filter((domain) => domain !== "npcs");
+  modCompatibility.uncertainDomains = [...new Set([...modCompatibility.uncertainDomains, "npcs"])];
+}
+
+addCatalogEntries(gameData.giftTastes, contentPatcherOverlay.npcGiftTastes, modCompatibility, "npcs");
+for (const [target, source] of Object.entries(contentPatcherOverlay.npcTextures || {})) {
+  const match = /^(characters|portraits)\/([a-z0-9_.-]+)$/i.exec(target);
+  if (!match) continue;
+  const destination = resolve(project, `public/assets/${match[1].toLowerCase()}/${match[2]}.png`);
+  await mkdir(resolve(destination, ".."), { recursive: true });
+  try { await copyFile(source, destination); }
+  catch {
+    modCompatibility.status = "uncertain";
+    modCompatibility.uncertainDomains = [...new Set([...modCompatibility.uncertainDomains, "npcs"])];
   }
-  return found;
 }
-
-async function readJson5(path, fallback = {}) {
-  try { return JSON5.parse(await readFile(path, "utf8")); }
-  catch { return fallback; }
-}
-
-function conditionMatches(when, configValues) {
-  return Object.entries(when || {}).every(([key, expected]) => !(key in configValues) || String(configValues[key]).toLowerCase() === String(expected).toLowerCase());
-}
-
-function resolveTokens(value, tokens) {
-  let resolved = String(value || "");
-  for (let pass = 0; pass < 5; pass += 1) {
-    const next = resolved.replace(/\{\{([^}:]+)(?::[^}]*)?\}\}/g, (match, name) => tokens[name] ?? match);
-    if (next === resolved) break;
-    resolved = next;
-  }
-  return resolved;
-}
-
-async function discoverModdedNpcs() {
-  const metadata = {};
-  const giftTastes = {};
-  let artworkCount = 0;
-  for (const contentPath of await findContentPacks(modsRoot)) {
-    const packRoot = resolve(contentPath, "..");
-    const content = await readJson5(contentPath);
-    const savedConfig = await readJson5(resolve(packRoot, "config.json"));
-    const configValues = Object.fromEntries(Object.entries(content.ConfigSchema || {}).map(([key, schema]) => [key, schema?.Default]));
-    Object.assign(configValues, savedConfig);
-    const tokens = {};
-    for (const token of content.DynamicTokens || []) {
-      if (token?.Name && conditionMatches(token.When, configValues)) tokens[token.Name] = resolveTokens(token.Value, tokens);
-    }
-    for (const change of content.Changes || []) {
-      if (!conditionMatches(change.When, configValues)) continue;
-      const target = resolveTokens(change.Target, tokens);
-      if (String(change.Action).toLowerCase() === "load" && change.FromFile) {
-        const match = /^(Characters|Portraits)\/([^/]+)$/i.exec(target);
-        const source = resolve(packRoot, resolveTokens(change.FromFile, tokens));
-        if (match && extname(source).toLowerCase() === ".png") {
-          const destination = resolve(project, `public/assets/${match[1].toLowerCase() === "characters" ? "characters" : "portraits"}/${match[2]}.png`);
-          try {
-            await mkdir(resolve(destination, ".."), { recursive: true });
-            await copyFile(source, destination);
-            artworkCount += 1;
-          } catch {
-            // Ignore optional or conditionally unavailable Content Patcher files.
-          }
-        }
-      }
-      if (String(change.Action).toLowerCase() === "editdata" && target.toLowerCase() === "data/characters" && change.Entries) {
-        for (const [id, entry] of Object.entries(change.Entries)) {
-          if (!entry || typeof entry !== "object") continue;
-          metadata[id] = {
-            displayName: entry.DisplayName || id,
-            birthSeason: entry.BirthSeason || null,
-            birthDay: Number(entry.BirthDay) || null,
-          };
-        }
-      }
-      if (String(change.Action).toLowerCase() === "editdata" && target.toLowerCase() === "data/npcgifttastes" && change.Entries) {
-        Object.assign(giftTastes, change.Entries);
-      }
-    }
-  }
-  return { metadata, giftTastes, artworkCount };
-}
-
-const moddedNpcs = await discoverModdedNpcs();
-gameData.moddedCharacters = moddedNpcs.metadata;
-Object.assign(gameData.giftTastes, moddedNpcs.giftTastes);
 await Promise.all([
   writeFile(resolve(project, "assetbuild/game-data.json"), JSON.stringify(gameData), "utf8"),
   ...Object.entries(gameLocalizationCatalogs).map(([catalogLanguage, catalog]) =>
@@ -394,5 +386,4 @@ await Promise.all([
     ),
   ),
 ]);
-if (moddedNpcs.artworkCount) console.log(`Imported ${moddedNpcs.artworkCount} modded NPC artwork files.`);
 syncRuntimePublic();

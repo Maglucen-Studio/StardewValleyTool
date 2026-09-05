@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useI18n } from "../i18n";
+import { CompatibilityNotice, type ModCompatibilitySummary } from "../compatibility";
 import {
   STARDEW_SEASONS,
   addStardewDays,
@@ -18,53 +19,8 @@ import { calculateAnimalPlan } from "./animal-engine.mjs";
 import { calculateFishPondPlan } from "./pond-engine.mjs";
 import { evaluateProductionPortfolio } from "./portfolio-engine.mjs";
 
-export type ProductionCatalogEntry = Omit<ProductionProducer, "outputValue"> & {
-  output: { id: string; name: string; price: number; category?: number; spriteIndex?: number };
-  growthPhases?: number[];
-  yieldRules?: { maxIncreasePerFarmingLevel: number; extraHarvestChance: number };
-  clearance?: number;
-  family?: "farming" | "forestry" | "machine" | "animal" | "pond";
-  materials?: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number }; quantity: number }>;
-  machineConversion?: MachineConversion;
-  animal?: ProductionAnimal;
-  pond?: ProductionPond;
-};
-export type ProductionAnimal = {
-  id: string; name: string; texture?: string; artworkUrl?: string; spriteWidth?: number; spriteHeight?: number; purchasePrice: number; purchasable: boolean; requiredBuilding: string; buildingCapacity: number; buildingCost: number; daysToMature: number; daysToProduce: number;
-  harvestType: string; produceOnMature: boolean; deluxeProduceMinimumFriendship: number; deluxeProduceCareDivisor: number;
-  produce: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number } }>;
-  deluxeProduce: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number } }>;
-};
-export type ProductionPond = {
-  id: string; fish: { id: string; name: string; price: number; spriteIndex?: number }; ruleId: string; maxPopulation: number; spawnTime: number;
-  processedRoe?: { id: string; name: string; price: number; spriteIndex?: number };
-  baseMinProduceChance: number; baseMaxProduceChance: number; populationGates?: Record<string, string[]>;
-  producedItems: Array<{ requiredPopulation: number; chance: number; precedence: number; condition?: string | null; item: { id: string; name: string; price: number; spriteIndex?: number }; minStack: number; maxStack: number }>;
-};
-export type ProductionFertilizer = {
-  id: string;
-  name: string;
-  kind: "quality" | "speed";
-  qualityBoost: number;
-  speedBoost: number;
-  startupCost: number;
-  verified: boolean;
-  verifiedCost: boolean;
-};
-export type ProductionCatalog = {
-  catalogVersion: number;
-  source?: "local-game";
-  crops: ProductionCatalogEntry[];
-  fruitTrees: ProductionCatalogEntry[];
-  fertilizers?: ProductionFertilizer[];
-  tappedTrees?: Array<{ id: string; treeType: string; seed: { id: string; name: string; price: number; spriteIndex?: number }; growthChance: number; fertilizedGrowthChance: number; growsInWinter: boolean; tapItems: Array<{ itemId: string; item: { id: string; name: string; price: number; spriteIndex?: number } | null; daysUntilReady: number; condition?: string | null; season?: string | null; hasTimeModifiers?: boolean }> }>;
-  mushroomLogOutputs?: Array<{ id: string; name: string; price: number; spriteIndex?: number }>;
-  forestryEquipment?: Array<{ id: string; name: string; spriteIndex?: number; opportunityCost: number; materials: Array<{ item: { id: string; name: string; price: number; spriteIndex?: number }; quantity: number }> }>;
-  artisanMachines?: MachineConversion[];
-  farmAnimals?: ProductionAnimal[];
-  fishPonds?: ProductionPond[];
-  feedUnitCost?: number;
-};
+import type { ProductionCatalogEntry, ProductionAnimal, ProductionFertilizer, ProductionCatalog } from "./production-types";
+export type { ProductionAnimal, ProductionCatalog } from "./production-types";
 
 type CalculatorMode = "budget" | "tiles" | "target" | "units";
 type HorizonMode = "days" | "date";
@@ -165,7 +121,7 @@ function buildCalculatorEntries(catalog: ProductionCatalog | undefined, forestry
       startupCost: forestry.existing ? 0 : tree.seed.price + (tapper?.opportunityCost || 0),
       yield: { min: 1, expected: 1, max: 1 },
       space: 1,
-      verified: Boolean(tappedItem.item?.price),
+      verified: tree.verified !== false && Boolean(tappedItem.item?.price),
       materials: forestry.existing ? [] : [...(tapper?.materials || []), { item: tree.seed, quantity: 1 }],
     };
   });
@@ -207,9 +163,9 @@ function buildCalculatorEntries(catalog: ProductionCatalog | undefined, forestry
   }));
   const animalEntries: ProductionCatalogEntry[] = (catalog?.farmAnimals || []).flatMap(animal => {
     const output = animal.produce?.[0]?.item;
-    return output ? [{ id: animal.id, kind: "animal", family: "animal", name: animal.name, output, seasons: [], firstOutputDays: animal.daysToMature + animal.daysToProduce, repeatDays: animal.daysToProduce, startupCost: animal.purchasePrice, yield: { min: 1, expected: 1, max: 1 }, space: 1, verified: output.price > 0, animal }] : [];
+    return output ? [{ id: animal.id, kind: "animal", family: "animal", name: animal.name, output, seasons: [], firstOutputDays: animal.daysToMature + animal.daysToProduce, repeatDays: animal.daysToProduce, startupCost: animal.purchasePrice, yield: { min: 1, expected: 1, max: 1 }, space: 1, verified: animal.verified !== false && output.price > 0, animal }] : [];
   });
-  const pondEntries: ProductionCatalogEntry[] = (catalog?.fishPonds || []).map(pond => ({ id: pond.id, kind: "fish-pond", family: "pond", name: pond.fish.name, output: pond.fish, seasons: [], firstOutputDays: 1, repeatDays: 1, startupCost: 0, yield: { min: 0, expected: 1, max: 1 }, space: 25, verified: pond.fish.price > 0, pond }));
+  const pondEntries: ProductionCatalogEntry[] = (catalog?.fishPonds || []).map(pond => ({ id: pond.id, kind: "fish-pond", family: "pond", name: pond.fish.name, output: pond.fish, seasons: [], firstOutputDays: 1, repeatDays: 1, startupCost: 0, yield: { min: 0, expected: 1, max: 1 }, space: 25, verified: pond.verified !== false && pond.fish.price > 0, pond }));
   return [...farming, ...tapped, ...mushroomLog, ...machineEntries, ...animalEntries, ...pondEntries];
 }
 
@@ -253,7 +209,7 @@ function normalizeRecurringResult(id: string, quantity: number, space: number, p
   return {
     producerId: id, mode: "units", requestedAmount: quantity, location: "farm", replant: false, forcePlantToday: false,
     plantingDate: null, plantingDelayDays: 0, startDate: plan.startDate, endDate: plan.endDate, durationDays: plan.durationDays,
-    quantity, requiredSpace: space, investment: plan.purchaseCost || 0, recurringCosts: plan.feedCost || 0,
+    quantity, requiredSpace: space, investment: plan.purchaseCost || 0, recurringCosts: "feedCost" in plan ? plan.feedCost || 0 : 0,
     totalCosts: plan.totalCosts || 0, setupCosts: 0, unusedBudget: 0, harvestDates: [], breakEvenDate: plan.breakEvenDate,
     scenarios, warnings: plan.warnings || [],
   };
@@ -336,6 +292,7 @@ export function ProductionCalculator({
   resolveGameName,
   renderItemArtwork,
   renderAnimalArtwork,
+  modCompatibility,
 }: {
   catalog?: ProductionCatalog;
   currentDate: StardewDate;
@@ -350,8 +307,9 @@ export function ProductionCalculator({
   currentPonds?: Array<{ fishId: string; population: number; capacity: number }>;
   profileId: string;
   resolveGameName: (name: string, id?: string) => string;
-  renderItemArtwork?: (id: string, name: string, spriteIndex?: number) => ReactNode;
+  renderItemArtwork?: (id: string, name: string, spriteIndex?: number, artworkUrl?: string, artworkColumns?: number) => ReactNode;
   renderAnimalArtwork?: (animal: ProductionAnimal) => ReactNode;
+  modCompatibility?: ModCompatibilitySummary;
 }) {
   const { t, number, date, locale } = useI18n();
   const savedHasTiller = currentProfessionIds.includes(1);
@@ -439,6 +397,15 @@ export function ProductionCalculator({
   const animalProcessors = (catalog?.artisanMachines || []).filter(conversion => animalInputIds.has(conversion.input.id));
   const animalProcessorConversion = animalProcessors.find(conversion => conversion.id === animalProcessorId);
   const pondProcessorConversion = (catalog?.artisanMachines || []).find(conversion => conversion.machine.name === "Preserves Jar");
+  const compatibilityDomains = selectedIsAnimal
+    ? ["animals", "items", "buildings", ...(animalProcessorConversion ? ["machines"] : [])]
+    : selectedIsPond
+      ? ["fish", "items", "buildings", ...(pondProcessRoe ? ["machines"] : [])]
+      : selectedIsMachine
+        ? ["machines", "items", "recipes", "other"]
+        : selectedIsForestry
+          ? ["crops", "items", "other"]
+          : ["crops", "items", "other"];
   const selectedNamed = namedEntries.find(({ entry }) => entry.id === selected?.id);
   const calculation = useMemo<Omit<SavedCalculation, "id">>(() => ({
     selectedId: selected?.id || "",
@@ -485,7 +452,7 @@ export function ProductionCalculator({
     let cancelled = false;
     const restore = window.setTimeout(async () => {
       try {
-        const preferences = await fetch("/api/preferences", { cache: "no-store" }).then(response => response.ok ? response.json() : {});
+        const preferences = await fetch("/api/preferences", { cache: "no-store" }).then(response => response.ok ? response.json() : {}) as Record<string, unknown>;
         let stored = preferences?.productionPlanning as {
           current?: Partial<SavedCalculation>;
           bookmarks?: SavedCalculation[];
@@ -957,7 +924,7 @@ export function ProductionCalculator({
   const producerArtwork = (entry: ProductionCatalogEntry, outputName: string, machineInput = false) => {
     if (entry.animal && renderAnimalArtwork) return renderAnimalArtwork(entry.animal);
     if (machineInput && entry.machineConversion) return renderItemArtwork?.(entry.machineConversion.input.id, resolveGameName(entry.machineConversion.input.name, entry.machineConversion.input.id), entry.machineConversion.input.spriteIndex);
-    return renderItemArtwork?.(entry.output.id, outputName, entry.output.spriteIndex);
+    return renderItemArtwork?.(entry.output.id, outputName, entry.output.spriteIndex, entry.output.artworkUrl, entry.output.artworkColumns);
   };
 
   return (
@@ -1282,6 +1249,7 @@ export function ProductionCalculator({
             </ul>}
             {selectedIsForestry && <ul className="planner-warnings"><li>{t(selected.kind === "mushroom-log" ? "forestry.logUncertainty" : !forestryExisting ? "forestry.treeUncertainty" : "forestry.tapAssumptions")}</li></ul>}
             {selected.kind === "crop" && selectedFertilizer && !selectedFertilizer.verifiedCost && <ul className="planner-warnings"><li>{t("planner.warning.fertilizer-cost-unknown", { fertilizer: fertilizerName(selectedFertilizer) })}</li></ul>}
+            <CompatibilityNotice summary={modCompatibility} domains={compatibilityDomains} />
           </div>}
           <div className="planner-bookmark-toolbar">
             <input type="text" value={bookmarkName} onChange={(event) => setBookmarkName(event.target.value)} placeholder={t("planner.bookmark.namePlaceholder")} aria-label={t("planner.bookmark.name")} />
