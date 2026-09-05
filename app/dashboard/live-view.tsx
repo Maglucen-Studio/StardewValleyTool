@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber } from "./formatting";
 
 import { useI18n } from "../i18n";
 import { type LiveAlertSettings, type Translate, type LiveAlert, type LiveAlertKind } from "./ui-types";
@@ -266,7 +267,7 @@ export function LiveDataPanel({
             </div>
             <div>
               <span>{t("web.home.money")}</span>
-              <strong>{(live.money || 0).toLocaleString(locale)}g</strong>
+              <strong>{formatNumber((live.money || 0), locale)}g</strong>
             </div>
             <div>
               <span>{t("web.liveDataPanel.energy")}</span>

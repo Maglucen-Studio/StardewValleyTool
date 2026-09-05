@@ -29,7 +29,11 @@ export type FarmObject = Tile & {
   ready?: boolean;
   processing?: boolean;
   output?: string | null;
+  outputId?: string | null;
+  outputVariant?: string | null;
   input?: string | null;
+  inputId?: string | null;
+  inputVariant?: string | null;
   minutesUntilReady?: number;
   readyInDays?: number;
   color?: string | null;
@@ -412,7 +416,7 @@ export type FriendshipPlan = {
 
 export type PetPlan = { name: string; type: string; points: number };
 
-export type MachineOutput = { name: string; displayName?: string; count: number };
+export type MachineOutput = { id?: string; variant?: string; name: string; displayName?: string; count: number };
 
 export type MachinePlan = {
   id?: string;
@@ -509,7 +513,11 @@ export type LiveMachine = {
   ready: boolean;
   processing: boolean;
   output?: string | null;
+  outputId?: string | null;
+  outputVariant?: string | null;
   input?: string | null;
+  inputId?: string | null;
+  inputVariant?: string | null;
   minutesUntilReady?: number;
 };
 

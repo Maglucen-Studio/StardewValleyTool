@@ -60,6 +60,7 @@ export function resolveGameDisplayName(
   };
 
   const identityName = qualifiedId ? byId[qualifiedId] : undefined;
+  if (identityName && (name === id || name === qualifiedId)) return localizeEnglishName(identityName);
   for (const candidate of [identityName, name]) {
     if (!candidate) continue;
     const localized = localizeEnglishName(candidate);
@@ -119,8 +120,8 @@ export function localizeSnapshotGameNames(
     ...snapshot.interiors.flatMap(interior => interior.objects),
   ]) {
     object.displayName = localizedName(object.name, object.id);
-    if (object.output) object.output = localizedName(object.output);
-    if (object.input) object.input = localizedName(object.input);
+    if (object.output) object.output = localizedName(object.output, object.outputId || undefined);
+    if (object.input) object.input = localizedName(object.input, object.inputId || undefined);
   }
   snapshot.dailyBrief.crops.forEach(attach);
   snapshot.planningBrief.crops.forEach(attach);

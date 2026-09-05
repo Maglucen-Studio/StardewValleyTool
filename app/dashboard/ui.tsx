@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber } from "./formatting";
 
 import { useI18n } from "../i18n";
 import type { AppLanguageMode } from "../i18n";
@@ -207,7 +208,7 @@ export function Metric({
   value: string;
   delta?: number;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (
     <div className="metric-card">
       <span>{label}</span>
@@ -215,7 +216,7 @@ export function Metric({
       {delta !== undefined && (
         <small className={delta >= 0 ? "positive" : "negative"}>
           {delta >= 0 ? "+" : "−"}
-          {Math.abs(delta).toLocaleString("en-US")}{t("web.metric.gSinceYesterday")}</small>
+          {formatNumber(Math.abs(delta), locale)}{t("web.metric.gSinceYesterday")}</small>
       )}
     </div>
   );

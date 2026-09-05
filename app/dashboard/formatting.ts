@@ -1,6 +1,14 @@
 import { type Translate, type UpdateState, type DisplayNamedGameValue } from "./ui-types";
 import { type BundleRequirement, type DailyQuest, type LiveQuest, type LocalizedValue, type Terrain, type Interior, type BuildingPlan, type CropPlan } from "./snapshot-types";
 
+export function formatNumber(value: number, locale: string, options?: Intl.NumberFormatOptions) {
+  return new Intl.NumberFormat(locale, options).format(value);
+}
+
+export function formatDecimal(value: number, locale: string, digits: number) {
+  return formatNumber(value, locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
 export const seasonName = (season: string) =>
   ({ spring: "Spring", summer: "Summer", fall: "Fall", winter: "Winter" })[
     season
@@ -51,7 +59,7 @@ export function formatBundleRequirement(
   locale: string,
 ) {
   return item.id === "-1"
-    ? t("community.payment", { count: item.count.toLocaleString(locale) })
+    ? t("community.payment", { count: formatNumber(item.count, locale) })
     : `${item.count}× ${item.displayName || item.name}`;
 }
 
@@ -127,8 +135,8 @@ export function localizedStorageSource(source: string, t: Translate) {
 }
 
 export function routeItemName(item: DisplayNamedGameValue, t: Translate) {
-  if (item.name === "Artifact Spot") return t("world.artifactSpot");
-  if (item.name === "Seed Spot") return t("world.seedSpot");
+  if (item.id && ["590", "(O)590"].includes(item.id)) return t("world.artifactSpot");
+  if (item.id && ["SeedSpot", "(O)SeedSpot"].includes(item.id)) return t("world.seedSpot");
   return item.displayName || item.name;
 }
 

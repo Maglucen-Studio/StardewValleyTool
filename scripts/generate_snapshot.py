@@ -627,7 +627,11 @@ def saved_objects(location: ET.Element) -> list[dict]:
             "ready": ready,
             "processing": bool(output and not ready and minutes > 0),
             "output": output,
+            "outputId": qualified_item_id(held_object.findtext("itemId", held_object.findtext("parentSheetIndex", "")), "craftable" if bool_value(held_object, "bigCraftable") else "object") if held_object is not None else None,
+            "outputVariant": held_object.findtext("preservedParentSheetIndex") if held_object is not None else None,
+            "inputVariant": last_input.findtext("preservedParentSheetIndex") if last_input is not None else None,
             "input": last_input.findtext("name") if last_input is not None else None,
+            "inputId": qualified_item_id(last_input.findtext("itemId", last_input.findtext("parentSheetIndex", "")), "craftable" if bool_value(last_input, "bigCraftable") else "object") if last_input is not None else None,
             "minutesUntilReady": minutes,
             "readyInDays": math.ceil(minutes / 1440) if output and not ready and minutes > 0 else 0,
             "color": color,
@@ -1283,6 +1287,12 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
     friendships.sort(key=lambda entry: (entry["daysToBirthday"] if entry["daysToBirthday"] is not None else 999, entry["points"]))
 
     machine_counts: dict[str, dict] = {}
+    def add_machine_product(products: dict, name: str, item_id: str | None, variant: str | None):
+        identity = qualified_item_id(item_id) if item_id else ""
+        variant = qualified_item_id(variant) if variant else ""
+        key = (identity, variant) if identity else ("legacy", name)
+        product = products.setdefault(key, {**({"id": identity} if identity else {}), **({"variant": variant} if variant else {}), "name": name, "count": 0})
+        product["count"] += 1
     for obj in objects:
         if not is_production_machine(obj):
             continue
@@ -1301,12 +1311,12 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
             entry["locations"].add(obj["location"])
         output = obj.get("output")
         if output and obj.get("ready"):
-            entry["readyOutputs"][output] = entry["readyOutputs"].get(output, 0) + 1
+            add_machine_product(entry["readyOutputs"], output, obj.get("outputId"), obj.get("outputVariant"))
         elif output and obj.get("processing"):
-            entry["workingOutputs"][output] = entry["workingOutputs"].get(output, 0) + 1
+            add_machine_product(entry["workingOutputs"], output, obj.get("outputId"), obj.get("outputVariant"))
         machine_input = obj.get("input")
         if machine_input and obj.get("processing"):
-            entry["inputs"][machine_input] = entry["inputs"].get(machine_input, 0) + 1
+            add_machine_product(entry["inputs"], machine_input, obj.get("inputId"), obj.get("inputVariant"))
         minutes = obj.get("minutesUntilReady", 0)
         if obj.get("processing") and minutes > 0:
             entry["nextReadyMinutes"] = minutes if entry["nextReadyMinutes"] is None else min(entry["nextReadyMinutes"], minutes)
@@ -1314,9 +1324,9 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
     for entry in sorted(machine_counts.values(), key=lambda item: item["name"]):
         machines.append({
             **entry,
-            "readyOutputs": [{"name": name, "count": count} for name, count in sorted(entry["readyOutputs"].items())],
-            "workingOutputs": [{"name": name, "count": count} for name, count in sorted(entry["workingOutputs"].items())],
-            "inputs": [{"name": name, "count": count} for name, count in sorted(entry["inputs"].items())],
+            "readyOutputs": sorted(entry["readyOutputs"].values(), key=lambda item: (item["name"], item.get("id", ""))),
+            "workingOutputs": sorted(entry["workingOutputs"].values(), key=lambda item: (item["name"], item.get("id", ""))),
+            "inputs": sorted(entry["inputs"].values(), key=lambda item: (item["name"], item.get("id", ""))),
             "locations": sorted(entry["locations"]),
         })
     pet_node = next((node for node in root.iter() if node.find("friendshipTowardFarmer") is not None), None)

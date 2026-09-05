@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber } from "./formatting";
 
 import { createContext } from "react";
 import { useI18n } from "../i18n";
@@ -290,14 +291,14 @@ export function GoalRequirements({
               />
               <span className="goal-resource-name">{requirement.name}</span>
               <span className="goal-resource-count">
-                {requirement.available.toLocaleString(locale)}{suffix}
+                {formatNumber(requirement.available, locale)}{suffix}
                 {" / "}
-                {requirement.required.toLocaleString(locale)}{suffix}
+                {formatNumber(requirement.required, locale)}{suffix}
               </span>
               <small>
                 {satisfied
                   ? t("common.ready")
-                  : t("goal.missingAmount", { amount: `${missing.toLocaleString(locale)}${suffix}` })}
+                  : t("goal.missingAmount", { amount: `${formatNumber(missing, locale)}${suffix}` })}
               </small>
             </li>
           );

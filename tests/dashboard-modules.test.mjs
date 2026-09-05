@@ -25,6 +25,52 @@ test("game date and bundle formatting use the requested translation and locale",
   assert.equal(JSON.parse(formatBundleRequirement({ id: "-1", count: 123456, name: "Gold" }, t, "de-DE")).count, "123.456");
 });
 
+test("number formatting follows the selected locale including fixed decimals", async () => {
+  const { formatNumber, formatDecimal } = await pureModule("formatting");
+  assert.equal(formatNumber(1234567, "es-ES"), "1.234.567");
+  assert.equal(formatNumber(1234567, "en-US"), "1,234,567");
+  assert.equal(formatDecimal(1.5, "es-ES", 1), "1,5");
+  assert.equal(formatDecimal(-0.025, "es-ES", 3), "-0,025");
+  assert.equal(formatDecimal(1, "en-US", 1), "1.0");
+});
+
+test("materials and tool tiers ignore display names and foreign namespaces", async () => {
+  const { inventoryQuantity, inventoryToolTier } = await pureModule("identity");
+  const inventory = [
+    { id: "(O)334", name: "Barra de cobre", count: 3 },
+    { id: "334", name: "Copper Bar", count: 2 },
+    { id: "(BC)334", name: "Copper Bar", count: 50 },
+    { id: "(O)Example", name: "Copper Bar", count: 50 },
+    { id: "(T)SteelAxe", name: "Hacha de acero", count: 1 },
+    { id: "(W)IridiumAxe", name: "Iridium Axe", count: 1 },
+  ];
+  assert.equal(inventoryQuantity(inventory, "(O)334"), 5);
+  assert.equal(inventoryQuantity(inventory, undefined), 0);
+  assert.equal(inventoryToolTier(inventory, "Axe"), 2);
+  assert.equal(inventoryToolTier(inventory, "Pickaxe"), 0);
+});
+
+test("crafting goals count inventory stone rather than same-named map nodes", async () => {
+  const { commonCraftingGoals } = await pureModule("planning-goals");
+  const { inventoryQuantity } = await pureModule("identity");
+  const goal = commonCraftingGoals.find((item) => item.name === "Preserves Jar");
+  const stone = goal.materials.find((item) => item.name === "Stone");
+  const stock = [{ id: "(O)390", count: 40 }, { id: "(O)BasicCoalNode1", count: 5 }];
+  assert.equal(inventoryQuantity(stock, stone.id), stone.quantity);
+});
+
+test("artifact spot labels and placement use identity rather than an English label", async () => {
+  const { routeItemName } = await pureModule("formatting");
+  const { validateFarmPlacement } = await pureModule("farm-model");
+  const t = (key) => key;
+  assert.equal(routeItemName({ id: "(O)590", name: "Localized" }, t), "world.artifactSpot");
+  assert.equal(routeItemName({ id: "(BC)590", name: "Artifact Spot" }, t), "Artifact Spot");
+  const farm = { map: { width: 5, height: 5, blocked: [] }, buildings: [], terrain: [], objects: [{ x: 1, y: 1, id: "(O)590", name: "Localized", big: false }] };
+  assert.equal(validateFarmPlacement(farm, [], { x: 1, y: 1 }, 1, 1, t), "");
+  farm.objects[0] = { ...farm.objects[0], id: "(BC)590", name: "Artifact Spot", big: true };
+  assert.equal(validateFarmPlacement(farm, [], { x: 1, y: 1 }, 1, 1, t), "map.error.placedObject");
+});
+
 test("construction reconciliation deduplicates proposals and honors manual matches", async () => {
   const { reconcileProposals, buildingSignature } = await pureModule("farm-model");
   const proposal = { id: "example", kind: "Coop", name: "Coop", color: "blue", x: 1, y: 2, width: 6, height: 3 };

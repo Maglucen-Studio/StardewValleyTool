@@ -121,7 +121,7 @@ export function validateFarmPlacement(mapData: Snapshot | null, proposalStates: 
         mapData.objects.some(
           (object) => {
             if (object.x !== cell.x || object.y !== cell.y) return false;
-            if (object.kind === "Litter" || object.name === "Artifact Spot")
+            if (object.kind === "Litter" || (!object.big && ["590", "(O)590"].includes(object.id)))
               return false;
             return !mapData.terrain.some(
               (feature) =>

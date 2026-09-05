@@ -1,4 +1,7 @@
 "use client";
+import { sameInventoryIdentity } from "./identity";
+
+import { formatNumber } from "./formatting";
 
 import { useI18n } from "../i18n";
 import { useState } from "react";
@@ -67,7 +70,7 @@ export function GrowthView({
     current.totalMoneyEarned / Math.max(1, current.dayIndex);
   const plantedCropValue = current.dailyBrief.crops.reduce((sum, crop) => {
     const plan = current.planningBrief.crops.find(
-      (option) => option.name === crop.name,
+      (option) => sameInventoryIdentity(option, crop),
     );
     return sum + crop.count * (plan?.sell || 0);
   }, 0);
@@ -270,8 +273,8 @@ export function GrowthView({
     nextMoneyThreshold
       ? {
           id: "money",
-          label: t("growth.point.earnings", { amount: nextMoneyThreshold.toLocaleString(locale) }),
-          remaining: t("growth.point.moneyRemaining", { amount: (nextMoneyThreshold - current.totalMoneyEarned).toLocaleString(locale) }),
+          label: t("growth.point.earnings", { amount: formatNumber(nextMoneyThreshold, locale) }),
+          remaining: t("growth.point.moneyRemaining", { amount: formatNumber((nextMoneyThreshold - current.totalMoneyEarned), locale) }),
           reward: nextMoneyThreshold === 1000000 ? 2 : 1,
           how: t("growth.point.earningsHow"),
           estimate:
@@ -405,20 +408,20 @@ export function GrowthView({
       {visibleSections.metrics && <div className="metric-grid" style={{ order: sectionOrder.indexOf("metrics") + 1 }}>
         <Metric
           label={t("growth.metric.balance")}
-          value={`${current.money.toLocaleString(locale)}g`}
+          value={`${formatNumber(current.money, locale)}g`}
           delta={balanceDelta}
         />
         <Metric
           label={t("web.economyChart.totalEarnings")}
-          value={`${current.totalMoneyEarned.toLocaleString(locale)}g`}
+          value={`${formatNumber(current.totalMoneyEarned, locale)}g`}
         />
         <Metric
           label={t("growth.metric.latestIncome")}
-          value={`${(latest?.income || 0).toLocaleString(locale)}g`}
+          value={`${formatNumber((latest?.income || 0), locale)}g`}
         />
         <Metric
           label={t("growth.metric.latestSpending")}
-          value={`${(latest?.spending || 0).toLocaleString(locale)}g`}
+          value={`${formatNumber((latest?.spending || 0), locale)}g`}
         />
         <Metric label={t("growth.metric.skillLevels")} value={`${skillTotal}/50`} />
         <Metric
@@ -471,10 +474,10 @@ export function GrowthView({
         <div className="forecast-numbers">
           <div>
             <span>{t("web.growth.projectedEarnings")}</span>
-            <strong>{projectedEarnings.toLocaleString(locale)}g</strong>
+            <strong>{formatNumber(projectedEarnings, locale)}g</strong>
             <small>
-              {projectedLow.toLocaleString(locale)}–
-              {projectedHigh.toLocaleString(locale)}{t("web.growth.gLowHighScenario")}</small>
+              {formatNumber(projectedLow, locale)}–
+              {formatNumber(projectedHigh, locale)}{t("web.growth.gLowHighScenario")}</small>
           </div>
           <div>
             <span>{t("web.growth.projectedSkills")}</span>
@@ -588,7 +591,7 @@ export function GrowthView({
             <strong>{current.grandpa.earningsPoints}{t("web.growth.7Pt")}</strong>
             <small>
               {nextMoneyThreshold
-                ? t("growth.score.nextMoneyThreshold", { amount: nextMoneyThreshold.toLocaleString(locale) })
+                ? t("growth.score.nextMoneyThreshold", { amount: formatNumber(nextMoneyThreshold, locale) })
                 : t("growth.score.allEarningsReached")}
             </small>
           </div>
@@ -651,8 +654,8 @@ export function GrowthView({
                   />
                 </div>
                 <strong>
-                  {entry.income.toLocaleString(locale)} /{" "}
-                  {entry.spending.toLocaleString(locale)}g
+                  {formatNumber(entry.income, locale)} /{" "}
+                  {formatNumber(entry.spending, locale)}g
                 </strong>
               </div>
             ))}
@@ -704,12 +707,12 @@ export function GrowthView({
             {[...entries].reverse().map((entry) => (
               <div className="history-row" key={entry.dateKey}>
                 <strong>{formatGameDate(entry, t)}</strong>
-                <span>{entry.money.toLocaleString("en-US")}g</span>
+                <span>{formatNumber(entry.money, locale)}g</span>
                 <span className="positive">
-                  +{entry.income.toLocaleString("en-US")}g
+                  +{formatNumber(entry.income, locale)}g
                 </span>
                 <span className="negative">
-                  −{entry.spending.toLocaleString("en-US")}g
+                  −{formatNumber(entry.spending, locale)}g
                 </span>
                 <span>{entry.buildings}</span>
                 <span>{entry.crops}</span>
@@ -731,7 +734,7 @@ export function AchievementsView({
   current: Snapshot;
   live: LiveState;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const customAchievementIds = new Set([
     "the-bottom", "singular-talent", "five-ways", "local-legend", "joja",
     "full-house", "stardrops", "protector", "prairie-king", "fector",
@@ -1396,15 +1399,15 @@ export function AchievementsView({
                 <div className="item-progress">
                   <div>
                     <span>
-                      {item.current!.toLocaleString()}
+                      {formatNumber(item.current!, locale)}
                       {hasTarget
-                        ? ` / ${item.target!.toLocaleString()}`
+                        ? ` / ${formatNumber(item.target!, locale)}`
                         : ""}{" "}
                       {achievementUnit(item.unit)}
                     </span>
                     {remaining !== null && !item.done && (
                       <small>
-                        {remaining.toLocaleString()} {t("web.achievements.remaining")}</small>
+                        {formatNumber(remaining, locale)} {t("web.achievements.remaining")}</small>
                     )}
                   </div>
                   <i>
@@ -1439,7 +1442,7 @@ export function AchievementsView({
 }
 
 export function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const ref = useRef<HTMLCanvasElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const width = 920;
@@ -1597,8 +1600,8 @@ export function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
           role="status"
         >
           <strong>{formatGameDate(hovered, t)}</strong>
-          <span><i className="balance-key" />{t("web.growth.balance")}<b>{hovered.money.toLocaleString("en-US")}g</b></span>
-          <span><i className="earned-key" />{t("web.economyChart.totalEarnings")}<b>{hovered.totalMoneyEarned.toLocaleString("en-US")}g</b></span>
+          <span><i className="balance-key" />{t("web.growth.balance")}<b>{formatNumber(hovered.money, locale)}g</b></span>
+          <span><i className="earned-key" />{t("web.economyChart.totalEarnings")}<b>{formatNumber(hovered.totalMoneyEarned, locale)}g</b></span>
         </div>
       )}
     </div>

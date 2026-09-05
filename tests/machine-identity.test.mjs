@@ -36,6 +36,22 @@ test("inventory artwork reconciliation tolerates translated names but requires a
   assert.equal(sameInventoryIdentity({ id: "" }, { id: "" }), false);
 });
 
+test("machine products group translated aliases by ID and isolate anonymous legacy outputs", async () => {
+  const identity = await moduleUrl("identity");
+  const { summarizeLiveMachines } = await import(await moduleUrl("machine-selectors", { "./identity": identity }));
+  const machine = (outputId, output) => ({ id: "(BC)12", name: "Machine", ready: true, processing: false, location: "Farm", outputId, output });
+  const [result] = summarizeLiveMachines([
+    machine("(O)Example", "Product"), machine("(O)Example", "Producto"),
+    machine("(BC)Example", "Product"), machine(undefined, "Product"),
+    { ...machine("(O)Example", "Product A"), outputVariant: "FruitA" },
+    { ...machine("(O)Example", "Product B"), outputVariant: "FruitB" },
+  ]);
+  assert.equal(result.readyOutputs.length, 5);
+  assert.equal(result.readyOutputs.find((item) => item.id === "(O)Example" && !item.variant).count, 2);
+  assert.equal(result.readyOutputs.find((item) => item.variant === "(O)FruitA").count, 1);
+  assert.equal(result.readyOutputs.find((item) => !item.id).count, 1);
+});
+
 test("save machine grouping preserves namespace and mod identifiers", () => {
   const result = spawnSync(process.env.PYTHON || (process.platform === "win32" ? "python" : "python3"), [fileURLToPath(new URL("./machine_snapshot_identity_test.py", import.meta.url))], { encoding: "utf8", windowsHide: true });
   assert.equal(result.status, 0, result.error?.message || result.stderr || result.stdout);

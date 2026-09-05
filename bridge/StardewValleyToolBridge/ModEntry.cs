@@ -294,7 +294,11 @@ public sealed class ModEntry : Mod
                         ready = pair.Value.readyForHarvest.Value,
                         processing = pair.Value.MinutesUntilReady > 0 && !pair.Value.readyForHarvest.Value,
                         output = pair.Value.heldObject.Value?.DisplayName,
+                        outputId = pair.Value.heldObject.Value?.QualifiedItemId,
+                        outputVariant = pair.Value.heldObject.Value?.preservedParentSheetIndex.Value,
                         input = pair.Value.lastInputItem.Value?.DisplayName,
+                        inputId = pair.Value.lastInputItem.Value?.QualifiedItemId,
+                        inputVariant = (pair.Value.lastInputItem.Value as StardewValley.Object)?.preservedParentSheetIndex.Value,
                         minutesUntilReady = Math.Max(0, pair.Value.MinutesUntilReady),
                     })).ToArray(), cachedMachines ?? Array.Empty<object>());
                 cachedAnimals = CaptureLiveSection<object>("animals", () => trackedLocations.SelectMany(location => location.animals.Values
@@ -446,7 +450,11 @@ public sealed class ModEntry : Mod
             ready = pair.Value.readyForHarvest.Value,
             processing = pair.Value.MinutesUntilReady > 0,
             output = pair.Value.heldObject.Value?.DisplayName,
+                        outputId = pair.Value.heldObject.Value?.QualifiedItemId,
+                        outputVariant = pair.Value.heldObject.Value?.preservedParentSheetIndex.Value,
             input = pair.Value.lastInputItem.Value?.DisplayName,
+                        inputId = pair.Value.lastInputItem.Value?.QualifiedItemId,
+                        inputVariant = (pair.Value.lastInputItem.Value as StardewValley.Object)?.preservedParentSheetIndex.Value,
             minutesUntilReady = Math.Max(0, pair.Value.MinutesUntilReady),
             color = pair.Value is Chest chest
                 && (chest.playerChoiceColor.Value.R != 0
