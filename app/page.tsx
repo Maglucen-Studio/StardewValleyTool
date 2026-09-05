@@ -342,6 +342,7 @@ type FishingFish = {
   caught: boolean;
   modded?: boolean;
   verified?: boolean;
+  uncertainLocations?: string[];
   spriteIndex?: number;
   artworkUrl?: string;
   artworkColumns?: number;
@@ -383,6 +384,9 @@ type CommunityRoom = {
   bundles: BundlePlan[];
 };
 type BuildingPlan = {
+  id?: string;
+  modded?: boolean;
+  verified?: boolean;
   name: string;
   category: "Robin" | "Upgrades" | "Wizard" | "Community";
   projectType: string;
@@ -396,7 +400,7 @@ type BuildingPlan = {
   footprint?: string;
   prerequisite?: string;
   unlock?: string;
-  materials: { name: string; displayName?: string; owned: number; needed: number }[];
+  materials: { id?: string; name: string; displayName?: string; owned: number; needed: number }[];
 };
 type CropPlan = {
   id?: string;
@@ -6239,7 +6243,7 @@ function FishingView({
                           : t("fishing.weather.sunny")}
                     </span>
                     <span>{t("fishing.difficulty", { difficulty: fish.difficulty })}</span>
-                    {fish.modded && !fish.verified && (
+                    {fish.verified === false && (
                       <span className="mod-rule-badge" title={t("fishing.modRuleDetail")}>
                         {t("fishing.modRuleUnverified")}
                       </span>
@@ -6321,7 +6325,7 @@ function FishingView({
                         {fishListMode === "all" && fish.caught && (
                           <em className="caught-badge">{t("fishing.caught")}</em>
                         )}
-                        {fish.modded && !fish.verified && (
+                        {fish.verified === false && (
                           <em className="mod-rule-badge" title={t("fishing.modRuleDetail")}>
                             {t("fishing.modRuleUnverified")}
                           </em>
@@ -7253,14 +7257,16 @@ function PlanningView({
   const buildingOptions = visibleBuildings.map((building) => {
     const materials = building.materials.map((material) => ({
       ...material,
-      owned: live.active ? inventoryCount(material.name) : material.owned,
+      owned: live.active ? material.id ? inventory.filter((item) => inventoryItemId(item) === material.id).reduce((sum, item) => sum + item.count, 0) : inventoryCount(material.name) : material.owned,
     }));
     const resourcesReady =
       buildingMoney >= building.money &&
       materials.every((item) => item.owned >= item.needed);
     const ready =
-      !building.completed && building.prerequisiteMet && resourcesReady;
-    const status = building.completed
+      !building.completed && building.verified !== false && building.prerequisiteMet && resourcesReady;
+    const status = building.verified === false
+      ? t("building.status.unverified")
+      : building.completed
       ? t("building.status.completed")
       : ready
         ? building.owned > 0
@@ -7314,11 +7320,11 @@ function PlanningView({
       recentEntries.length
     : 0;
   const constructionTargets: StrategicGoalTarget[] = availableBuildings
-    .filter((building) => !building.completed)
+    .filter((building) => !building.completed && building.verified !== false)
     .map((building) => {
       const materials = building.materials.map((material) => ({
         ...material,
-        owned: inventoryCount(material.name),
+        owned: material.id ? inventory.filter((item) => inventoryItemId(item) === material.id).reduce((sum, item) => sum + item.count, 0) : inventoryCount(material.name),
       }));
       const missing = materials.filter(
         (material) => material.owned < material.needed,
@@ -7772,7 +7778,7 @@ function PlanningView({
             currentMachines={current.planningBrief.machines}
             currentHouseUpgradeLevel={current.progress.houseUpgradeLevel}
             currentAnimals={current.planningBrief.animals}
-            currentBuildings={current.planningBrief.buildings}
+            currentBuildings={current.planningBrief.buildings.map((building) => ({ ...building, cost: building.money }))}
             currentPonds={current.planningBrief.fishPonds}
             profileId={current.profileId || `${current.farmName}-${current.farmer}`}
             resolveGameName={gameName}
@@ -8005,7 +8011,7 @@ function PlanningView({
                                   <span>{t("web.planning.footprint")}{building.footprint}</span>
                                 )}
                                 {building.prerequisite && (
-                                  <span className="met">✓ {buildingPlanText(building, "prerequisite", t)}</span>
+                                  <span className={building.prerequisiteMet ? "met" : ""}>{building.prerequisiteMet ? "✓ " : ""} {buildingPlanText(building, "prerequisite", t)}</span>
                                 )}
                               </div>
                             </div>

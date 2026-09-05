@@ -36,7 +36,7 @@ test("a vanilla or SMAPI-default setup remains vanilla-derived", () => {
 test("supported Content Patcher NPC data is identified as mod-aware", () => {
   const files = fixture();
   try {
-    files.addMod("NPC Pack", {
+    const pack = files.addMod("NPC Pack", {
       UniqueID: "Example.Npcs",
       ContentPackFor: { UniqueID: "Pathoschild.ContentPatcher" },
     }, {
@@ -45,6 +45,7 @@ test("supported Content Patcher NPC data is identified as mod-aware", () => {
         { Action: "Load", Target: "Portraits/Example", FromFile: "portrait.png" },
       ],
     });
+    writeFileSync(join(pack, "portrait.png"), Buffer.from("synthetic portrait"));
     const summary = scanModCompatibility(files.root);
     assert.equal(summary.status, "mod-aware");
     assert.deepEqual(summary.alteredDomains, ["npcs"]);
@@ -127,4 +128,150 @@ test("conditional or tokenized crop edits and code mods produce explicit uncerta
   } finally {
     files.cleanup();
   }
+});
+
+const cpManifest = (id) => ({ UniqueID: id, ContentPackFor: { UniqueID: "Pathoschild.ContentPatcher" } });
+
+test("conditional includes identify uncertainty without contributing catalog entries", async () => {
+  const files = fixture();
+  try {
+    const pack = files.addMod("Conditional", cpManifest("Example.Conditional"), { Changes: [
+      { Action: "Include", FromFile: "nested.json", When: { Season: "spring" } },
+    ] });
+    writeFileSync(join(pack, "nested.json"), JSON.stringify({ Changes: [
+      { Action: "EditData", Target: "Data/Crops", Entries: { Seed: { HarvestItemId: "Fruit" } } },
+    ] }));
+    const summary = scanModCompatibility(files.root);
+    assert.equal(summary.status, "uncertain");
+    assert.deepEqual(summary.supportedDomains, []);
+    assert.ok(summary.uncertainDomains.includes("crops"));
+    assert.deepEqual((await buildContentPatcherCatalogOverlay(files.root)).crops, {});
+  } finally { files.cleanup(); }
+});
+
+test("conflicting additions are excluded independently of pack order and qualified ids stay distinct", async () => {
+  for (const reversed of [false, true]) {
+    const files = fixture();
+    try {
+      for (const [index, price] of (reversed ? [20, 10] : [10, 20]).entries())
+        files.addMod(`Pack${index}`, cpManifest(`Example.${index}`), { Changes: [
+          { Action: "EditData", Target: "Data/Objects", Entries: { Shared: { Price: price }, [`${index ? "(BC)" : "(O)"}100`]: { Price: price } } },
+          { Action: "EditData", Target: "Data/Shops", TargetField: ["Shop", "Items"], Entries: { Shared: { ItemId: "Shared", Price: price } } },
+        ] });
+      const overlay = await buildContentPatcherCatalogOverlay(files.root);
+      assert.equal(overlay.objects.Shared, undefined);
+      assert.ok(overlay.objects["(BC)100"]);
+      assert.ok(overlay.objects["(O)100"]);
+      assert.deepEqual(overlay.shopItems.flatMap((entry) => entry.items), []);
+      const summary = scanModCompatibility(files.root);
+      assert.deepEqual(summary.uncertainDomains, ["items"]);
+      assert.deepEqual(summary.supportedDomains, []);
+    } finally { files.cleanup(); }
+  }
+});
+
+test("malformed, tokenized and partial patches never claim NPC support", async () => {
+  const files = fixture();
+  try {
+    files.addMod("Partial", cpManifest("Example.Partial"), { Changes: [
+      { Action: "EditData", Target: "Data/Characters", Entries: { Example: {} }, Fields: { Example: { Age: "Adult" } } },
+      { Action: "EditData", Target: "Data/NPCGiftTastes", Entries: { Example: null } },
+      { Action: "Load", Target: "Portraits/Example", FromFile: "{{Season}}.png" },
+      { Action: "EditData", Target: "Data/Locations", TargetField: ["{{Location}}", "Fish"], Entries: { Fish: {} } },
+      { Action: "EditData", Target: "Data/Buildings", TargetField: "Cost", Entries: { Shed: {} } },
+      { Action: "Include", FromFile: "{{Season}}.json" },
+      null,
+    ] });
+    const summary = scanModCompatibility(files.root);
+    assert.equal(summary.status, "uncertain");
+    assert.deepEqual(summary.supportedDomains, []);
+    assert.ok(summary.uncertainDomains.includes("npcs"));
+    assert.ok(summary.uncertainDomains.includes("other"));
+    const overlay = await buildContentPatcherCatalogOverlay(files.root);
+    assert.deepEqual(overlay.characters, {});
+    assert.deepEqual(overlay.npcGiftTastes, {});
+    assert.deepEqual(overlay.locationFish, []);
+    assert.deepEqual(overlay.buildings, {});
+  } finally { files.cleanup(); }
+});
+
+test("bad included JSON retains valid additions but exposes global uncertainty", async () => {
+  const files = fixture();
+  try {
+    const pack = files.addMod("Broken", cpManifest("Example.Broken"), { Changes: [
+      { Action: "EditData", Target: "Data/Objects", Entries: { Item: { Price: 20 } } },
+      { Action: "Include", FromFile: "broken.json" },
+      { Action: "EditData", Target: "Data/Crops", Entries: { Seed: { HarvestItemId: "Item" } } },
+    ] });
+    writeFileSync(join(pack, "broken.json"), "{ malformed");
+    const summary = scanModCompatibility(files.root);
+    assert.equal(summary.status, "uncertain");
+    assert.equal(summary.parseFailureCount, 1);
+    assert.ok(summary.uncertainDomains.includes("other"));
+    const overlay = await buildContentPatcherCatalogOverlay(files.root);
+    assert.equal(overlay.objects.Item.Price, 20);
+    assert.equal(overlay.crops.Seed.HarvestItemId, "Item");
+  } finally { files.cleanup(); }
+});
+
+test("missing or escaping texture sources are uncertain and never ingested", async () => {
+  const files = fixture();
+  try {
+    files.addMod("Missing", cpManifest("Example.Missing"), { Changes: [
+      { Action: "Load", Target: "Portraits/Example", FromFile: "missing.png" },
+      { Action: "Load", Target: "Mods/Example/Image", FromFile: "../../escape.png" },
+    ] });
+    const summary = scanModCompatibility(files.root);
+    assert.equal(summary.status, "uncertain");
+    assert.deepEqual(summary.supportedDomains, []);
+    const overlay = await buildContentPatcherCatalogOverlay(files.root);
+    assert.deepEqual(overlay.textures, {});
+    assert.deepEqual(overlay.npcTextures, {});
+  } finally { files.cleanup(); }
+});
+
+test("no-mod catalog and diagnostics remain empty", async () => {
+  const files = fixture();
+  try {
+    assert.equal(scanModCompatibility(files.root).status, "vanilla");
+    for (const value of Object.values(await buildContentPatcherCatalogOverlay(files.root)))
+      assert.equal(Object.keys(value).length, 0);
+  } finally { files.cleanup(); }
+});
+
+test("production dictionaries use the same accepted entries as diagnostics", async () => {
+  const files = fixture();
+  try {
+    const targets = {
+      "Data/BigCraftables": "bigCraftables", "Data/Machines": "machines",
+      "Data/FarmAnimals": "farmAnimals", "Data/FishPondData": "fishPondData",
+      "Data/FruitTrees": "fruitTrees", "Data/WildTrees": "wildTrees",
+    };
+    files.addMod("Production", cpManifest("Example.Production"), { Changes: Object.keys(targets).map((target) => ({
+      Action: "EditData", Target: target, Entries: { Example: { Name: "Synthetic" } },
+    })) });
+    const overlay = await buildContentPatcherCatalogOverlay(files.root);
+    for (const key of Object.values(targets)) assert.equal(overlay[key].Example.Name, "Synthetic");
+    const summary = scanModCompatibility(files.root);
+    assert.equal(summary.status, "mod-aware");
+    assert.deepEqual(summary.supportedDomains, ["items", "crops", "fish", "machines", "animals"]);
+  } finally { files.cleanup(); }
+});
+
+test("static includes ingest NPC data and preserve texture target casing", async () => {
+  const files = fixture();
+  try {
+    const pack = files.addMod("NPC", cpManifest("Example.NPC"), { Changes: [{ Action: "Include", FromFile: "npc.json" }] });
+    writeFileSync(join(pack, "portrait.png"), "synthetic");
+    writeFileSync(join(pack, "npc.json"), JSON.stringify({ Changes: [
+      { Action: "EditData", Target: "Data/Characters", Entries: { CustomNPC: { DisplayName: "Custom" } } },
+      { Action: "EditData", Target: "Data/NPCGiftTastes", Entries: { CustomNPC: "Love/24/Like/16/Dislike/80/Hate/390/Neutral/72/" } },
+      { Action: "Load", Target: "Portraits/CustomNPC", FromFile: "portrait.png" },
+    ] }));
+    const overlay = await buildContentPatcherCatalogOverlay(files.root);
+    assert.equal(overlay.characters.CustomNPC.DisplayName, "Custom");
+    assert.ok(overlay.npcGiftTastes.CustomNPC);
+    assert.equal(overlay.npcTextures["Portraits/CustomNPC"], join(pack, "portrait.png"));
+    assert.deepEqual(scanModCompatibility(files.root).supportedDomains, ["npcs"]);
+  } finally { files.cleanup(); }
 });
