@@ -14,6 +14,7 @@ import { buildingDisplayName, localizedInteriorName, localizedTerrainFeature } f
 import { type LiveState, type Snapshot } from "./snapshot-types";
 import { Toggle } from "./ui";
 import { type ActiveView } from "./ui-types";
+import { resolveGameDisplayName } from "./game-names";
 
 export function FarmEditorView({ data, live, activeView, base, sprites }: { data: Snapshot; live: LiveState; activeView: ActiveView; base: HTMLImageElement | null; sprites: Record<string, HTMLImageElement> }) {
   const { t, locale } = useI18n();
@@ -71,12 +72,19 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
     window.addEventListener("pointerup", finish, { once: true });
   };
 
+  const cropNames = {
+    ...Object.fromEntries((data.productionCatalog?.crops || []).map(({ output }) => [
+      output.id,
+      resolveGameDisplayName(data.localizedNamesByQualifiedId || {}, data.localizedObjectNamesByEnglish || {}, output.name, output.id),
+    ])),
+    ...data.localizedNamesByQualifiedId,
+  };
   const details = (() => {
     if (!mapData || !selected) return [];
     const key = tileKey(selected.x, selected.y);
     const result: string[] = [];
     const feature = mapData.terrain.find((t) => tileKey(t.x, t.y) === key);
-    if (feature) result.push(localizedTerrainFeature(feature, t, data.localizedNamesByQualifiedId));
+    if (feature) result.push(localizedTerrainFeature(feature, t, cropNames));
     const object = mapData.objects.find((o) => tileKey(o.x, o.y) === key);
     if (object)
       result.push(
