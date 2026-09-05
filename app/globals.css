@@ -437,20 +437,6 @@ button {
 .language-mode-icon.game {
   image-rendering: pixelated;
 }
-.language-mode-icon.game::after {
-  content: "✦";
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  margin: auto;
-  color: #f1cf72;
-  background: #49683f;
-  border: 1px solid #78916d;
-  font: 700 12px/20px Arial, sans-serif;
-}
 .language-mode-icon.game img {
   position: relative;
   z-index: 1;
