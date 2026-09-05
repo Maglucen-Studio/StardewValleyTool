@@ -5,6 +5,8 @@ import { useI18n } from "../i18n";
 import type { ActiveView } from "./ui-types";
 import { AccessibleDialog } from "./accessible-dialog";
 
+const textSizes = [75, 85, 90, 100, 125, 150, 200];
+
 export function AccessibilitySettings() {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -12,7 +14,7 @@ export function AccessibilitySettings() {
   const [textSize, setTextSize] = useState(() => {
     if (typeof window === "undefined") return 100;
     const saved = Number(window.localStorage.getItem("companion-text-size"));
-    return [100, 125, 150, 200].includes(saved) ? saved : 100;
+    return textSizes.includes(saved) ? saved : 100;
   });
   useEffect(() => {
     document.documentElement.dataset.highContrast = String(contrast);
@@ -28,7 +30,7 @@ export function AccessibilitySettings() {
       <label><input type="checkbox" checked={contrast} onChange={(event) => setContrast(event.target.checked)} /> {t("accessibility.contrast")}</label>
       <label htmlFor="text-size">{t("accessibility.textSize")}</label>
       <select id="text-size" value={textSize} onChange={(event) => setTextSize(Number(event.target.value))}>
-        {[100, 125, 150, 200].map((size) => <option key={size} value={size}>{size}%</option>)}
+        {textSizes.map((size) => <option key={size} value={size}>{size}%</option>)}
       </select>
       <p>{t("accessibility.textSizeHint")}</p>
       <p>{t("accessibility.keyboardHint")}</p>
@@ -64,14 +66,21 @@ export function DashboardTour({ navigate }: { navigate: (target: { view: ActiveV
   const go = (next: number) => { setStep(next); navigate({ view: steps[next].view }); };
   if (!visible) return null;
   return <aside className="dashboard-tour" aria-label={t("accessibility.tour")}>
-    <div aria-live="polite" aria-atomic="true">
-      <strong>{step < 0 ? t("accessibility.welcome") : `${step + 1}/${steps.length} · ${t(steps[step].title)}`}</strong>
+    <span className="tour-emblem" aria-hidden="true">✦</span>
+    <div className="tour-copy" aria-live="polite" aria-atomic="true">
+      <span className="tour-eyebrow">{t("accessibility.tour")}{step >= 0 && ` · ${step + 1}/${steps.length}`}</span>
+      <h2>{step < 0 ? t("accessibility.welcome") : t(steps[step].title)}</h2>
       <p>{t(step < 0 ? "accessibility.welcomeHint" : steps[step].detail)}</p>
     </div>
     <div className="tour-actions">
       {step > 0 && <button onClick={() => go(step - 1)}>{t("accessibility.previous")}</button>}
-      <button onClick={() => step === steps.length - 1 ? dismiss() : go(step + 1)}>{t(step < 0 ? "accessibility.start" : step === steps.length - 1 ? "accessibility.finish" : "accessibility.next")}</button>
-      <button onClick={dismiss}>{t("accessibility.skip")}</button>
+      <button className="tour-primary" onClick={() => step === steps.length - 1 ? dismiss() : go(step + 1)}>{t(step < 0 ? "accessibility.start" : step === steps.length - 1 ? "accessibility.finish" : "accessibility.next")} <span aria-hidden="true">→</span></button>
+      <button className="tour-dismiss" onClick={dismiss}>{t("accessibility.skip")}</button>
     </div>
+    <nav className="tour-steps" aria-label={t("accessibility.tour")}>
+      {steps.map((item, index) => <button key={item.view} type="button" aria-current={step === index ? "step" : undefined} onClick={() => go(index)}>
+        <span className="tour-step-number" aria-hidden="true">{index + 1}</span>{t(item.title)}
+      </button>)}
+    </nav>
   </aside>;
 }

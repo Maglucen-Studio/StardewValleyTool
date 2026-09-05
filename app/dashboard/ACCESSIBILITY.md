@@ -1,6 +1,6 @@
 # Dashboard accessibility
 
-The Aa button opens appearance settings. Text size (100, 125, 150 or 200%) is independent of the Display setting and persists locally. High contrast changes interface surfaces; local game images keep their original pixels. The six-step guide is optional, remembers dismissal and can be reopened from Aa.
+The Aa button opens appearance settings. Text size (75, 85, 90, 100, 125, 150 or 200%) is independent of the Display setting and persists locally. High contrast changes interface surfaces; local game images keep their original pixels. The six-step guide is optional, remembers dismissal and can be reopened from Aa.
 
 ## Keyboard controls
 
