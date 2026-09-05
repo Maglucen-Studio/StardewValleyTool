@@ -182,6 +182,8 @@
   "fishing.mission": "MISSION",
   "fishing.here": "HERE",
   "fishing.caught": "CAUGHT",
+  "fishing.modRuleUnverified": "MOD RULE",
+  "fishing.modRuleDetail": "This fish comes from a mod with availability conditions Companion cannot fully verify.",
   "fishing.wiki": "Wiki",
   "fishing.noneMissingNow": "No available fish are missing at this time in this weather. Change the time to plan the rest of the day.",
   "fishing.noneAvailableNow": "No fish are available at this time in this weather.",

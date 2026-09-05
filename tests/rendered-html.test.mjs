@@ -1177,6 +1177,21 @@ test("mod compatibility is contextual and copied diagnostics exclude farm identi
   assert.doesNotMatch(desktop, /profileId: profileIdForSave\(config\?\.savePath\)/);
 });
 
+test("modded fishing uses the local structured catalog and preserves uncertain rules", async () => {
+  const [page, generator, extractor] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+    readFile(new URL("../tools/StardewDataExtractor/Program.cs", import.meta.url), "utf8"),
+  ]);
+  assert.match(extractor, /fishing = fishingCatalog/);
+  assert.match(extractor, /Dictionary<string, LocationData> locations/);
+  assert.match(generator, /catalog_fish = \{/);
+  assert.match(generator, /catalog_entry\.get\("artworkUrl"\)/);
+  assert.match(generator, /"verified": bool\(catalog_entry\.get/);
+  assert.match(page, /fish\.modded && !fish\.verified/);
+  assert.match(page, /<ModdedItemArtwork url=\{fish\.artworkUrl\}/);
+});
+
 test("Farm and Plan remember separate sections while bundle links open Community Center", async () => {
   const page = await readFile(
     new URL("../app/page.tsx", import.meta.url),

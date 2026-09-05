@@ -1551,8 +1551,14 @@ def fishing_brief(root: ET.Element, player: ET.Element, season: str, day: int, p
     try:
         game_data = json.loads(GAME_DATA.read_text(encoding="utf-8"))
         raw_fish = game_data.get("fish", {})
+        catalog_fish = {
+            unqualified_item_id(item.get("id", "")): item
+            for item in game_data.get("productionCatalog", {}).get("fishing", [])
+            if isinstance(item, dict) and item.get("id")
+        }
     except (OSError, json.JSONDecodeError):
         raw_fish = {}
+        catalog_fish = {}
 
     caught = {
         (item.findtext("key/string") or "").removeprefix("(O)")
@@ -1564,6 +1570,30 @@ def fishing_brief(root: ET.Element, player: ET.Element, season: str, day: int, p
     desert_open = any(key in mail for key in ("ccVault", "jojaVault", "ccVaultFin"))
     ginger_open = "willyBoatFixed" in mail
     legendary_levels = {"159": 5, "160": 3, "163": 10, "775": 6}
+    location_nodes = root.find("locations")
+    saved_locations = {
+        location.findtext("name", "")
+        for location in (location_nodes if location_nodes is not None else [])
+    }
+
+    def catalog_location(entry: dict) -> str:
+        location_id = str(entry.get("id") or "")
+        area_id = str(entry.get("fishAreaId") or "")
+        known = {
+            "Beach": "Ocean", "Town": "Town River", "Mountain": "Mountain Lake",
+            "Woods": "Secret Woods", "Sewer": "Sewers", "Desert": "Desert",
+            "WitchSwamp": "Witch's Swamp", "BugLand": "Mutant Bug Lair",
+            "IslandSouth": "Ginger Island Ocean", "IslandSouthEast": "Ginger Island Ocean",
+            "IslandSouthEastCave": "Ginger Island · Pirate Cove",
+            "IslandWest": "Ginger Island River/Pond" if area_id != "Ocean" else "Ginger Island Ocean",
+            "Forest": "Forest Pond" if area_id.lower() == "pond" else "Forest River",
+        }
+        if location_id in known:
+            return known[location_id]
+        display_name = str(entry.get("displayName") or "")
+        if display_name and not display_name.startswith("[") and "{{" not in display_name:
+            return display_name
+        return location_id
 
     def accessible_location(location: str) -> bool:
         if location.startswith("The Mines"):
@@ -1579,25 +1609,53 @@ def fishing_brief(root: ET.Element, player: ET.Element, season: str, day: int, p
 
     fish = []
     for fish_id, raw in raw_fish.items():
-        if fish_id not in FISH_LOCATIONS or not isinstance(raw, str):
+        if not isinstance(raw, str):
             continue
         parts = raw.split("/")
         if len(parts) < 9 or not parts[1].isdigit():
             continue
+        catalog_entry = catalog_fish.get(unqualified_item_id(fish_id), {})
         times_raw = [int(value) for value in parts[5].split() if value.isdigit()]
-        windows = [[times_raw[index], times_raw[index + 1]] for index in range(0, len(times_raw) - 1, 2)]
-        locations = FISH_LOCATIONS[fish_id]
+        windows = catalog_entry.get("windows") or [
+            [times_raw[index], times_raw[index + 1]]
+            for index in range(0, len(times_raw) - 1, 2)
+        ]
+        catalog_locations = catalog_entry.get("locations") or []
+        locations = FISH_LOCATIONS.get(fish_id) or list(dict.fromkeys(
+            catalog_location(entry) for entry in catalog_locations if catalog_location(entry)
+        ))
+        if not locations:
+            continue
         accessible = [location for location in locations if accessible_location(location)]
-        minimum_level = legendary_levels.get(fish_id, 0)
+        if fish_id not in FISH_LOCATIONS:
+            accessible_catalog_locations = [
+                catalog_location(entry)
+                for entry in catalog_locations
+                if entry.get("verified") and (
+                    str(entry.get("id") or "") in saved_locations
+                    or str(entry.get("id") or "") in {"Beach", "Town", "Forest", "Mountain", "Woods", "Sewer", "Desert"}
+                )
+            ]
+            accessible = list(dict.fromkeys(location for location in accessible_catalog_locations if location))
+        minimum_level = max(
+            [legendary_levels.get(fish_id, 0)]
+            + [int(entry.get("minFishingLevel") or 0) for entry in catalog_locations]
+        )
         if progress.get("fishing", 0) < minimum_level:
             accessible = []
         fish_seasons = FISH_SEASONS.get(fish_id, parts[6].split())
         fish_weather = "rainy" if fish_id == "163" else parts[7]
         fish.append({
-            "id": fish_id, "name": parts[0], "difficulty": int(parts[1]), "behavior": parts[2],
+            "id": fish_id, "name": catalog_entry.get("name") or parts[0], "difficulty": int(parts[1]), "behavior": parts[2],
             "windows": windows, "seasons": fish_seasons, "weather": fish_weather,
-            "locations": locations, "accessibleLocations": accessible, "basePrice": FISH_PRICES.get(fish_id, 0),
-            "minFishingLevel": minimum_level, "caught": fish_id in caught,
+            "locations": locations, "accessibleLocations": accessible,
+            "basePrice": catalog_entry.get("basePrice") or FISH_PRICES.get(fish_id, 0),
+            "minFishingLevel": minimum_level, "caught": unqualified_item_id(fish_id) in caught,
+            "modded": bool(catalog_entry.get("modded", False)),
+            "verified": bool(catalog_entry.get("verified", fish_id in FISH_LOCATIONS)),
+            "spriteIndex": catalog_entry.get("spriteIndex"),
+            "artworkUrl": catalog_entry.get("artworkUrl"),
+            "artworkColumns": catalog_entry.get("artworkColumns"),
         })
     fish.sort(key=lambda item: (item["caught"], item["name"]))
     raining = (root.findtext("isRaining", "false") or "false").lower() == "true"

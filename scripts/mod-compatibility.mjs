@@ -10,7 +10,7 @@ const SAFE_CODE_MODS = new Set([
   "pathoschild.contentpatcher",
   "smapi.savebackup",
 ]);
-const SUPPORTED_CONTENT_PACK_DOMAINS = new Set(["items", "crops", "npcs"]);
+const SUPPORTED_CONTENT_PACK_DOMAINS = new Set(["items", "crops", "fish", "recipes", "npcs", "buildings", "locations"]);
 const DOMAIN_ORDER = ["items", "crops", "fish", "recipes", "machines", "animals", "npcs", "buildings", "locations", "maps", "quests", "other"];
 
 function domainForTarget(target) {

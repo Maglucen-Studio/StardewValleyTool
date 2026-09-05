@@ -32,6 +32,11 @@ function plainEntries(value) {
   return Object.values(value).every((entry) => entry && typeof entry === "object" && !Array.isArray(entry)) ? value : null;
 }
 
+function stringEntries(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return Object.values(value).every((entry) => typeof entry === "string") ? value : null;
+}
+
 function hasRuntimeTokens(value) {
   return /\{\{/.test(JSON.stringify(value));
 }
@@ -51,10 +56,17 @@ function filePaths(value) {
 function supportedDataEdit(change, target) {
   if (String(change?.Action || "").toLowerCase() !== "editdata" || change.When || change.Fields || change.MoveEntries)
     return false;
-  const entries = plainEntries(change.Entries);
+  const entries = plainEntries(change.Entries) || stringEntries(change.Entries);
   if (!entries || hasRuntimeTokens(entries)) return false;
   const targetField = Array.isArray(change.TargetField) ? change.TargetField.map(String) : [];
-  if (target === "data/objects" || target === "data/crops") return targetField.length === 0;
+  if (["data/objects", "data/crops", "data/buildings"].includes(target))
+    return targetField.length === 0 && plainEntries(entries) !== null;
+  if (target === "data/locations" && targetField.length === 0)
+    return plainEntries(entries) !== null;
+  if (["data/fish", "data/cookingrecipes", "data/craftingrecipes"].includes(target))
+    return targetField.length === 0 && stringEntries(entries) !== null;
+  if (target === "data/locations")
+    return targetField.length === 2 && targetField[1].toLowerCase() === "fish" && plainEntries(entries) !== null;
   return target === "data/shops" && targetField.length === 2 && targetField[1].toLowerCase() === "items";
 }
 
@@ -71,6 +83,17 @@ function addEdit(overlay, change, target) {
   if (!supportedDataEdit(change, target)) return false;
   if (target === "data/objects") Object.assign(overlay.objects, change.Entries);
   else if (target === "data/crops") Object.assign(overlay.crops, change.Entries);
+  else if (target === "data/fish") Object.assign(overlay.fish, change.Entries);
+  else if (target === "data/cookingrecipes") Object.assign(overlay.cookingRecipes, change.Entries);
+  else if (target === "data/craftingrecipes") Object.assign(overlay.craftingRecipes, change.Entries);
+  else if (target === "data/buildings") Object.assign(overlay.buildings, change.Entries);
+  else if (target === "data/locations" && !change.TargetField?.length) Object.assign(overlay.locations, change.Entries);
+  else if (target === "data/locations") {
+    overlay.locationFish.push({
+      locationId: String(change.TargetField[0]),
+      items: Object.entries(change.Entries).map(([id, item]) => ({ ...item, Id: item.Id || id })),
+    });
+  }
   else {
     overlay.shopItems.push({
       shopId: String(change.TargetField[0]),
@@ -102,7 +125,10 @@ async function inspectContentFile(path, packRoot, overlay, visited, depth = 0) {
 }
 
 export async function buildContentPatcherCatalogOverlay(modsRoot) {
-  const overlay = { objects: {}, crops: {}, shopItems: [], textures: {} };
+  const overlay = {
+    objects: {}, crops: {}, fish: {}, cookingRecipes: {}, craftingRecipes: {},
+    buildings: {}, locations: {}, locationFish: [], shopItems: [], textures: {},
+  };
   for (const manifestPath of await manifestPaths(modsRoot)) {
     try {
       const manifest = await readJson5(manifestPath);

@@ -327,6 +327,20 @@ button {
   color: #fff0c7;
   background: #b77927;
 }
+
+.mod-rule-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid currentColor;
+  color: var(--gold);
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
 .display-scale {
   display: flex;
   align-items: center;
