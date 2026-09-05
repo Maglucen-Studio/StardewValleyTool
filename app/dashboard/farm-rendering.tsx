@@ -223,6 +223,7 @@ export function InteriorView({
   selected: Tile | null;
   onSelect: (tile: Tile) => void;
 }) {
+  const { t } = useI18n();
   const canvas = useRef<HTMLCanvasElement>(null);
   const [background, setBackground] = useState<{
     path: string;
@@ -324,12 +325,12 @@ export function InteriorView({
           ctx.arc(px + size - 5, py + 5, entity.ready ? 7 : 5, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
-          if (entity.ready) {
-            ctx.fillStyle = "white";
+          {
+            ctx.fillStyle = "#172219";
             ctx.font = "bold 10px Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText("✓", px + size - 5, py + 6);
+            ctx.fillText(entity.ready ? "✓" : "◷", px + size - 5, py + 6);
           }
         }
       } else if (
@@ -419,6 +420,8 @@ export function InteriorView({
     >
       <canvas
         ref={canvas}
+        role="img"
+        aria-label={t("accessibility.interiorImage")}
         width={interior.width * size}
         height={interior.height * size}
         style={{

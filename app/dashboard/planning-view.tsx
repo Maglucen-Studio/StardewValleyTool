@@ -1007,11 +1007,12 @@ export function PlanningView({
                     title={t("storage.clickToLocate", { item: item.id === "-1" ? t("community.gold") : item.displayName || item.name })}
                     key={`${item.room}-${item.bundle}-${item.id}`}
                   >
+              <button type="button" className="locate-item-action" data-storage-item={item.name} aria-label={t("storage.clickToLocateNamed", { name: item.name })}>⌖</button>
                     <ItemMentionArtwork
                       id={item.id}
                       name={item.name}
                       item={artworkForItem(item.id)}
-                    />
+                    locatable={false} />
                     <div>
                       <strong>{formatBundleRequirement(item, t, locale)}</strong>
                       <span>
@@ -1097,6 +1098,7 @@ export function PlanningView({
                             title={t("storage.clickToLocate", { item: item.displayName || item.name })}
                             key={`${bundle.id}-${item.id}-${index}`}
                           >
+              <button type="button" className="locate-item-action" data-storage-item={item.name} aria-label={t("storage.clickToLocateNamed", { name: item.name })}>⌖</button>
                             <span className="bundle-item-status">
                               {item.donated ? "✓" : item.ready ? "→" : "·"}
                             </span>
@@ -1104,7 +1106,7 @@ export function PlanningView({
                               id={item.id}
                               name={item.name}
                               item={artworkForItem(item.id)}
-                            />
+                            locatable={false} />
                             <span className="bundle-item-copy">
                               <strong>{formatBundleRequirement(item, t, locale)}</strong>
                               <small>
@@ -1691,6 +1693,7 @@ export function PlanningView({
                   title={t("storage.clickToLocate", { item: item.displayName || item.name })}
                   key={`${item.id}:${item.name}`}
                 >
+              <button type="button" className="locate-item-action" data-storage-item={item.name} aria-label={t("storage.clickToLocateNamed", { name: item.name })}>⌖</button>
                   <StorageArtwork item={item} />
                   <div>
                     <strong>{item.displayName || item.name}</strong>

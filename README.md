@@ -75,6 +75,8 @@ Use **Check for updates** inside the application. It reports whether the install
 
 ## Settings and background tracking
 
+Use **Aa → Accessibility** in the dashboard for high contrast, independent text sizing (100–200%), and the replayable quick tour. The map's coordinate controls support keyboard inspection and proposal editing. See the [keyboard and accessibility checklist](app/dashboard/ACCESSIBILITY.md).
+
 Open **Application → Settings…** to configure the farm and two independent background options:
 
 - **Track automatically** starts the companion quietly with Windows and watches for Stardew Valley.

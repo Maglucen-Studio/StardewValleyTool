@@ -131,7 +131,7 @@ export function SectionVisibilityMenu({
       if (!root.current?.contains(event.target as Node)) setOpen(false);
     };
     const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") { setOpen(false); root.current?.querySelector<HTMLButtonElement>("button")?.focus(); }
     };
     document.addEventListener("pointerdown", closeOutside);
     document.addEventListener("keydown", closeWithEscape);

@@ -244,10 +244,12 @@ export function ItemMentionArtwork({
       </span>
     );
   }
+  const Tag = locatable ? "button" : "span";
   return (
-    <span
+    <Tag
       className={`item-mention-artwork${locatable ? " locatable" : ""}`}
       data-storage-item={locatable ? name : undefined}
+      aria-label={locatable ? t("storage.clickToLocateNamed", { name }) : undefined}
       title={locatable ? t("storage.clickToLocateNamed", { name }) : name}
     >
       {resolvedItem ? (
@@ -255,7 +257,7 @@ export function ItemMentionArtwork({
       ) : (
         <SheetArtwork id={id} kind="object" label={name} fit />
       )}
-    </span>
+    </Tag>
   );
 }
 
@@ -285,12 +287,14 @@ export function GoalRequirements({
               title={t("storage.clickToLocateNamed", { name: requirement.name })}
               key={`${target.id}:${requirement.name}`}
             >
+              <button type="button" className="locate-item-action" data-storage-item={requirement.name} aria-label={t("storage.clickToLocateNamed", { name: requirement.name })}>⌖</button>
               <span className="goal-resource-status" aria-hidden="true">
                 {satisfied ? "✓" : "!"}
               </span>
               <ItemMentionArtwork
                 id={requirement.id}
                 name={requirement.name}
+                locatable={false}
                 item={requirement.artwork}
               />
               <span className="goal-resource-name">{requirement.name}</span>
@@ -403,11 +407,12 @@ export function GiftGroup({
               title={t("storage.clickToLocate", { item: item.displayName || item.name })}
               key={`${item.name}-${item.quality}-${index}`}
             >
+              <button type="button" className="locate-item-action" data-storage-item={item.name} aria-label={t("storage.clickToLocateNamed", { name: item.name })}>⌖</button>
               <ItemMentionArtwork
                 id={item.id}
                 name={item.name}
                 item={item.id ? { ...item, id: item.id } : undefined}
-              />
+              locatable={false} />
               <strong>{item.displayName || item.name}</strong>
               <span>
                 {item.count}× · {t(`quality.${quality[item.quality] || "normal"}`)}

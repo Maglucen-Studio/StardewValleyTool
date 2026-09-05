@@ -1,4 +1,5 @@
 "use client";
+import { AccessibleDialog } from "./accessible-dialog";
 
 import { useI18n } from "../i18n";
 import { useRef } from "react";
@@ -364,17 +365,16 @@ export function ItemLocationDialog({
   );
   return (
     <div className="item-locator-backdrop" onPointerDown={onClose}>
-      <section
+      <AccessibleDialog
         className="item-locator-dialog"
-        role="dialog"
-        aria-modal="true"
+            onDismiss={onClose}
         aria-label={t("storage.whereStored", { name })}
         onPointerDown={(event) => event.stopPropagation()}
       >
         <button type="button" className="help-close" onClick={onClose} aria-label={t("today.brief.close")}>×</button>
         <p className="eyebrow">{t("web.itemLocationDialog.storageLocation")}</p>
         <header>
-          {item ? <StorageArtwork item={item} /> : <ItemMentionArtwork name={name} />}
+          {item ? <StorageArtwork item={item} /> : <ItemMentionArtwork name={name} locatable={false} />}
           <div>
             <h2>{name}</h2>
             <span>{item ? t("storage.availableCount", { count: item.count }) : t("storage.notFoundLatest")}</span>
@@ -426,7 +426,7 @@ export function ItemLocationDialog({
           <p className="empty-daily">{t("web.itemLocationDialog.itMayHaveBeenMovedSinceTheLatestSave")}</p>
         )}
         <small className="item-locator-hint">{t("web.itemLocationDialog.clickItemCardsAnywhereInTheAppToOpen")}</small>
-      </section>
+      </AccessibleDialog>
     </div>
   );
 }

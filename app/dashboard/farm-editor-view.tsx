@@ -1,6 +1,7 @@
 "use client";
 import { formatNumber } from "./formatting";
 
+import { MapTileControls } from "./map-tile-controls";
 import { useFarmEditor } from "./use-farm-editor";
 
 import { useFarmCanvas } from "./use-farm-canvas";
@@ -45,7 +46,21 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
     window.localStorage.setItem("stardew-tool-right-panel-width", String(rightPanelWidth));
   }, [rightPanelWidth]);
 
-  const { mapData, selected, mapLocation, showState, setShowState, showProduction, setShowProduction, proposalStates, showSuggestions, setShowSuggestions, showGrid, setShowGrid, showBlocked, setShowBlocked, proposalEditMode, setProposalEditMode, setTool, setMovingProposalId, tool, proposalUndo, setProposalUndo, localSuggestions, persist, setMapLocation, setSelected, setPlacementError, centerOnFarmhouse, setZoom, zoom, mapViewportRef, canvasRef, setHover, pointFromEvent, handleClick, openProposalMenu, proposalMenu, setProposalMenu, placementError, persistProposalResolutions, proposalResolutions, persistProposalLinks, proposalLinks , hover, movingProposalId } = useFarmEditor(data, live, activeView);
+  const { activateTile, mapData, selected, mapLocation, showState, setShowState, showProduction, setShowProduction, proposalStates, showSuggestions, setShowSuggestions, showGrid, setShowGrid, showBlocked, setShowBlocked, proposalEditMode, setProposalEditMode, setTool, setMovingProposalId, tool, proposalUndo, setProposalUndo, localSuggestions, persist, setMapLocation, setSelected, setPlacementError, centerOnFarmhouse, setZoom, zoom, mapViewportRef, canvasRef, setHover, pointFromEvent, handleClick, openProposalMenu, proposalMenu, setProposalMenu, placementError, persistProposalResolutions, proposalResolutions, persistProposalLinks, proposalLinks , hover, movingProposalId } = useFarmEditor(data, live, activeView);
+  const proposalMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!proposalMenu) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const menu = proposalMenuRef.current;
+    if (menu) {
+      menu.style.left = `${Math.max(12, Math.min(proposalMenu.x, window.innerWidth - menu.offsetWidth - 12))}px`;
+      menu.style.top = `${Math.max(12, Math.min(proposalMenu.y, window.innerHeight - menu.offsetHeight - 12))}px`;
+      menu.querySelector<HTMLButtonElement>("button")?.focus();
+    }
+    return () => {
+      if (previous?.isConnected && (document.activeElement === document.body || menu?.contains(document.activeElement))) previous.focus({ preventScroll: true });
+    };
+  }, [proposalMenu]);
   useFarmCanvas({ canvasRef, base, hover, mapData, localSuggestions, movingProposalId, proposalEditMode, proposalStates, showBlocked, showGrid, showProduction, showState, showSuggestions, sprites, tool, activeView, mapLocation });
 
   const beginPanelResize = (
@@ -254,11 +269,21 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
           </div>
         </aside>
 
+        {/* Adjustable separators intentionally accept keyboard focus (WAI-ARIA window splitter). */}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
         <div
           className="column-resizer left-column-resizer"
           role="separator"
           aria-label={t("web.home.resizeLayersColumn")}
           aria-orientation="vertical"
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          tabIndex={0}
+          aria-valuemin={180} aria-valuemax={420} aria-valuenow={leftPanelWidth}
+          onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            setLeftPanelWidth((width) => event.key === "Home" ? 180 : event.key === "End" ? 420 : Math.max(180, Math.min(420, width + (event.key === "ArrowRight" ? 10 : -10))));
+          }}
           onPointerDown={(event) => beginPanelResize("left", event)}
         />
 
@@ -293,20 +318,23 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
                 >{t("web.home.home")}</button>
               )}
               <div className="zoom-control">
-                <button onClick={() => setZoom(Math.max(0.65, zoom - 0.15))}>
+                <button aria-label={t("accessibility.zoomOut")} onClick={() => setZoom(Math.max(0.65, zoom - 0.15))}>
                   −
                 </button>
                 <span>{Math.round(zoom * 100)}%</span>
-                <button onClick={() => setZoom(Math.min(2.1, zoom + 0.15))}>
+                <button aria-label={t("accessibility.zoomIn")} onClick={() => setZoom(Math.min(2.1, zoom + 0.15))}>
                   +
                 </button>
               </div>
             </div>
           </div>
+          <MapTileControls key={mapLocation} width={selectedInterior?.width || 80} height={selectedInterior?.height || 65} onInspect={setSelected} onActivate={mapLocation === "farm" ? activateTile : undefined} />
           <div className="map-viewport" ref={mapViewportRef}>
             {mapLocation === "farm" ? (
               <canvas
                 ref={canvasRef}
+                role="img"
+                aria-label={t("accessibility.mapImage")}
                 width={1280}
                 height={1040}
                 style={{
@@ -347,12 +375,22 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
             {proposalMenu && (
               <div
                 className="proposal-context-menu"
+                ref={proposalMenuRef}
+                aria-label={t("accessibility.proposalActions")}
                 role="menu"
                 tabIndex={-1}
                 style={{ left: proposalMenu.x, top: proposalMenu.y }}
                 onClick={(event) => event.stopPropagation()}
                 onKeyDown={(event) => {
-                  if (event.key === "Escape") setProposalMenu(null);
+                  if (event.key === "Escape") { event.stopPropagation(); setProposalMenu(null); }
+                  if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+                    event.preventDefault();
+                    const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+                    const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+                    const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (current + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+                    buttons[next]?.focus();
+                  }
+                  if (event.key === "Tab") setProposalMenu(null);
                 }}
               >
                 <strong>{proposalMenu.name}</strong>
@@ -402,7 +440,7 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
               </div>
             )}
           </div>
-          <div className="tile-strip">
+          <div className="tile-strip" role="status" aria-live="polite" aria-atomic="true">
             <div>
               <span>
                 {mapLocation === "farm"
@@ -424,11 +462,21 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
           </div>
         </section>
 
+        {/* Adjustable separators intentionally accept keyboard focus (WAI-ARIA window splitter). */}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
         <div
           className="column-resizer right-column-resizer"
           role="separator"
           aria-label={t("web.home.resizeAtAGlanceColumn")}
           aria-orientation="vertical"
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          tabIndex={0}
+          aria-valuemin={180} aria-valuemax={420} aria-valuenow={rightPanelWidth}
+          onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            setRightPanelWidth((width) => event.key === "Home" ? 180 : event.key === "End" ? 420 : Math.max(180, Math.min(420, width + (event.key === "ArrowLeft" ? 10 : -10))));
+          }}
           onPointerDown={(event) => beginPanelResize("right", event)}
         />
 

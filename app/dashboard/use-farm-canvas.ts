@@ -244,12 +244,12 @@ export function useFarmCanvas({ canvasRef, base, hover, mapData, localSuggestion
           ctx.arc(cx, cy, object.ready ? 5 : 3.5, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
-          if (object.ready) {
-            ctx.fillStyle = "white";
+          {
+            ctx.fillStyle = "#172219";
             ctx.font = "bold 7px Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText("✓", cx, cy + 0.5);
+            ctx.fillText(object.ready ? "✓" : "◷", cx, cy + 0.5);
           }
         }
       }
