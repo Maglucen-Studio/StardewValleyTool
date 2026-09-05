@@ -1,5 +1,5 @@
 import packageMetadata from "../../package.json";
-import { type LiveStorageItem, type Snapshot, type LiveState, type LiveQuest, type DailyQuest, type FarmObject, type CommunityRoom, type LiveMachine, type MachinePlan, type MachineOutput } from "./snapshot-types";
+import { type LiveStorageItem, type Snapshot, type LiveState, type LiveQuest, type DailyQuest, type FarmObject, type CommunityRoom, type LiveMachine } from "./snapshot-types";
 import { type SessionSummary, type Translate, type FeedbackKind, type DesktopDiagnostics, type ActiveView } from "./ui-types";
 import { normalizeObjectId, inventoryItemId } from "./identity";
 
@@ -247,61 +247,4 @@ export function summarizeReadyLiveMachines(items: LiveMachine[]) {
     grouped.set(label, (grouped.get(label) || 0) + 1);
   }
   return [...grouped].map(([label, count]) => `${count}× ${label}`).join(" · ");
-}
-
-export function summarizeLiveMachines(
-  items: LiveMachine[],
-  savedMachines: MachinePlan[] = [],
-): MachinePlan[] {
-  const grouped = new Map<string, MachinePlan>();
-  const addOutput = (list: MachineOutput[] | undefined, name: string) => {
-    const outputs = list || [];
-    const existing = outputs.find((item) => item.name === name);
-    if (existing) existing.count += 1;
-    else outputs.push({ name, count: 1 });
-    return outputs;
-  };
-  for (const item of items) {
-    const savedId = savedMachines.find(
-      (machine) => machine.name === item.name,
-    )?.id;
-    const machine = grouped.get(item.name) || {
-      id: item.id || savedId,
-      name: item.name,
-      count: 0,
-      ready: 0,
-      working: 0,
-      idle: 0,
-      readyOutputs: [],
-      workingOutputs: [],
-      inputs: [],
-      locations: [],
-      nextReadyMinutes: null,
-    };
-    machine.count += 1;
-    machine.ready += item.ready ? 1 : 0;
-    machine.working += item.processing && !item.ready ? 1 : 0;
-    machine.idle =
-      (machine.idle || 0) + (!item.ready && !item.processing ? 1 : 0);
-    if (!machine.locations!.includes(item.location))
-      machine.locations!.push(item.location);
-    if (item.output && item.ready)
-      machine.readyOutputs = addOutput(machine.readyOutputs, item.output);
-    else if (item.output && item.processing)
-      machine.workingOutputs = addOutput(machine.workingOutputs, item.output);
-    if (item.input && item.processing)
-      machine.inputs = addOutput(machine.inputs, item.input);
-    if (item.processing && (item.minutesUntilReady || 0) > 0)
-      machine.nextReadyMinutes =
-        machine.nextReadyMinutes === null
-          ? item.minutesUntilReady!
-          : Math.min(machine.nextReadyMinutes!, item.minutesUntilReady!);
-    grouped.set(item.name, machine);
-  }
-  return [...grouped.values()].sort(
-    (a, b) =>
-      b.ready - a.ready ||
-      (b.idle || 0) - (a.idle || 0) ||
-      a.name.localeCompare(b.name),
-  );
 }
