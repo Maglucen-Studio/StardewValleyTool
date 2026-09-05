@@ -5,7 +5,7 @@
 - `snapshot-types.ts` defines saved/local data contracts. `ui-types.ts` holds view state and presentation contracts. Production catalog contracts live in `app/planning/production-types.ts`, independently of the calculator component.
 - `identity.ts`, `game-names.ts`, `formatting.ts` and `selectors.ts` provide shared identity, localization, formatting and reconciliation helpers. `farm-model.ts` reconciles construction proposals without React or canvas.
 - `fishing-view.tsx`, `planning-view.tsx`, `today-view.tsx`, `progress-view.tsx` and `live-view.tsx` own their respective views.
-- `use-dashboard-navigation.ts` owns section history and desktop/mouse/keyboard navigation subscriptions. `use-farm-canvas.ts` owns farm drawing and redraw dependencies. `farm-rendering.tsx` owns canvas helpers and interior rendering. `artwork.tsx`, `storage.tsx` and `ui.tsx` own reusable artwork, storage dialogs and controls.
+- `use-farm-editor.ts` owns map preferences, selection, proposals, movement and editor handlers; `farm-model.ts` validates placement without React. `use-dashboard-navigation.ts` owns section history and desktop/mouse/keyboard navigation subscriptions. `use-farm-canvas.ts` owns farm drawing and redraw dependencies. `farm-rendering.tsx` owns canvas helpers and interior rendering. `artwork.tsx`, `storage.tsx` and `ui.tsx` own reusable artwork, storage dialogs and controls.
 
 Imports flow from the page to features and from features to shared modules. Shared modules must not import feature views or the page. A test checks the module graph, including type dependencies, for cycles.
 

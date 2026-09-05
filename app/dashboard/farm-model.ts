@@ -1,5 +1,5 @@
-import type { Building, Suggestion } from "./snapshot-types";
-import type { ProposalState } from "./ui-types";
+import type { Building, Suggestion, Snapshot, Tile } from "./snapshot-types";
+import type { ProposalState, Translate } from "./ui-types";
 
 export function buildingType(item: Pick<Building, "name"> & { kind?: string }) {
   const value = `${item.kind || ""} ${item.name}`.toLowerCase();
@@ -81,3 +81,71 @@ export function reconcileProposals(
       };
     });
 }
+
+export function validateFarmPlacement(mapData: Snapshot | null, proposalStates: ProposalState[], point: Tile, width: number, height: number, t: Translate) {
+    if (!mapData) return t("map.error.unavailable");
+    const cells = Array.from({ length: width * height }, (_, index) => ({
+      x: point.x + (index % width),
+      y: point.y + Math.floor(index / width),
+    }));
+    if (
+      cells.some(
+        (cell) =>
+          cell.x < 0 ||
+          cell.y < 0 ||
+          cell.x >= mapData.map.width ||
+          cell.y >= mapData.map.height,
+      )
+    )
+      return t("map.error.outsideFarm");
+    if (
+      cells.some((cell) =>
+        mapData.map.blocked.some(([x, y]) => x === cell.x && y === cell.y),
+      )
+    )
+      return t("map.error.nonBuildable");
+    if (
+      cells.some((cell) =>
+        mapData.buildings.some(
+          (building) =>
+            cell.x >= building.x &&
+            cell.x < building.x + building.width &&
+            cell.y >= building.y &&
+            cell.y < building.y + building.height,
+        ),
+      )
+    )
+      return t("map.error.existingBuilding");
+    if (
+      cells.some((cell) =>
+        mapData.objects.some(
+          (object) => {
+            if (object.x !== cell.x || object.y !== cell.y) return false;
+            if (object.kind === "Litter" || object.name === "Artifact Spot")
+              return false;
+            return !mapData.terrain.some(
+              (feature) =>
+                feature.x === object.x &&
+                feature.y === object.y &&
+                ["Tree", "FruitTree"].includes(feature.kind),
+            );
+          },
+        ),
+      )
+    )
+      return t("map.error.placedObject");
+    if (
+      cells.some((cell) =>
+        proposalStates.some(
+          (proposal) =>
+            proposal.status === "pending" &&
+            cell.x >= proposal.x &&
+            cell.x < proposal.x + proposal.width &&
+            cell.y >= proposal.y &&
+            cell.y < proposal.y + proposal.height,
+        ),
+      )
+    )
+      return t("map.error.pendingProposal");
+    return "";
+  }

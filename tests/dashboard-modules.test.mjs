@@ -36,6 +36,20 @@ test("construction reconciliation deduplicates proposals and honors manual match
   assert.equal(reconcileProposals([proposal], [{ ...proposal }])[0].status, "completed");
 });
 
+test("farm placement rejects boundaries and occupied cells before accepting an empty footprint", async () => {
+  const { validateFarmPlacement } = await pureModule("farm-model");
+  const t = (key) => key;
+  const farm = { map: { width: 10, height: 10, blocked: [[2, 2]] }, buildings: [{ x: 4, y: 4, width: 2, height: 2 }], objects: [{ id: "(BC)Example", name: "Example", x: 7, y: 7 }], terrain: [] };
+  const check = (point, proposals = []) => validateFarmPlacement(farm, proposals, point, 1, 1, t);
+  assert.equal(validateFarmPlacement(null, [], { x: 0, y: 0 }, 1, 1, t), "map.error.unavailable");
+  assert.equal(check({ x: -1, y: 0 }), "map.error.outsideFarm");
+  assert.equal(check({ x: 2, y: 2 }), "map.error.nonBuildable");
+  assert.equal(check({ x: 5, y: 5 }), "map.error.existingBuilding");
+  assert.equal(check({ x: 7, y: 7 }), "map.error.placedObject");
+  assert.equal(check({ x: 8, y: 8 }, [{ x: 8, y: 8, width: 1, height: 1, status: "pending" }]), "map.error.pendingProposal");
+  assert.equal(check({ x: 0, y: 0 }), "");
+});
+
 test("dashboard modules have no dependency cycles or imports back into the page", async () => {
   const directory = new URL("../app/dashboard/", import.meta.url);
   const graph = new Map();
