@@ -1,0 +1,128 @@
+{
+  "farmName": "Synthetic farm",
+  "farmer": "Synthetic farmer",
+  "season": "spring",
+  "seasonLabel": "Spring",
+  "day": 1,
+  "year": 1,
+  "dateKey": "1-spring-1",
+  "dayIndex": 1,
+  "money": 0,
+  "totalMoneyEarned": 0,
+  "progress": {
+    "farming": 0,
+    "mining": 0,
+    "foraging": 0,
+    "fishing": 0,
+    "combat": 0,
+    "deepestMineLevel": 0,
+    "houseUpgradeLevel": 0,
+    "stepsTaken": 0,
+    "itemsShipped": 0,
+    "cropsShipped": 0,
+    "fishCaught": 0,
+    "monstersKilled": 0,
+    "treesChopped": 0
+  },
+  "grandpa": {
+    "score": 0,
+    "candles": 0,
+    "earningsPoints": 0,
+    "skillPoints": 0,
+    "skillTotal": 0,
+    "friendsAtEightHearts": 0,
+    "petFriendship": 0,
+    "milestones": []
+  },
+  "achievements": {
+    "total": 0,
+    "completed": 0,
+    "items": [],
+    "note": "Synthetic"
+  },
+  "museumBrief": {
+    "donated": [],
+    "artifactIds": [],
+    "mineralIds": [],
+    "sources": [],
+    "note": "Synthetic"
+  },
+  "dailyBrief": {
+    "weatherTomorrow": {
+      "code": "Synthetic"
+    },
+    "luck": {
+      "value": 0,
+      "tier": "Synthetic",
+      "label": "Synthetic",
+      "advice": "Synthetic",
+      "recommendations": [],
+      "explanation": "Synthetic"
+    },
+    "tv": [],
+    "world": [],
+    "beach": [],
+    "birthdays": [],
+    "fruitCave": {
+      "unlocked": false,
+      "type": "Synthetic",
+      "count": 0,
+      "items": []
+    },
+    "toolUpgrade": null,
+    "crops": [],
+    "dailyQuest": {
+      "accepted": false,
+      "title": "Synthetic",
+      "description": "Synthetic",
+      "objective": "Synthetic",
+      "type": "Synthetic",
+      "requester": null,
+      "reward": 0,
+      "daysLeft": 0,
+      "progress": 0,
+      "target": 0,
+      "ready": false,
+      "owned": 0,
+      "hasRequestedItems": false,
+      "stock": [],
+      "stockNote": null
+    },
+    "inventoryItemsChecked": 0,
+    "summary": "Synthetic"
+  },
+  "fishingBrief": {
+    "season": "Synthetic",
+    "day": 0,
+    "weather": "sunny",
+    "caughtCount": 0,
+    "fish": [],
+    "note": "Synthetic"
+  },
+  "planningBrief": {
+    "communityCenter": {
+      "rooms": [],
+      "completed": 0,
+      "total": 0,
+      "readyItems": 0
+    },
+    "buildings": [],
+    "crops": [],
+    "friendships": [],
+    "machines": [],
+    "inventory": []
+  },
+  "map": {
+    "width": 80,
+    "height": 65,
+    "tileSize": 16,
+    "blocked": []
+  },
+  "objects": [],
+  "terrain": [],
+  "buildings": [],
+  "clumps": [],
+  "interiors": [],
+  "suggestions": [],
+  "profileId": "synthetic"
+}

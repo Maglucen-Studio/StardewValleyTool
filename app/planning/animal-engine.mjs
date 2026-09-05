@@ -67,6 +67,7 @@ export function calculateAnimalPlan(input) {
   addOutput(deluxe, expectedDeluxeCycles);
   addOutput(processor?.output, processedCycles * Math.max(0, Number(processor?.outputCount) || 1));
   const warnings = [...horizon.warnings];
+  if (animal.verified === false) warnings.push("unverified-producer-data");
   if (!fedDaily) warnings.push("animal-not-fed");
   if (!animal.purchasable && newCount > 0) warnings.push("animal-not-purchasable");
   if (Number.isFinite(input.buildingCapacity) && count > input.buildingCapacity) warnings.push("animal-building-capacity");

@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
-import { readFile as readRawFile } from "node:fs/promises";
+import { readFile as readRawFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import { furnitureDestination } from "../app/furniture-layout.mjs";
 import { isForegroundMapLayer } from "../scripts/render-community-rooms.mjs";
 
 async function readFile(path, encoding) {
-  const source = await readRawFile(path, encoding);
+  let source = await readRawFile(path, encoding);
+  if (path instanceof URL && path.pathname.endsWith("/app/page.tsx")) {
+    const directory = new URL("../app/dashboard/", import.meta.url);
+    const names = (await readdir(directory)).filter((name) => /\.tsx?$/.test(name)).sort();
+    source += "\n" + (await Promise.all(names.map((name) => readRawFile(new URL(name, directory), encoding)))).join("\n");
+  }
   const pathname = path instanceof URL ? path.pathname : String(path);
   if (!/\.(?:tsx|css)$/.test(pathname)) return source;
   return source.replace(/>\s+</g, "><").replace(/\s+/g, " ");
@@ -76,7 +81,7 @@ test("furniture sprites anchor to the bottom of their saved collision footprint"
 
   const [generator, page] = await Promise.all([
     readRawFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
-    readRawFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(generator, /item\.find\("boundingBox"\)/);
   assert.match(generator, /"footprintHeight": footprint_height/);
@@ -93,7 +98,7 @@ test("interior foreground map layers occlude furniture like Stardew Valley", asy
 
   const [renderer, page, styles] = await Promise.all([
     readRawFile(new URL("../scripts/render-storage-location-maps.mjs", import.meta.url), "utf8"),
-    readRawFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readRawFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   assert.match(renderer, /renderLocation\(mapName, season, \{ layered: true \}\)/);
@@ -339,7 +344,7 @@ test("map layers collapse and interiors use an interactive sprite canvas", async
   );
   assert.match(page, /drawBuildingSprite\(ctx, sprites, suggestion\)/);
   assert.match(page, /drawBuildingSprite\(ctx, sprites, building\)/);
-  assert.match(page, /if \(activeView === "map"\) draw\(\)/);
+  assert.match(page, /if \(activeView !== "map"\) return; draw\(\)/);
   assert.match(page, /useState<Record<string, HTMLImageElement>>\(\{\}\)/);
   assert.match(page, /window\.setTimeout\(\(\) => finish\(null\), 8000\)/);
   assert.match(
@@ -365,7 +370,7 @@ test("map layers collapse and interiors use an interactive sprite canvas", async
   assert.match(page, /hasCenteredFarmRef/);
   assert.match(
     page,
-    /requestAnimationFrame\(\(\) => window\.requestAnimationFrame\(draw\),?\s*\)/,
+    /secondFrame = window\.requestAnimationFrame\(draw\)/,
   );
   assert.match(styles, /\.workspace\.layers-collapsed/);
   assert.match(styles, /\.workspace\.view-hidden \{ display: none; \}/);
@@ -436,11 +441,11 @@ test("production machine artwork keeps the complete two-tile sprite", async () =
   ]);
   assert.match(
     page,
-    /kind=\{isCrabPot \? "object" : "craftable"\}[\s\S]*?label=\{machine\.displayName \|\| machine\.name\}/,
+    /kind=\{isObjectMachine \? "object" : "craftable"\}[\s\S]*?label=\{machine\.displayName \|\| machine\.name\}/,
   );
   assert.doesNotMatch(
     page,
-    /<SheetArtwork\s+id=\{machine\.id\}\s+kind=\{isCrabPot \? "object" : "craftable"\}\s+label=\{machine\.displayName \|\| machine\.name\}\s+fit\s*\/>/,
+    /<SheetArtwork\s+id=\{machine\.id\}\s+kind=\{isObjectMachine \? "object" : "craftable"\}\s+label=\{machine\.displayName \|\| machine\.name\}\s+fit\s*\/>/,
   );
   assert.match(styles, /\.sheet-artwork\.object,\s*\.sheet-artwork\.object2/);
   assert.match(styles, /\.machine-heading > span \{/);
@@ -670,6 +675,9 @@ test("farm history is checkpointed, backed up, and recovered across migrations",
   assert.match(generator, /source_days\.glob\("\*\.json"\)/);
   assert.match(generator, /destination = days_path \/ f'\{recovered_snapshot\["dateKey"\]\}\.json'/);
   assert.match(generator, /f'\{PROFILE_ID\}--\{snapshot\["dateKey"\]\}\.json'/);
+  assert.match(generator, /history = \{"profileId": PROFILE_ID, "farmName": farm_name/);
+  assert.match(generator, /recovered\.get\("profileId"\) != PROFILE_ID/);
+  assert.match(generator, /recovered_snapshot\.get\("profileId"\) != PROFILE_ID/);
   assert.match(generator, /checkpoint_root\.glob\("\*\.json\.bak"\)/);
   assert.match(desktop, /legacyDataDirs/);
   assert.match(desktop, /STARDEW_TOOL_LEGACY_DATA_DIRS/);
@@ -681,8 +689,28 @@ test("farm history is checkpointed, backed up, and recovered across migrations",
   assert.match(bridge, /"pending\.checkpoint"/);
   assert.match(bridge, /keepBackup: true/);
   assert.match(bridge, /farmName = player\.farmName\.Value/);
-  assert.equal(JSON.parse(sourceManifest).Version, "5.1.0");
-  assert.equal(JSON.parse(bundledManifest).Version, "5.1.0");
+  assert.equal(JSON.parse(sourceManifest).Version, "5.1.2");
+  assert.equal(JSON.parse(bundledManifest).Version, "5.1.2");
+});
+
+test("farm switching isolates previous-day, history, and LIVE state by profile", async () => {
+  const [page, desktop, localServer] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/dev-local.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /type FarmHistory = \{ profileId: string;/);
+  assert.match(page, /if \(farmHistory\.profileId !== profileId\) return;/);
+  assert.match(page, /setPreviousDay\(null\);[\s\S]*setLive\(\{ active: false, profileId \}\);/);
+  assert.match(page, /history\.profileId !== data\.profileId/);
+  assert.match(page, /snapshot && snapshot\.profileId === expectedProfileId/);
+  assert.match(page, /candidatePrevious\?\.profileId === current\.profileId/);
+  assert.match(page, /payload\.profileId === expectedProfileId/);
+  assert.match(localServer, /JSON\.stringify\(\{ \.\.\.payload, profileId: activeProfileId \}\)/);
+  assert.match(desktop, /let manualFarmSelectionDuringGame = null;/);
+  assert.match(desktop, /if \(!running\) manualFarmSelectionDuringGame = null;/);
+  assert.match(desktop, /running && !manualFarmSelectionDuringGame && readConfig\(\)\?\.autoFollowActiveSave !== false/);
+  assert.match(desktop, /manualFarmSelectionDuringGame = isGameRunning\(\)/);
 });
 
 test("the SMAPI bridge stays invisible while exporting read-only LIVE state", async () => {
@@ -737,7 +765,7 @@ test("live mode avoids recursive copies and recovers from missed filesystem even
   );
   assert.match(localServer, /setInterval\(copyLiveState, 1000\)\.unref\(\)/);
   assert.match(localServer, /sourceStats\.mtimeMs/);
-  assert.match(page, /if \(document\.hidden\) return Promise\.resolve\(\)/);
+  assert.match(page, /if \(document\.hidden \|\| loading\) return Promise\.resolve\(\)/);
   assert.match(page, /previous\.updatedAt === next\.updatedAt/);
   assert.match(bridge, /refreshSlowState: liveTicks % 5 == 0/);
   assert.match(bridge, /ToUnixTimeMilliseconds\(\) \/ 4000 \* 4000/);
@@ -853,14 +881,15 @@ test("Today and both Progress pages persist visible sections and their order", a
 });
 
 test("route checks distinguish manual decisions from reversible LIVE completion", async () => {
-  const page = await readFile(
-    new URL("../app/page.tsx", import.meta.url),
-    "utf8",
-  );
+  const [page, generator, styles] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
   assert.match(page, /manualWorldStorageKey/);
   assert.match(page, /manualCompletedWorld/);
   assert.match(page, /automaticallyCompletedWorld/);
-  assert.match(page, /const automaticallyCompletedWorld = useMemo\(\(\) => \{/);
+  assert.match(page, /const automaticallyCompletedWorld = \(\(\) => \{/);
   assert.match(page, /if \(!live\.active \|\| !live\.routeState\) return \[\]/);
   assert.match(page, /t\("today\.route\.completedLive"\)/);
   assert.match(page, /t\("today\.route\.completedManual"\)/);
@@ -870,6 +899,24 @@ test("route checks distinguish manual decisions from reversible LIVE completion"
   assert.match(page, /route-player-marker/);
   assert.match(page, /t\("today\.route\.youAreHere", \{ time:/);
   assert.match(page, /name=\{birthday\.id \|\| birthday\.person\}/);
+  assert.match(generator, /"routeContext": route_context/);
+  assert.match(generator, /"Secret Woods": axe_level >= 2/);
+  assert.match(generator, /"minecarts": any\(flag in received_mail/);
+  assert.match(generator, /game_data\.get\("festivalDates", \{\}\)/);
+  assert.match(generator, /"blacksmithOpenToday"/);
+  assert.match(page, /const blacksmithAvailable/);
+  assert.match(page, /today\.route\.blacksmithFestivalClosed/);
+  assert.match(page, /routeAccess\[stop\.location\] !== false/);
+  assert.match(page, /for \(const \[location, items\] of liveWorldItems\)/);
+  assert.match(page, /today\.route\.inaccessibleSkipped/);
+  assert.match(page, /today\.route\.unknownAccess/);
+  assert.match(page, /today\.route\.roughEstimate/);
+  assert.match(page, /fishingQuestRouteStop/);
+  assert.match(page, /routeBundleDeliveries/);
+  assert.match(page, /today\.route\.fishingQuestWindow/);
+  assert.match(page, /today\.route\.bundleDeliveries/);
+  assert.match(styles, /\.route-assumptions/);
+  assert.match(styles, /\.route-access-warning/);
 });
 
 test("Farm Cave tasks ignore placed containers and only expose ready cave rewards", async () => {
@@ -975,7 +1022,7 @@ test("Friendship planning includes the pet, available gifts, sorting, and Grandp
     /VANILLA_FRIENDSHIP_NPCS = frozenset\(BIRTHDAYS\.values\(\)\)/,
   );
   assert.match(generator, /name not in VANILLA_FRIENDSHIP_NPCS/);
-  assert.match(generator, /"id": name, "name": name/);
+  assert.match(generator, /"id": name, "name": character\.get/);
   assert.match(generator, /"giftsToday": number\(value, "GiftsToday"\)/);
   assert.match(generator, /"pet": pet/);
   assert.match(
@@ -1052,14 +1099,9 @@ test("friendship artwork is extracted privately from the local game", async () =
   assert.match(extractor, /"Leah", "Leo", "Lewis"/);
   assert.match(extractor, /public\/assets\/characters\/\$\{name\}\.png/);
   assert.match(extractor, /public\/assets\/portraits\/\$\{name\}\.png/);
-  assert.match(extractor, /findContentPacks\(modsRoot\)/);
-  assert.match(extractor, /import JSON5 from "json5"/);
-  assert.match(extractor, /\^\(Characters\|Portraits\)/);
-  assert.match(extractor, /gameData\.moddedCharacters = moddedNpcs\.metadata/);
-  assert.match(
-    extractor,
-    /Object\.assign\(gameData\.giftTastes, moddedNpcs\.giftTastes\)/,
-  );
+  assert.match(extractor, /contentPatcherOverlay\.npcTextures/);
+  assert.match(extractor, /gameData\.moddedCharacters = npcMetadata/);
+  assert.match(extractor, /addCatalogEntries\(gameData\.giftTastes/);
   assert.match(desktop, /"characters", "Abigail\.png"/);
   assert.match(desktop, /"portraits", "Abigail\.png"/);
 });
@@ -1108,6 +1150,46 @@ test("the desktop refreshes extracted NPC assets after a mod changes", async () 
     /newestModDataMtime\(join\(config\.stardewPath, "Mods"\)\)/,
   );
   assert.match(desktop, /extractedAssetsAreStale\(config, requiredAssets\)/);
+});
+
+test("mod compatibility is contextual and copied diagnostics exclude farm identity", async () => {
+  const [page, calculator, compatibility, desktop, scanner, snapshot] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/planning/production-calculator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/compatibility.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/mod-compatibility.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+  ]);
+  assert.match(scanner, /scanModCompatibility/);
+  assert.match(scanner, /uncertainDomains/);
+  assert.match(scanner, /SAFE_CODE_MODS/);
+  assert.match(snapshot, /"modCompatibility": game_data\.get/);
+  assert.doesNotMatch(page, /<CompatibilityBadge summary=\{data\.modCompatibility\}/);
+  assert.doesNotMatch(page, /<CompatibilityNotice/);
+  assert.match(calculator, /<CompatibilityNotice summary=\{modCompatibility\} domains=\{compatibilityDomains\}/);
+  assert.match(calculator, /selectedIsAnimal[\s\S]*?\["animals", "items", "buildings"/);
+  assert.match(calculator, /selectedIsPond[\s\S]*?\["fish", "items", "buildings"/);
+  assert.match(compatibility, /summary\?\.uncertainDomains/);
+  assert.match(compatibility, /domains\.includes\(domain\)/);
+  assert.match(page, /modCompatibility: diagnostics\.modCompatibility/);
+  assert.doesNotMatch(page, /JSON\.stringify\(\{ \.\.\.diagnostics/);
+  assert.doesNotMatch(desktop, /profileId: profileIdForSave\(config\?\.savePath\)/);
+});
+
+test("modded fishing uses the local structured catalog and preserves uncertain rules", async () => {
+  const [page, generator, extractor] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
+    readFile(new URL("../tools/StardewDataExtractor/Program.cs", import.meta.url), "utf8"),
+  ]);
+  assert.match(extractor, /fishing = fishingCatalog/);
+  assert.match(extractor, /Dictionary<string, LocationData> locations/);
+  assert.match(generator, /catalog_fish = \{/);
+  assert.match(generator, /catalog_entry\.get\("artworkUrl"\)/);
+  assert.match(generator, /"verified":/);
+  assert.match(page, /fish\.verified === false/);
+  assert.match(page, /<ModdedItemArtwork url=\{fish\.artworkUrl\}/);
 });
 
 test("Farm and Plan remember separate sections while bundle links open Community Center", async () => {
@@ -1342,7 +1424,7 @@ test("qualified item identities cannot confuse objects with big craftables", asy
 
 test("farm proposals may replace natural features but not placed machines", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /object\.kind === "Litter" \|\| object\.name === "Artifact Spot"/);
+  assert.match(page, /\["590", "\(O\)590"\]\.includes\(object\.id\)/);
   assert.match(page, /\["Tree", "FruitTree"\]\.includes\(feature\.kind\)/);
   assert.match(page, /t\("map\.error\.placedObject"\)/);
   assert.doesNotMatch(page, /Trees or crops must be removed first/);
@@ -1526,7 +1608,7 @@ test("Production counts functional machines, interiors, live storage, and action
   assert.match(generator, /"readyOutputs"/);
   assert.match(page, /t\("web\.planning\.whatToCollectAndRefill"\)/);
   assert.match(page, /summarizeLiveMachines/);
-  assert.match(page, /kind=\{isCrabPot \? "object" : "craftable"\}/);
+  assert.match(page, /kind=\{isObjectMachine \? "object" : "craftable"\}/);
   assert.match(page, /t\("web\.planning\.currentMachinesAndCrabPots"\)/);
   assert.match(page, /legacyCraftableSpriteIndex/);
   assert.match(page, /\{idle\}\{t\("web\.planning\.idle"\)\}/);
@@ -1537,7 +1619,8 @@ test("Production counts functional machines, interiors, live storage, and action
   assert.match(bridge, /machines = cachedMachines/);
   assert.match(bridge, /id = pair\.Value\.QualifiedItemId/);
   assert.match(bridge, /"Crab Pot"/);
-  assert.match(generator, /"id": obj\.get\("id", ""\)/);
+  assert.match(generator, /"id": machine_id/);
+  assert.match(generator, /machine_id = qualified_item_id/);
 });
 
 test("Grandpa forecast separates projected milestones from points confirmed today", async () => {
@@ -1614,8 +1697,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 9/);
-  assert.match(desktop, /catalogVersion !== 9/);
+  assert.match(extractor, /catalogVersion: 12/);
+  assert.match(desktop, /catalogVersion !== 12/);
   assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
   assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);
@@ -1812,6 +1895,11 @@ test("desktop loading screen uses the complete original brand lockup and localiz
   assert.match(loadingScript, /messages\["loading\.title"\]/);
   assert.match(desktop, /t\("loading\.extractingAssets"\)/);
   assert.match(desktop, /t\("loading\.optimizing"\)/);
+  assert.match(desktop, /function loadingWindowBounds\(\)/);
+  assert.match(desktop, /const saved = loadWindowState\(\)/);
+  assert.match(desktop, /screen\.getDisplayNearestPoint\(/);
+  assert.match(desktop, /const area = display\.workArea/);
+  assert.match(desktop, /\.\.\.loadingWindowBounds\(\)/);
   assert.doesNotMatch(desktop, /progress\("Preparing your farmers/);
 });
 
@@ -2038,7 +2126,8 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /acceleratedGrowthDays/);
   assert.match(calculator, /tillerApplies/);
   assert.match(calculator, /entry\.kind === "crop"[\s\S]*resolveGameName\(entry\.output\.name, entry\.output\.id\)/);
-  assert.match(calculator, /renderItemArtwork\?\.\(entry\.output\.id, outputName, entry\.output\.spriteIndex\)/);
+  assert.match(calculator, /renderItemArtwork\?\.\(entry\.output\.id, outputName, entry\.output\.spriteIndex, entry\.output\.artworkUrl, entry\.output\.artworkColumns\)/);
+  assert.match(page, /function ModdedItemArtwork/);
   assert.match(calculator, /className="planner-result-identity"/);
   assert.match(calculator, /className="planner-comparison-identity"/);
   assert.match(calculator, /className="planner-producer-menu"/);
@@ -2078,7 +2167,9 @@ test("production planner works offline with a catalog derived from the local gam
   assert.match(calculator, /!selectedIsForestry \|\| !forestryExisting/);
   assert.match(calculator, /resetCalculation/);
   assert.match(calculator, /forcePlantToday/);
-  assert.match(page, /renderItemArtwork=\{.{0,160}<SheetArtwork/);
+  assert.match(page, /renderItemArtwork=\{/);
+  assert.match(page, /<ModdedItemArtwork/);
+  assert.match(page, /: <SheetArtwork/);
   assert.match(extractor, /StardewDataExtractor\.exe/);
   assert.match(gameReader, /Data\/Crops/);
   assert.match(gameReader, /Data\/Objects/);

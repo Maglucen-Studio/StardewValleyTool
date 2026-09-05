@@ -34,7 +34,7 @@ button {
   place-items: center;
   background: var(--app-background);
   color: #f7ecd6;
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 .load-error {
   text-align: center;
@@ -50,8 +50,7 @@ button {
 }
 .load-error p {
   color: #c8d2c5;
-  font:
-    13px/1.55 Arial,
+  font: 0.8125rem/1.55 Arial,
     sans-serif;
 }
 .load-error button {
@@ -60,8 +59,7 @@ button {
   color: #f7ecd6;
   background: #344a39;
   cursor: pointer;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .app-shell {
@@ -169,7 +167,7 @@ button {
 }
 .farm-switcher-trigger > span {
   color: #f3c968;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .farm-switch-feedback {
   position: fixed;
@@ -193,11 +191,11 @@ button {
   gap: 3px;
 }
 .farm-switch-feedback strong {
-  font: 700 13px/1.2 Arial, sans-serif;
+  font: 700 0.8125rem/1.2 Arial, sans-serif;
 }
 .farm-switch-feedback span:not(.farm-switch-spinner) {
   color: #c8d4c3;
-  font: 11px/1.3 Arial, sans-serif;
+  font: 0.6875rem/1.3 Arial, sans-serif;
 }
 .farm-switch-spinner {
   width: 18px;
@@ -252,11 +250,11 @@ button {
 .farm-switcher-menu small {
   margin-top: 3px;
   color: #b9c7b6;
-  font: 10px/1.3 Arial, sans-serif;
+  font: 0.625rem/1.3 Arial, sans-serif;
 }
 .farm-switcher-menu i {
   color: #aee486;
-  font: 800 9px Arial, sans-serif;
+  font: 800 0.5625rem Arial, sans-serif;
   font-style: normal;
 }
 .farm-switcher-menu > button.manage-farms {
@@ -264,15 +262,14 @@ button {
   margin-top: 5px;
   border-top-color: #526456;
   color: #f3c968;
-  font: 700 10px Arial, sans-serif;
+  font: 700 0.625rem Arial, sans-serif;
 }
 .brand strong {
-  font-size: 21px;
+  font-size: 1.3125rem;
   letter-spacing: 0.02em;
 }
 .brand span {
-  font:
-    12px/1.3 Arial,
+  font: 0.75rem/1.3 Arial,
     sans-serif;
   color: #bfccb8;
 }
@@ -283,16 +280,14 @@ button {
   padding: 4px 18px;
   border-left: 1px solid #62715e;
   border-right: 1px solid #62715e;
-  font:
-    12px Arial,
+  font: 0.75rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   white-space: nowrap;
 }
 .date-card strong {
-  font:
-    28px Georgia,
+  font: 1.75rem Georgia,
     serif;
   color: #f3c968;
 }
@@ -301,18 +296,51 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  font:
-    12px Arial,
+  font: 0.75rem Arial,
     sans-serif;
   color: #cbd7c7;
+}
+.compatibility-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  border-left: 2px solid #b77927;
+  color: #ead8ae;
+  background: rgb(183 121 39 / 12%);
+  font: 0.625rem/1.35 Arial, sans-serif;
+}
+.compatibility-notice > span:first-child {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  color: #fff0c7;
+  background: #b77927;
+}
+
+.mod-rule-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid currentColor;
+  color: var(--gold);
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 .display-scale {
   display: flex;
   align-items: center;
   gap: 6px;
   color: #aebba9;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -323,8 +351,7 @@ button {
   border: 1px solid #61705e;
   color: #f7ecd8;
   background: #27362c;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
   cursor: pointer;
 }
@@ -402,20 +429,6 @@ button {
 .language-mode-icon.game {
   image-rendering: pixelated;
 }
-.language-mode-icon.game::after {
-  content: "✦";
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  margin: auto;
-  color: #f1cf72;
-  background: #49683f;
-  border: 1px solid #78916d;
-  font: 700 12px/20px Arial, sans-serif;
-}
 .language-mode-icon.game img {
   position: relative;
   z-index: 1;
@@ -432,8 +445,7 @@ button {
   color: #cbd7c7;
   background: #27362c;
   cursor: pointer;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -454,8 +466,7 @@ button {
   color: #f7ecd8;
   background: #27362c;
   box-shadow: 0 10px 28px rgba(12, 18, 13, 0.48);
-  font:
-    10px/1.35 Arial,
+  font: 0.625rem/1.35 Arial,
     sans-serif;
   text-transform: none;
   letter-spacing: 0;
@@ -475,7 +486,7 @@ button {
   color: inherit;
   background: transparent;
   cursor: pointer;
-  font: 700 16px/20px Arial, sans-serif;
+  font: 700 1rem/1.25rem Arial, sans-serif;
 }
 .update-feedback.current {
   border-color: #7fa96d;
@@ -510,7 +521,7 @@ button {
   color: #cbd7c7;
   background: #27362c;
   cursor: pointer;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
   text-transform: uppercase;
 }
 .brand .farmer-name {
@@ -524,7 +535,7 @@ button {
   border: 1px solid #e1b64f;
   color: #f5d77f;
   background: #3b3520;
-  font: 800 7px Arial, sans-serif;
+  font: 800 0.4375rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -533,7 +544,7 @@ button {
   border-left: 3px solid #d6a83e;
   color: #56482f;
   background: #efe2bd;
-  font: 700 10px/1.4 Arial, sans-serif;
+  font: 700 0.625rem/1.4 Arial, sans-serif;
 }
 .farm-switcher-menu > button > .farm-option-main {
   flex: 1 1 auto;
@@ -580,7 +591,7 @@ button {
 }
 .help-dialog h2 {
   margin: 4px 36px 5px 0;
-  font: 30px/1.1 Georgia, serif;
+  font: 1.875rem/1.1 Georgia, serif;
 }
 .release-notes-dialog {
   width: min(720px, 100%);
@@ -588,7 +599,7 @@ button {
 .release-notes-dialog > p:not(.eyebrow) {
   margin: 8px 0 0;
   color: #665a49;
-  font: 12px/1.5 Arial, sans-serif;
+  font: 0.75rem/1.5 Arial, sans-serif;
 }
 .release-notes-actions {
   display: flex;
@@ -602,7 +613,7 @@ button {
   color: #fff8e8;
   background: #48694f;
   cursor: pointer;
-  font: 800 10px/1.35 Arial, sans-serif;
+  font: 800 0.625rem/1.35 Arial, sans-serif;
 }
 .help-close {
   position: absolute;
@@ -614,7 +625,7 @@ button {
   color: #5c4730;
   background: transparent;
   cursor: pointer;
-  font: 26px/30px Arial, sans-serif;
+  font: 1.625rem/1.875rem Arial, sans-serif;
 }
 .help-actions {
   display: grid;
@@ -628,14 +639,14 @@ button {
   border: 1px solid #94763e;
   color: #fff8e8;
   background: #48694f;
-  font: 800 10px/1.35 Arial, sans-serif;
+  font: 800 0.625rem/1.35 Arial, sans-serif;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
 }
 .privacy-note {
   color: #775e3c;
-  font: 10px/1.45 Arial, sans-serif;
+  font: 0.625rem/1.45 Arial, sans-serif;
 }
 .diagnostics-box {
   display: grid;
@@ -655,7 +666,7 @@ button {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font: 10px Arial, sans-serif;
+  font: 0.625rem Arial, sans-serif;
 }
 .diagnostics-box button {
   justify-self: start;
@@ -664,11 +675,11 @@ button {
   color: #553d24;
   background: #f5dc9b;
   cursor: pointer;
-  font: 800 9px Arial, sans-serif;
+  font: 800 0.5625rem Arial, sans-serif;
 }
 .help-changelog {
   margin-top: 15px;
-  font: 11px/1.5 Arial, sans-serif;
+  font: 0.6875rem/1.5 Arial, sans-serif;
 }
 .help-changelog.compact .help-changelog-intro {
   display: none;
@@ -686,7 +697,7 @@ button {
 }
 .help-changelog-heading a {
   color: #466847;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
   text-align: right;
 }
 .help-changelog-heading a:hover {
@@ -746,7 +757,7 @@ button {
 }
 .help-changelog-release-body h4 {
   color: #8d5018;
-  font: 800 9px Arial, sans-serif;
+  font: 800 0.5625rem Arial, sans-serif;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -769,7 +780,7 @@ button {
 .help-quick-controls p {
   margin-top: 7px;
   color: #665a49;
-  font: 10px/1.7 Arial, sans-serif;
+  font: 0.625rem/1.7 Arial, sans-serif;
 }
 .help-quick-controls kbd,
 .view-tabs kbd {
@@ -779,7 +790,7 @@ button {
   height: 16px;
   border: 1px solid currentColor;
   border-radius: 2px;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
   opacity: 0.7;
 }
 .progress-shell {
@@ -821,11 +832,11 @@ button {
 }
 .item-locator-dialog > header h2 {
   margin: 0 0 3px;
-  font-size: 25px;
+  font-size: 1.5625rem;
 }
 .item-locator-dialog > header span {
   color: #786a55;
-  font: 10px Arial, sans-serif;
+  font: 0.625rem Arial, sans-serif;
 }
 .item-locator-sources {
   display: grid;
@@ -861,7 +872,7 @@ button {
   align-items: center;
   gap: 3px;
   color: #695d4c;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
 }
 .item-locator-quality-list i {
   width: 11px;
@@ -884,7 +895,7 @@ button {
 .item-locator-source-title small,
 .item-locator-hint {
   color: #81715a;
-  font: 9px/1.4 Arial, sans-serif;
+  font: 0.5625rem/1.4 Arial, sans-serif;
 }
 .item-locator-hint {
   display: block;
@@ -919,7 +930,7 @@ button {
   color: #cbd7c7;
   background: transparent;
   cursor: pointer;
-  font: 700 10px Arial, sans-serif;
+  font: 700 0.625rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -939,7 +950,7 @@ button {
 }
 .empty-farm-section h2 {
   margin: 5px 0 10px;
-  font: 28px Georgia, serif;
+  font: 1.75rem Georgia, serif;
 }
 .empty-farm-section p:last-child {
   max-width: 640px;
@@ -982,7 +993,7 @@ button {
 }
 .animal-grid article small {
   color: #76664e;
-  font: 10px Arial, sans-serif;
+  font: 0.625rem Arial, sans-serif;
 }
 .animal-grid dl {
   grid-column: 1 / -1;
@@ -996,12 +1007,12 @@ button {
   background: rgba(255, 255, 255, 0.45);
 }
 .animal-grid dt {
-  font: 8px Arial, sans-serif;
+  font: 0.5rem Arial, sans-serif;
   text-transform: uppercase;
 }
 .animal-grid dd {
   margin: 3px 0 0;
-  font: 700 10px Arial, sans-serif;
+  font: 700 0.625rem Arial, sans-serif;
 }
 .save-note.is-live .live-dot {
   background: #9bdd69;
@@ -1017,8 +1028,7 @@ button {
   color: #efffe7;
   background: #5d8a4e;
   border-radius: 8px;
-  font:
-    800 8px Arial,
+  font: 800 0.5rem Arial,
     sans-serif;
   letter-spacing: 0.08em;
   vertical-align: middle;
@@ -1043,8 +1053,7 @@ button {
   padding: 0 16px;
   background: transparent;
   color: #bdc9b9;
-  font:
-    700 12px Arial,
+  font: 700 0.75rem Arial,
     sans-serif;
   cursor: pointer;
 }
@@ -1098,7 +1107,7 @@ button {
   color: #e6eddc;
   background: transparent;
   cursor: pointer;
-  font: 700 16px/1 Arial, sans-serif;
+  font: 700 1rem/1 Arial, sans-serif;
 }
 .history-navigation button:hover:not(:disabled) {
   border-color: #6b7e6c;
@@ -1133,7 +1142,7 @@ button {
 }
 .app-search-dialog h2 {
   margin: 0;
-  font-size: 23px;
+  font-size: 1.4375rem;
 }
 .app-search-dialog kbd {
   padding: 3px 6px;
@@ -1141,7 +1150,7 @@ button {
   border-radius: 3px;
   color: #6c604f;
   background: #fff9ed;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
 }
 .app-search-dialog > input {
   width: calc(100% - 36px);
@@ -1151,7 +1160,7 @@ button {
   color: #2f392f;
   background: #fffaf0;
   outline: none;
-  font: 13px Arial, sans-serif;
+  font: 0.8125rem Arial, sans-serif;
 }
 .app-search-dialog > input:focus {
   border-color: #62805a;
@@ -1186,13 +1195,13 @@ button {
   gap: 2px;
 }
 .app-search-results button strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .app-search-results button small,
 .app-search-results > p,
 .app-search-dialog > footer {
   color: #766b5a;
-  font: 9px/1.45 Arial, sans-serif;
+  font: 0.5625rem/1.45 Arial, sans-serif;
 }
 .app-search-results button i {
   color: #6d815f;
@@ -1264,8 +1273,7 @@ button {
   color: #526947;
   background: #efe5d1;
   cursor: pointer;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1296,15 +1304,14 @@ button {
 .eyebrow {
   margin: 0 0 5px;
   color: #8c6a36;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 .panel h2 {
   margin: 0 0 18px;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .toggle-row {
   position: relative;
@@ -1326,15 +1333,13 @@ button {
   flex-direction: column;
 }
 .toggle-row strong {
-  font:
-    700 13px Arial,
+  font: 700 0.8125rem Arial,
     sans-serif;
 }
 .toggle-row small {
   margin-top: 2px;
   color: #897f70;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
 }
 .toggle-row input {
@@ -1382,8 +1387,7 @@ button {
   min-height: 54px;
   padding: 6px;
   text-align: left;
-  font:
-    12px Arial,
+  font: 0.75rem Arial,
     sans-serif;
   cursor: pointer;
   display: grid;
@@ -1411,7 +1415,7 @@ button {
     padding: 0 7px;
   }
   .save-note {
-    font-size: 10px;
+    font-size: 0.625rem;
   }
 }
 @media (max-width: 1100px) {
@@ -1460,7 +1464,7 @@ button {
   color: #f7ecd8;
   background: #202f26;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
-  font: 10px Arial, sans-serif;
+  font: 0.625rem Arial, sans-serif;
 }
 .proposal-context-menu strong {
   display: block;
@@ -1474,7 +1478,7 @@ button {
   background: #5c342c;
   cursor: pointer;
   text-align: left;
-  font: 700 10px Arial, sans-serif;
+  font: 700 0.625rem Arial, sans-serif;
 }
 .tool-grid .tool small {
   display: block;
@@ -1494,8 +1498,7 @@ button {
   border: 0;
   background: transparent;
   color: #9a553f;
-  font:
-    12px Arial,
+  font: 0.75rem Arial,
     sans-serif;
   text-decoration: underline;
   cursor: pointer;
@@ -1503,8 +1506,7 @@ button {
 .proposal-save-note {
   margin: 10px 0 0;
   color: #827766;
-  font:
-    9px/1.45 Arial,
+  font: 0.5625rem/1.45 Arial,
     sans-serif;
 }
 .proposal-edit-toggle {
@@ -1516,7 +1518,7 @@ button {
   background: #554629;
   box-shadow: inset 0 0 0 1px rgba(255, 226, 138, 0.14);
   cursor: pointer;
-  font: 800 10px Arial, sans-serif;
+  font: 800 0.625rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
@@ -1541,7 +1543,7 @@ button {
   color: #59452b;
   background: #fff8e8;
   cursor: pointer;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
 }
 .map-column {
   min-width: 0;
@@ -1555,8 +1557,7 @@ button {
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  font:
-    13px Arial,
+  font: 0.8125rem Arial,
     sans-serif;
 }
 .location-picker {
@@ -1566,8 +1567,7 @@ button {
 }
 .location-picker label {
   color: #857a69;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1578,8 +1578,7 @@ button {
   border: 1px solid #cabb9f;
   background: #fff9ed;
   color: #3c3329;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .crumb {
@@ -1597,8 +1596,7 @@ button {
   background: #efe3c9;
   color: #526947;
   cursor: pointer;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
 }
 .home-button:hover {
@@ -1619,7 +1617,7 @@ button {
 .zoom-control span {
   width: 42px;
   text-align: center;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .map-viewport {
   position: relative;
@@ -1662,8 +1660,7 @@ button {
   padding: 7px 9px;
   background: rgba(30, 34, 27, 0.86);
   color: #f8edd8;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
   pointer-events: none;
 }
@@ -1698,19 +1695,17 @@ button {
 }
 .tile-strip span {
   color: #8b7d68;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
   text-transform: uppercase;
 }
 .tile-strip strong {
-  font-size: 16px;
+  font-size: 1rem;
 }
 .tile-strip p {
   margin: 0;
   color: #5d554a;
-  font:
-    12px Arial,
+  font: 0.75rem Arial,
     sans-serif;
   white-space: nowrap;
   overflow: hidden;
@@ -1728,8 +1723,7 @@ button {
 .production-summary > p {
   margin: 7px 0;
   color: #847866;
-  font:
-    10px/1.4 Arial,
+  font: 0.625rem/1.4 Arial,
     sans-serif;
 }
 .machine-row {
@@ -1745,13 +1739,12 @@ button {
   background: #e3ecdc;
 }
 .machine-row strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .machine-row small {
   margin-top: 2px;
   color: #776c5b;
-  font:
-    8px/1.3 Arial,
+  font: 0.5rem/1.3 Arial,
     sans-serif;
 }
 .production-working-title {
@@ -1764,13 +1757,11 @@ button {
   align-items: baseline;
   padding: 11px 0;
   border-bottom: 1px solid #ded2bf;
-  font:
-    13px Arial,
+  font: 0.8125rem Arial,
     sans-serif;
 }
 .stat strong {
-  font:
-    19px Georgia,
+  font: 1.1875rem Georgia,
     serif;
   color: #45613f;
 }
@@ -1793,8 +1784,7 @@ button {
 }
 .callout span {
   color: #8c6a36;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1802,12 +1792,11 @@ button {
 .callout strong {
   display: block;
   margin: 5px 0 7px;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .callout p {
   margin: 0;
-  font:
-    12px/1.5 Arial,
+  font: 0.75rem/1.5 Arial,
     sans-serif;
 }
 .proposal-match {
@@ -1820,8 +1809,7 @@ button {
 }
 .proposal-match small {
   color: #7c6d59;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .proposal-match button,
@@ -1831,8 +1819,7 @@ button {
   color: #385033;
   background: #eef5e9;
   cursor: pointer;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
   text-align: left;
 }
@@ -1845,8 +1832,7 @@ button {
 .fine-print {
   margin-top: 18px;
   color: #827766;
-  font:
-    11px/1.5 Arial,
+  font: 0.6875rem/1.5 Arial,
     sans-serif;
 }
 .growth-page {
@@ -1886,13 +1872,12 @@ button {
 }
 .growth-heading h1 {
   margin: 3px 0 7px;
-  font-size: 32px;
+  font-size: 2rem;
 }
 .growth-heading p:last-child {
   margin: 0;
   color: #786e60;
-  font:
-    13px Arial,
+  font: 0.8125rem Arial,
     sans-serif;
 }
 .history-count {
@@ -1903,12 +1888,11 @@ button {
 }
 .history-count strong {
   color: #4f7148;
-  font-size: 32px;
+  font-size: 2rem;
 }
 .history-count span {
   color: #877a68;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1930,8 +1914,7 @@ button {
 }
 .metric-card > span {
   color: #847866;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -1939,12 +1922,11 @@ button {
 .metric-card strong {
   margin-top: 7px;
   color: #3f5e3b;
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 .metric-card small {
   margin-top: 4px;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .grandpa-card {
@@ -1963,18 +1945,16 @@ button {
 }
 .grandpa-card h2 {
   margin: 3px 0 11px;
-  font-size: 23px;
+  font-size: 1.4375rem;
 }
 .grandpa-card p {
-  font:
-    12px/1.55 Arial,
+  font: 0.75rem/1.55 Arial,
     sans-serif;
   color: #dae3d5;
 }
 .grandpa-card small {
   color: #aebcab;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .grandpa-number {
@@ -1984,12 +1964,11 @@ button {
 }
 .grandpa-number strong {
   color: #f1c666;
-  font-size: 36px;
+  font-size: 2.25rem;
 }
 .grandpa-number span {
   color: #bdc9ba;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -2008,7 +1987,7 @@ button {
   background: #1c2a21;
   border: 1px solid #566258;
   font-style: normal;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .candles i.lit {
   color: #ffd15c;
@@ -2035,8 +2014,7 @@ button {
 }
 .forecast-numbers span {
   color: #afbdac;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -2044,7 +2022,7 @@ button {
 .forecast-numbers strong {
   margin: 4px 0 2px;
   color: #f4d17d;
-  font-size: 21px;
+  font-size: 1.3125rem;
 }
 .milestone-list {
   display: grid;
@@ -2061,8 +2039,7 @@ button {
   padding: 6px 7px;
   background: rgba(15, 25, 18, 0.28);
   color: #bac5b8;
-  font:
-    10px/1.25 Arial,
+  font: 0.625rem/1.25 Arial,
     sans-serif;
 }
 .milestone-list > div.achieved {
@@ -2077,7 +2054,7 @@ button {
 .milestone-list i {
   color: #d3a84f;
   font-style: normal;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .milestone-list > div > span:nth-child(2) {
   display: flex;
@@ -2086,8 +2063,7 @@ button {
 }
 .milestone-list > div > span > small {
   color: #95a693;
-  font:
-    8px/1.2 Arial,
+  font: 0.5rem/1.2 Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -2101,7 +2077,7 @@ button {
 .milestone-list strong {
   color: #e6c36c;
   text-align: right;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .milestone-score-tip {
   position: relative;
@@ -2115,8 +2091,7 @@ button {
   color: #f0cb70;
   background: rgba(14, 23, 16, 0.42);
   cursor: help;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
 }
 .milestone-score-tip > span {
@@ -2132,8 +2107,7 @@ button {
   background: #fff5df;
   border: 1px solid #d7b86f;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  font:
-    10px/1.5 Arial,
+  font: 0.625rem/1.5 Arial,
     sans-serif;
   transition: 0.15s;
 }
@@ -2160,12 +2134,11 @@ button {
 .next-grandpa-point h3 {
   margin: 3px 0 4px;
   color: #3f5d39;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .next-grandpa-point > div > strong {
   color: #8a6226;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .next-grandpa-point > span {
@@ -2173,23 +2146,20 @@ button {
   padding: 7px 10px;
   color: white;
   background: #62815a;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
 }
 .next-grandpa-point > p {
   grid-column: 1/-1;
   margin: 5px 0 0;
   color: #5e594d;
-  font:
-    11px/1.5 Arial,
+  font: 0.6875rem/1.5 Arial,
     sans-serif;
 }
 .next-grandpa-point > small {
   grid-column: 1/-1;
   color: #817867;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .candle-explanation {
@@ -2206,17 +2176,16 @@ button {
   background: #6e4825;
   border: 1px solid #d8953b;
   box-shadow: 0 0 16px rgba(244, 174, 61, 0.25);
-  font-size: 25px;
+  font-size: 1.5625rem;
 }
 .candle-explanation h2 {
   margin: 2px 0 4px;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .candle-explanation p {
   margin: 0;
   color: #655b4d;
-  font:
-    12px/1.5 Arial,
+  font: 0.75rem/1.5 Arial,
     sans-serif;
 }
 .score-events {
@@ -2229,8 +2198,7 @@ button {
   padding: 5px 8px;
   color: #f8f4e8;
   background: #5c7d54;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
 }
 .score-breakdown {
@@ -2248,8 +2216,7 @@ button {
 }
 .score-breakdown span {
   color: #857765;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -2257,19 +2224,17 @@ button {
 .score-breakdown strong {
   margin: 4px 0;
   color: #4d6847;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .score-breakdown small {
   color: #746958;
-  font:
-    10px/1.4 Arial,
+  font: 0.625rem/1.4 Arial,
     sans-serif;
 }
 .candle-thresholds {
   margin: 12px 0 0;
   color: #736754;
-  font:
-    11px/1.5 Arial,
+  font: 0.6875rem/1.5 Arial,
     sans-serif;
 }
 .grandpa-faq {
@@ -2285,13 +2250,12 @@ button {
 }
 .grandpa-faq strong {
   color: #4e6245;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .grandpa-faq p {
   margin: 5px 0 0;
   color: #6f6454;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .positive {
@@ -2323,14 +2287,13 @@ button {
 }
 .card-title h2 {
   margin: 2px 0 0;
-  font-size: 19px;
+  font-size: 1.1875rem;
 }
 .chart-key {
   display: flex;
   gap: 12px;
   color: #766c5d;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
 }
 .chart-key span {
@@ -2373,7 +2336,7 @@ button {
   background: rgba(255, 249, 237, 0.97);
   box-shadow: 0 7px 18px rgba(55, 45, 31, 0.2);
   pointer-events: none;
-  font: 10px Arial, sans-serif;
+  font: 0.625rem Arial, sans-serif;
 }
 .economy-chart-tooltip.align-right {
   transform: translateX(calc(-100% - 10px));
@@ -2381,7 +2344,7 @@ button {
 .economy-chart-tooltip > strong {
   padding-bottom: 4px;
   border-bottom: 1px solid #ddd0ba;
-  font: 700 12px Georgia, serif;
+  font: 700 0.75rem Georgia, serif;
 }
 .economy-chart-tooltip span {
   display: grid;
@@ -2406,13 +2369,12 @@ button {
   grid-template-columns: 48px 1fr 100px;
   align-items: center;
   gap: 8px;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .flow-row > strong {
   text-align: right;
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 500;
   color: #776c5c;
 }
@@ -2435,8 +2397,7 @@ button {
 .chart-note,
 .history-help {
   color: #857966;
-  font:
-    11px/1.5 Arial,
+  font: 0.6875rem/1.5 Arial,
     sans-serif;
 }
 .skills {
@@ -2449,8 +2410,7 @@ button {
   grid-template-columns: 70px 1fr 18px;
   gap: 8px;
   align-items: center;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
 }
 .skill-row > i {
@@ -2472,13 +2432,12 @@ button {
   padding: 8px;
   background: #f0e5d2;
   color: #756958;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .activity-grid b {
   color: #486341;
-  font-size: 15px;
+  font-size: 0.9375rem;
   margin-right: 3px;
 }
 .history-table {
@@ -2490,19 +2449,18 @@ button {
   gap: 10px;
   padding: 9px 4px;
   border-top: 1px solid #e1d6c4;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
 }
 .history-row.head {
   border: 0;
   color: #8b7d68;
   text-transform: uppercase;
-  font-size: 9px;
+  font-size: 0.5625rem;
   letter-spacing: 0.06em;
 }
 .history-row strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .history-help {
   margin: 14px 2px 0;
@@ -2532,13 +2490,12 @@ button {
 }
 .achievements-heading h1 {
   margin: 3px 0 7px;
-  font-size: 32px;
+  font-size: 2rem;
 }
 .achievements-heading p:last-child {
   margin: 0;
   color: #786e60;
-  font:
-    13px Arial,
+  font: 0.8125rem Arial,
     sans-serif;
 }
 .achievement-total {
@@ -2549,12 +2506,11 @@ button {
 }
 .achievement-total strong {
   color: #4f7148;
-  font-size: 34px;
+  font-size: 2.125rem;
 }
 .achievement-total span {
   color: #877a68;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -2590,8 +2546,7 @@ button {
 .overall-progress small,
 .achievement-note {
   color: #716655;
-  font:
-    11px/1.45 Arial,
+  font: 0.6875rem/1.45 Arial,
     sans-serif;
 }
 .achievement-note {
@@ -2620,20 +2575,18 @@ button {
 }
 .next-event span {
   color: #906a29;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 .next-event strong {
   margin: 4px 0 2px;
-  font-size: 16px;
+  font-size: 1rem;
 }
 .next-event small {
   color: #705e40;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .achievement-controls {
@@ -2651,8 +2604,7 @@ button {
   background: #fff9ed;
   padding: 8px 12px;
   cursor: pointer;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
 }
 .filter-buttons button.active {
@@ -2666,8 +2618,7 @@ button {
   background: #fffaf0;
   padding: 8px 11px;
   color: #3e352a;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
   outline: none;
 }
@@ -2689,14 +2640,13 @@ button {
 }
 .museum-guide-heading h2 {
   margin: 3px 0 5px;
-  font-size: 24px;
+  font-size: 1.5rem;
 }
 .museum-guide-heading p:last-child {
   max-width: 720px;
   margin: 0;
   color: #706451;
-  font:
-    11px/1.45 Arial,
+  font: 0.6875rem/1.45 Arial,
     sans-serif;
 }
 .museum-totals {
@@ -2709,8 +2659,7 @@ button {
   border: 1px solid #d3c2a4;
   background: #fff9ed;
   color: #766a57;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
   text-transform: uppercase;
 }
@@ -2718,8 +2667,7 @@ button {
   display: block;
   margin-bottom: 3px;
   color: #496b47;
-  font:
-    20px Georgia,
+  font: 1.25rem Georgia,
     serif;
 }
 .museum-source-grid {
@@ -2748,26 +2696,24 @@ button {
   border-radius: 50%;
   color: white;
   background: #68865b;
-  font:
-    700 12px Arial,
+  font: 700 0.75rem Arial,
     sans-serif;
   font-style: normal;
 }
 .museum-source h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .museum-source > strong {
   display: block;
   margin: 12px 0 6px;
   color: #4e744c;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .museum-source p {
   margin: 0;
   color: #736755;
-  font:
-    9px/1.5 Arial,
+  font: 0.5625rem/1.5 Arial,
     sans-serif;
 }
 .museum-source.exhausted {
@@ -2800,7 +2746,7 @@ button {
 .museum-spoilers summary {
   color: #8a5b23;
   cursor: pointer;
-  font: 800 9px Arial, sans-serif;
+  font: 800 0.5625rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -2817,7 +2763,7 @@ button {
   min-height: 38px;
   padding: 5px 7px;
   background: rgba(255, 255, 255, 0.45);
-  font: 700 10px/1.25 Arial, sans-serif;
+  font: 700 0.625rem/1.25 Arial, sans-serif;
 }
 .museum-spoilers .sheet-artwork {
   flex: 0 0 auto;
@@ -2825,8 +2771,7 @@ button {
 .museum-live-note {
   margin: 11px 0 0;
   color: #6c604e;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .museum-live-note b {
@@ -2865,8 +2810,7 @@ button {
   color: #8b7d68;
   background: #e8ddcb;
   font-style: normal;
-  font:
-    700 13px Arial,
+  font: 700 0.8125rem Arial,
     sans-serif;
 }
 .achievement-card.done .achievement-card-head > i {
@@ -2875,23 +2819,21 @@ button {
 }
 .achievement-card-head span {
   color: #8a7555;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 .achievement-card-head h2 {
   margin: 2px 0 0;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .achievement-card-head em {
   max-width: 112px;
   padding: 4px 6px;
   color: #8b5d23;
   background: #f2dfb6;
-  font:
-    700 8px/1.25 Arial,
+  font: 700 0.5rem/1.25 Arial,
     sans-serif;
   text-align: center;
   text-transform: uppercase;
@@ -2900,8 +2842,7 @@ button {
 .achievement-card > p {
   margin: 10px 0;
   color: #6d6252;
-  font:
-    11px/1.45 Arial,
+  font: 0.6875rem/1.45 Arial,
     sans-serif;
 }
 .item-progress {
@@ -2912,8 +2853,7 @@ button {
   justify-content: space-between;
   gap: 8px;
   color: #6b604f;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .item-progress div small {
@@ -2935,16 +2875,14 @@ button {
   padding: 7px 8px;
   color: #7b5524;
   background: #f4e3bd;
-  font:
-    10px/1.35 Arial,
+  font: 0.625rem/1.35 Arial,
     sans-serif;
 }
 .next-step {
   display: block;
   margin-top: 8px;
   color: #7c705e;
-  font:
-    9px/1.45 Arial,
+  font: 0.5625rem/1.45 Arial,
     sans-serif;
 }
 .achievement-guide {
@@ -2958,24 +2896,21 @@ button {
 }
 .achievement-guide b {
   color: #6a562f;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
 .achievement-guide span {
   color: #706452;
-  font:
-    9px/1.45 Arial,
+  font: 0.5625rem/1.45 Arial,
     sans-serif;
 }
 .empty-achievements {
   padding: 35px;
   text-align: center;
   color: #817563;
-  font:
-    12px Arial,
+  font: 0.75rem Arial,
     sans-serif;
 }
 .fishing-page {
@@ -2998,13 +2933,12 @@ button {
 }
 .fishing-heading h1 {
   margin: 3px 0 7px;
-  font-size: 32px;
+  font-size: 2rem;
 }
 .fishing-heading p:last-child {
   margin: 0;
   color: #786e60;
-  font:
-    13px Arial,
+  font: 0.8125rem Arial,
     sans-serif;
 }
 .fish-progress {
@@ -3014,12 +2948,11 @@ button {
 }
 .fish-progress strong {
   color: #397486;
-  font-size: 34px;
+  font-size: 2.125rem;
 }
 .fish-progress span {
   color: #877a68;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -3038,12 +2971,11 @@ button {
 .fishing-clock h2 {
   margin: 2px 0;
   color: #f1ce75;
-  font-size: 24px;
+  font-size: 1.5rem;
 }
 .fishing-clock small {
   color: #b9ccca;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .hour-buttons {
@@ -3063,8 +2995,7 @@ button {
   background: #35565b;
   color: #dce8e5;
   cursor: pointer;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .hour-buttons button b {
@@ -3076,8 +3007,7 @@ button {
   border-radius: 9px;
   color: #f5d38a;
   background: #203b40;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .hour-buttons button.complete {
@@ -3115,7 +3045,7 @@ button {
 }
 .fish-count {
   color: #397486;
-  font-size: 30px;
+  font-size: 1.875rem;
 }
 .fish-list {
   display: flex;
@@ -3140,8 +3070,7 @@ button {
   border: 1px solid #69949a;
   border-radius: 50%;
   color: #397886;
-  font:
-    700 12px Arial,
+  font: 700 0.75rem Arial,
     sans-serif;
 }
 .fish-row > div {
@@ -3152,14 +3081,13 @@ button {
   display: block;
 }
 .fish-row strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .fish-row small {
   margin-top: 3px;
   overflow: hidden;
   color: #65726b;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3173,13 +3101,12 @@ button {
 }
 .fish-meta b {
   color: #8d6429;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .fish-meta span {
   margin-top: 3px;
   color: #7c7161;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .fish-empty {
@@ -3187,8 +3114,7 @@ button {
   text-align: center;
   color: #817563;
   background: #eee5d5;
-  font:
-    11px/1.5 Arial,
+  font: 0.6875rem/1.5 Arial,
     sans-serif;
 }
 .later-fish {
@@ -3203,12 +3129,11 @@ button {
 .alternative-spots > strong {
   margin-bottom: 3px;
   color: #48676c;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .later-fish span {
   color: #736857;
-  font:
-    9px/1.35 Arial,
+  font: 0.5625rem/1.35 Arial,
     sans-serif;
 }
 .money-panel {
@@ -3219,12 +3144,11 @@ button {
   flex-direction: column;
   align-items: flex-end;
   color: #a26e25;
-  font-size: 25px;
+  font-size: 1.5625rem;
 }
 .money-score small {
   color: #8d806d;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
 }
@@ -3233,8 +3157,7 @@ button {
   padding: 10px 11px;
   color: #6f624f;
   background: #f1e3c5;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .money-targets {
@@ -3259,22 +3182,20 @@ button {
   border-radius: 50%;
   color: white;
   background: #52777a;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .money-targets strong {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .money-targets b {
   color: #996824;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .money-targets small {
   grid-column: 2/4;
   color: #7a6f5f;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .alternative-spots {
@@ -3292,8 +3213,7 @@ button {
   overflow: hidden;
   color: #5f584c;
   background: #e5dfd1;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .alternative-spots span b {
@@ -3312,8 +3232,7 @@ button {
 .fishing-note {
   margin: 13px 0 0;
   color: #807461;
-  font:
-    9px/1.45 Arial,
+  font: 0.5625rem/1.45 Arial,
     sans-serif;
 }
 .daily-page {
@@ -3341,13 +3260,12 @@ button {
 }
 .daily-heading h1 {
   margin: 3px 0 7px;
-  font-size: 32px;
+  font-size: 2rem;
 }
 .daily-heading p:last-child {
   margin: 0;
   color: #786e60;
-  font:
-    13px Arial,
+  font: 0.8125rem Arial,
     sans-serif;
 }
 .page-heading-actions {
@@ -3369,7 +3287,7 @@ button {
   background: #f7efdf;
   border: 1px solid #b9aa8f;
   cursor: pointer;
-  font: 700 10px Arial, sans-serif;
+  font: 700 0.625rem Arial, sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -3381,7 +3299,7 @@ button {
   border-color: #4f7148;
 }
 .section-visibility-trigger span {
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1;
 }
 .section-visibility-panel {
@@ -3409,12 +3327,12 @@ button {
   gap: 2px;
 }
 .section-visibility-panel header strong {
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .section-visibility-panel header small,
 .section-visibility-panel > p {
   color: #81735f;
-  font: 10px/1.4 Arial, sans-serif;
+  font: 0.625rem/1.4 Arial, sans-serif;
 }
 .section-visibility-panel header button {
   padding: 0;
@@ -3422,7 +3340,7 @@ button {
   background: transparent;
   border: 0;
   cursor: pointer;
-  font: 700 10px Arial, sans-serif;
+  font: 700 0.625rem Arial, sans-serif;
   text-decoration: underline;
 }
 .section-visibility-panel > div {
@@ -3448,7 +3366,7 @@ button {
   background: #f3e8d4;
   border: 1px solid #cabea8;
   cursor: pointer;
-  font: 700 13px Arial, sans-serif;
+  font: 700 0.8125rem Arial, sans-serif;
 }
 .section-order-buttons button:hover:not(:disabled),
 .section-order-buttons button:focus-visible {
@@ -3468,7 +3386,7 @@ button {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  font: 12px Arial, sans-serif;
+  font: 0.75rem Arial, sans-serif;
 }
 .section-visibility-panel label:hover {
   background: #f0e6d3;
@@ -3486,7 +3404,7 @@ button {
   color: #fff;
   background: #fffdf7;
   border: 1px solid #9e927c;
-  font: 700 11px Arial, sans-serif;
+  font: 700 0.6875rem Arial, sans-serif;
   font-style: normal;
 }
 .section-visibility-panel input:checked + i {
@@ -3507,13 +3425,12 @@ button {
 }
 .daily-date strong {
   color: #4f7148;
-  font-size: 30px;
+  font-size: 1.875rem;
   white-space: nowrap;
 }
 .daily-date span {
   color: #877a68;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -3559,21 +3476,20 @@ button {
   place-items: center;
   color: #f3d17c;
   background: #39523b;
-  font-size: 21px;
+  font-size: 1.3125rem;
 }
 .daily-summary-grid h2 {
   margin: 2px 0 4px;
   overflow: hidden;
   color: #45613f;
-  font-size: 17px;
+  font-size: 1.0625rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .daily-summary-grid small {
   display: block;
   color: #817562;
-  font:
-    10px/1.4 Arial,
+  font: 0.625rem/1.4 Arial,
     sans-serif;
 }
 .daily-summary-link small {
@@ -3616,22 +3532,20 @@ button {
   display: block;
   padding-right: 45px;
   color: #f1cd72;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .luck-summary-tooltip > span {
   position: absolute;
   right: 14px;
   top: 13px;
   color: #dbe7d6;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .luck-summary-tooltip p {
   margin: 8px 0 0;
   color: #e0e8dc;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .luck-summary-tooltip small {
@@ -3639,8 +3553,7 @@ button {
   padding-top: 9px;
   color: #aebcab;
   border-top: 1px solid #536757;
-  font:
-    9px/1.45 Arial,
+  font: 0.5625rem/1.45 Arial,
     sans-serif;
 }
 .summary-tooltip-card {
@@ -3685,20 +3598,18 @@ button {
 .summary-card-tooltip strong {
   display: block;
   color: #f1cd72;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .summary-card-tooltip p {
   margin: 7px 0 0;
   color: #e0e8dc;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .summary-card-tooltip small {
   margin-top: 7px;
   color: #aebcab;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .summary-card-tooltip .quest-have {
@@ -3735,16 +3646,15 @@ button {
 .daily-alert-strip span {
   grid-row: 1/3;
   color: #597453;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .daily-alert-strip strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .daily-alert-strip small {
   margin-top: 2px;
   color: #7c705f;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .daily-changes {
@@ -3763,12 +3673,11 @@ button {
 }
 .daily-changes-title h2 {
   margin: 3px 0 0;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .daily-changes-title > span {
   color: #aebfac;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .daily-changes-grid {
@@ -3792,15 +3701,14 @@ button {
 .daily-changes-grid small {
   display: block;
   color: #b9c7b8;
-  font:
-    9px/1.35 Arial,
+  font: 0.5625rem/1.35 Arial,
     sans-serif;
 }
 .daily-changes-grid strong {
   display: block;
   margin: 4px 0;
   color: #fff6df;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .daily-content-grid {
   display: grid;
@@ -3829,8 +3737,7 @@ button {
 .program-list span {
   display: block;
   color: #887454;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -3838,18 +3745,17 @@ button {
 .program-list strong {
   display: block;
   margin: 3px 0;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .program-list p {
   margin: 0;
   color: #736756;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .big-count {
   color: #4f7148;
-  font-size: 30px;
+  font-size: 1.875rem;
 }
 .beach-list {
   display: grid;
@@ -3865,40 +3771,35 @@ button {
 }
 .beach-list span {
   color: #4e765e;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .beach-list strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .beach-list small {
   grid-column: 2;
   color: #817666;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .daily-caveat {
   display: block;
   margin-top: 12px;
   color: #8a7c69;
-  font:
-    9px/1.45 Arial,
+  font: 0.5625rem/1.45 Arial,
     sans-serif;
 }
 .empty-daily {
   color: #817562;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
 }
 .checked-items {
   color: #6f7f68;
   background: #e5ebdf;
   padding: 5px 8px;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
   text-transform: uppercase;
 }
@@ -3920,14 +3821,13 @@ button {
 }
 .birthday-title span {
   color: #a16f2d;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 .birthday-title strong {
-  font-size: 21px;
+  font-size: 1.3125rem;
 }
 .gift-group {
   margin-top: 9px;
@@ -3935,8 +3835,7 @@ button {
 .gift-group h3 {
   margin: 0 0 6px;
   color: #5b6e55;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .gift-group h3 span {
@@ -3948,13 +3847,12 @@ button {
   border-radius: 9px;
   color: white;
   background: #6f8767;
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .gift-group > p {
   margin: 0;
   color: #9a8e7d;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .gift-list {
@@ -3993,27 +3891,24 @@ button {
 }
 .gift-list > div > strong {
   grid-column: 2;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .gift-list > div > span:not(.item-mention-artwork) {
   grid-column: 3;
   color: #776b5b;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .gift-list > div > small {
   grid-column: 2/-1;
   color: #8a7e6d;
-  font:
-    8px/1.35 Arial,
+  font: 0.5rem/1.35 Arial,
     sans-serif;
 }
 .luck-explanation {
   margin: 0 0 10px;
   color: #6e6353;
-  font:
-    11px/1.5 Arial,
+  font: 0.6875rem/1.5 Arial,
     sans-serif;
 }
 .recommendation-list {
@@ -4030,8 +3925,7 @@ button {
   align-items: start;
   background: #e8eadf;
   color: #5f574b;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .recommendation-list i {
@@ -4054,13 +3948,12 @@ button {
 }
 .cave-tool-card section > strong {
   color: #52664d;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .cave-tool-card section > p {
   margin: 6px 0 0;
   color: #807361;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .cave-items {
@@ -4073,8 +3966,7 @@ button {
   padding: 5px 7px;
   background: #fff9ed;
   color: #625746;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .tool-upgrade {
@@ -4090,13 +3982,12 @@ button {
   background: #e3ecdc;
 }
 .tool-upgrade b {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .tool-upgrade span {
   margin-top: 2px;
   color: #766a59;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .crop-forecast-card {
@@ -4135,19 +4026,17 @@ button {
   background: #f1ddd3;
 }
 .crop-forecast-list strong {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .crop-forecast-list .crop-forecast-copy > span {
   margin: 5px 0 3px;
   color: #4e6849;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
 }
 .crop-forecast-list small {
   color: #7a6e5d;
-  font:
-    8px/1.35 Arial,
+  font: 0.5rem/1.35 Arial,
     sans-serif;
 }
 .world-progress {
@@ -4157,15 +4046,66 @@ button {
 }
 .world-progress strong {
   color: #4f7148;
-  font-size: 24px;
+  font-size: 1.5rem;
 }
 .world-progress span {
   color: #857866;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+.route-assumptions {
+  margin: 0 0 9px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.route-profile-control {
+  margin: 0 0 9px;
+  display: grid;
+  grid-template-columns: auto minmax(130px, 210px) 1fr;
+  gap: 8px;
+  align-items: center;
+}
+.route-profile-control label {
+  color: #775e3a;
+  font: 700 0.5rem Arial, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.route-profile-control select {
+  min-height: 30px;
+  padding: 5px 24px 5px 7px;
+  border: 1px solid #c8baa3;
+  background: #fff9ed;
+  color: #263d2d;
+  font: 0.625rem Arial, sans-serif;
+}
+.route-profile-control small {
+  color: #766b5c;
+  font: 0.5rem/1.35 Arial, sans-serif;
+}
+.route-assumptions span {
+  padding: 4px 7px;
+  border: 1px solid #c5cdbb;
+  background: #edf0e7;
+  color: #52634e;
+  font: 700 0.5rem/1.2 Arial, sans-serif;
+}
+.route-access-warning,
+.route-access-note {
+  margin: 0 0 9px;
+  padding: 7px 9px;
+  border-left: 3px solid #ae7427;
+  background: #f6e5c3;
+  color: #704b22;
+  font: 0.5625rem/1.4 Arial, sans-serif;
+}
+.route-access-note {
+  border-left-color: #718666;
+  background: #e6eadf;
+  color: #52634e;
 }
 .world-list {
   display: flex;
@@ -4181,7 +4121,7 @@ button {
   display: block;
   margin-bottom: 6px;
   color: #496045;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .world-checklist {
   display: flex;
@@ -4215,8 +4155,7 @@ button {
   border: 1px solid #8f9b83;
   background: white;
   color: white;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
   font-style: normal;
 }
@@ -4230,8 +4169,7 @@ button {
 }
 .world-checklist b {
   color: #5d5549;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
 }
 .world-checklist label.checked b {
@@ -4240,8 +4178,7 @@ button {
 .world-checklist small {
   margin-top: 2px;
   color: #918573;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .reset-world {
@@ -4251,8 +4188,7 @@ button {
   background: #fff9ed;
   color: #716553;
   cursor: pointer;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .world-list > section.checked {
@@ -4279,8 +4215,7 @@ button {
   border: 1px solid #8f9b83;
   background: white;
   color: white;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
   font-style: normal;
 }
@@ -4294,8 +4229,7 @@ button {
 }
 .world-location-check b {
   color: #496045;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .world-list > section.checked .world-location-check b {
@@ -4304,8 +4238,7 @@ button {
 .world-location-check small {
   margin-top: 2px;
   color: #8b806f;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .world-items {
@@ -4314,8 +4247,7 @@ button {
   flex-wrap: wrap;
   gap: 5px;
   color: #655b4d;
-  font:
-    10px/1.4 Arial,
+  font: 0.625rem/1.4 Arial,
     sans-serif;
 }
 .world-card {
@@ -4349,7 +4281,7 @@ button {
   display: block;
   padding: 7px 3px 1px;
   color: #dce8d5;
-  font: 9px Arial, sans-serif;
+  font: 0.5625rem Arial, sans-serif;
 }
 .world-items > span {
   display: inline-flex;
@@ -4384,7 +4316,7 @@ button {
 }
 .live-world-map.compact .world-pin b {
   max-width: 150px;
-  font-size: 8px;
+  font-size: 0.5rem;
 }
 .live-map-card .live-world-map {
   width: min(100%, 440px);
@@ -4392,7 +4324,7 @@ button {
 }
 .live-map-card > .card-title > small {
   color: #4f7148;
-  font: 700 11px Arial, sans-serif;
+  font: 700 0.6875rem Arial, sans-serif;
 }
 .live-world-map.focused .world-pin {
   left: 50%;
@@ -4423,7 +4355,7 @@ button {
   padding: 3px 5px;
   color: #fff8dc;
   background: rgba(31, 38, 29, 0.9);
-  font: 800 8px Arial, sans-serif;
+  font: 800 0.5rem Arial, sans-serif;
   white-space: nowrap;
 }
 .world-pin.location-farm,
@@ -4505,8 +4437,7 @@ button {
   color: #fff8df;
   background: #597453;
   border-radius: 50%;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
 }
 .route-list .world-items,
@@ -4518,8 +4449,7 @@ button {
 .route-notes {
   margin-top: 5px;
   color: #9a692d;
-  font:
-    700 8px/1.4 Arial,
+  font: 700 0.5rem/1.4 Arial,
     sans-serif;
 }
 .route-detail {
@@ -4532,12 +4462,11 @@ button {
 }
 .route-detail strong {
   color: #4b6246;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .route-detail span {
   color: #706554;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .route-detail.tv {
@@ -4556,7 +4485,7 @@ button {
   box-shadow: inset 4px 0 #b67727;
 }
 .route-tool-alert > span {
-  font-size: 21px;
+  font-size: 1.3125rem;
 }
 .route-tool-alert strong,
 .route-tool-alert small {
@@ -4564,13 +4493,12 @@ button {
 }
 .route-tool-alert strong {
   color: #7e4d1e;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .route-tool-alert small {
   margin-top: 3px;
   color: #6f5c3e;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .daily-modal-backdrop {
@@ -4598,13 +4526,12 @@ button {
 }
 .daily-modal h1 {
   margin: 3px 0 6px;
-  font-size: 30px;
+  font-size: 1.875rem;
 }
 .daily-lead {
   margin: 0;
   color: #756956;
-  font:
-    12px/1.5 Arial,
+  font: 0.75rem/1.5 Arial,
     sans-serif;
 }
 .modal-close {
@@ -4617,7 +4544,7 @@ button {
   background: transparent;
   color: #776b59;
   cursor: pointer;
-  font-size: 24px;
+  font-size: 1.5rem;
 }
 .daily-modal-grid {
   display: grid;
@@ -4634,17 +4561,16 @@ button {
 }
 .daily-modal-grid span {
   color: #52724d;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .daily-modal-grid strong {
   margin: 5px 0 2px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .daily-modal-grid p {
   margin: 0;
   color: #716654;
-  font:
-    10px/1.4 Arial,
+  font: 0.625rem/1.4 Arial,
     sans-serif;
 }
 .modal-tv {
@@ -4656,13 +4582,12 @@ button {
   display: block;
   margin-bottom: 7px;
   color: #ebc66d;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .modal-tv p {
   margin: 4px 0;
   color: #d5ddcf;
-  font:
-    10px/1.4 Arial,
+  font: 0.625rem/1.4 Arial,
     sans-serif;
 }
 .modal-actions {
@@ -4676,8 +4601,7 @@ button {
   border: 1px solid #bcae96;
   background: #fff9ed;
   cursor: pointer;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .modal-actions button.primary {
@@ -4692,13 +4616,12 @@ button {
 }
 .daily-priority-list > strong {
   color: #596c52;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .daily-priority-list p {
   margin: 6px 0 0;
   color: #695d4d;
-  font:
-    10px/1.4 Arial,
+  font: 0.625rem/1.4 Arial,
     sans-serif;
 }
 .daily-priority-list p.urgent {
@@ -4725,8 +4648,7 @@ button {
   background: #fff9ed;
   color: #6f624f;
   cursor: help;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
 }
 .info-tooltip > span {
@@ -4741,8 +4663,7 @@ button {
   color: #f5ecd9;
   background: #283b2d;
   box-shadow: 0 7px 20px #0004;
-  font:
-    10px/1.5 Arial,
+  font: 0.625rem/1.5 Arial,
     sans-serif;
   text-transform: none;
   letter-spacing: 0;
@@ -4759,8 +4680,7 @@ button {
   color: #675a49;
   background: #f1e3c5;
   border-left: 3px solid #c49848;
-  font:
-    italic 11px/1.45 Georgia,
+  font: italic 0.6875rem/1.45 Georgia,
     serif;
 }
 .quest-card {
@@ -4781,19 +4701,17 @@ button {
 }
 .quest-reward strong {
   color: #9b6b23;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .quest-reward span {
   color: #827461;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .quest-description {
   margin: 0 0 11px;
   color: #6f6454;
-  font:
-    11px/1.5 Arial,
+  font: 0.6875rem/1.5 Arial,
     sans-serif;
 }
 .quest-objective {
@@ -4802,8 +4720,7 @@ button {
 }
 .quest-objective > span {
   color: #8e754d;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -4811,7 +4728,7 @@ button {
 .quest-objective > strong {
   display: block;
   margin: 4px 0 8px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .quest-objective > div {
   display: grid;
@@ -4831,8 +4748,7 @@ button {
 }
 .quest-objective em {
   color: #625646;
-  font:
-    700 10px Arial,
+  font: 700 0.625rem Arial,
     sans-serif;
   font-style: normal;
 }
@@ -4847,13 +4763,12 @@ button {
   background: #e1ecd9;
 }
 .quest-stock > strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .quest-stock p {
   margin: 4px 0 0;
   color: #746856;
-  font:
-    9px/1.35 Arial,
+  font: 0.5625rem/1.35 Arial,
     sans-serif;
 }
 .quest-stock p.locatable-item-card {
@@ -4886,8 +4801,7 @@ button {
 .quest-board-reminder p {
   margin: 0;
   color: #695e4e;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .quest-status-line {
@@ -4899,8 +4813,7 @@ button {
 .quest-status-line span {
   padding: 4px 7px;
   color: white;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -4913,8 +4826,7 @@ button {
 }
 .quest-status-line small {
   color: #817563;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .active-quest-note {
@@ -4925,8 +4837,7 @@ button {
   color: #625a4e;
   background: #e8e1d3;
   border-left: 3px solid #718666;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .accepted-quests-section {
@@ -4944,18 +4855,17 @@ button {
 }
 .accepted-quests-heading h2 {
   margin: 3px 0 4px;
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 .accepted-quests-heading p:last-child {
   margin: 0;
   color: #796e5d;
-  font:
-    10px/1.4 Arial,
+  font: 0.625rem/1.4 Arial,
     sans-serif;
 }
 .accepted-quests-heading > strong {
   color: #4f7148;
-  font-size: 30px;
+  font-size: 1.875rem;
 }
 .accepted-quest-list {
   display: grid;
@@ -4981,25 +4891,23 @@ button {
 }
 .accepted-quest-title span {
   color: #92703a;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
 .accepted-quest-title h3 {
   margin: 3px 0 0;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .accepted-quest-title > strong {
   color: #53734d;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .accepted-quest-list article > p {
   margin: 9px 0;
   color: #5f584d;
-  font:
-    11px/1.4 Arial,
+  font: 0.6875rem/1.4 Arial,
     sans-serif;
 }
 .accepted-quest-progress {
@@ -5019,16 +4927,14 @@ button {
 }
 .accepted-quest-progress span {
   color: #716655;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .accepted-quest-note {
   display: block;
   margin-top: 8px;
   color: #817461;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .quest-spoilers {
@@ -5039,15 +4945,13 @@ button {
 .quest-spoilers summary {
   color: #64785c;
   cursor: pointer;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .quest-spoilers p,
 .quest-spoilers li {
   color: #706554;
-  font:
-    9px/1.5 Arial,
+  font: 0.5625rem/1.5 Arial,
     sans-serif;
 }
 .quest-spoilers ol {
@@ -5078,7 +4982,7 @@ button {
 }
 .priority-title h2 {
   margin: 3px 0 0;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .live-position {
   display: flex;
@@ -5087,12 +4991,11 @@ button {
 }
 .live-position strong {
   color: #f1cf72;
-  font-size: 21px;
+  font-size: 1.3125rem;
 }
 .live-position span {
   color: #bac8b8;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .priority-grid {
@@ -5147,8 +5050,7 @@ button {
   border-radius: 50%;
   background: #e5c16b;
   color: #3a3022;
-  font:
-    800 10px Arial,
+  font: 800 0.625rem Arial,
     sans-serif;
 }
 .priority-grid strong,
@@ -5156,20 +5058,18 @@ button {
   display: block;
 }
 .priority-grid strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .priority-grid small {
   margin-top: 3px;
   color: #c3cfc0;
-  font:
-    9px/1.35 Arial,
+  font: 0.5625rem/1.35 Arial,
     sans-serif;
 }
 .priority-empty {
   margin: 12px 0 0;
   color: #c9d4c6;
-  font:
-    11px Arial,
+  font: 0.6875rem Arial,
     sans-serif;
 }
 .checklist-actions {
@@ -5186,7 +5086,7 @@ button {
   background: transparent;
   border: 1px solid #82927e;
   cursor: pointer;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
 }
 .checklist-actions button:hover,
 .checklist-actions button:focus-visible,
@@ -5220,13 +5120,13 @@ button {
 }
 .checklist-history strong,
 .today-personal-goals strong {
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .checklist-history small,
 .today-personal-goals small,
 .checklist-sidecar-note {
   color: #aebead;
-  font: 8px/1.35 Arial, sans-serif;
+  font: 0.5rem/1.35 Arial, sans-serif;
 }
 .checklist-sidecar-note {
   display: block;
@@ -5268,13 +5168,12 @@ button {
 }
 .planning-heading h1 {
   margin: 3px 0 7px;
-  font-size: 31px;
+  font-size: 1.9375rem;
 }
 .planning-heading p:last-child {
   margin: 0;
   color: #776d5e;
-  font:
-    12px Arial,
+  font: 0.75rem Arial,
     sans-serif;
 }
 .planning-balance {
@@ -5284,12 +5183,11 @@ button {
 }
 .planning-balance strong {
   color: #4f7148;
-  font-size: 29px;
+  font-size: 1.8125rem;
 }
 .planning-balance span {
   color: #817664;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .planning-tabs {
@@ -5313,8 +5211,7 @@ button {
   color: #716756;
   background: transparent;
   cursor: pointer;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .planning-tabs button.active {
@@ -5329,7 +5226,7 @@ button {
   border-radius: 9px;
   color: white;
   background: #b47731;
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .community-layout {
   display: grid;
@@ -5351,12 +5248,11 @@ button {
 }
 .planning-summary > strong {
   color: #f0cd73;
-  font-size: 38px;
+  font-size: 2.375rem;
 }
 .planning-summary > span {
   color: #c6d0c3;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
   text-transform: uppercase;
 }
@@ -5372,8 +5268,7 @@ button {
 }
 .planning-summary > p:last-child {
   color: #c8d2c5;
-  font:
-    10px/1.5 Arial,
+  font: 0.625rem/1.5 Arial,
     sans-serif;
 }
 .community-rooms {
@@ -5395,11 +5290,11 @@ button {
 }
 .room-title h2 {
   margin: 2px 0 0;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .room-title > strong {
   color: #587650;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .bundle {
   margin-top: 6px;
@@ -5435,8 +5330,7 @@ button {
   border-radius: 50%;
   color: white;
   background: #9d927f;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .bundle.ready summary > span {
@@ -5468,22 +5362,22 @@ button {
 .special-order-list header span,
 .special-order-list small {
   color: #8a6a38;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 .special-order-list h3 {
   margin: 3px 0;
-  font-size: 16px;
+  font-size: 1rem;
 }
 .special-order-list header > strong {
   color: #4f7148;
-  font: 800 10px Arial, sans-serif;
+  font: 800 0.625rem Arial, sans-serif;
   white-space: nowrap;
 }
 .special-order-list article > p,
 .special-order-list li {
-  font: 10px/1.45 Arial, sans-serif;
+  font: 0.625rem/1.45 Arial, sans-serif;
 }
 .special-order-list ul {
   margin: 9px 0;
@@ -5498,12 +5392,11 @@ button {
   background: #66875e;
 }
 .bundle summary strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .bundle summary small {
   color: #7f7362;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .bundle-items {
@@ -5536,12 +5429,11 @@ button {
   flex-direction: column;
 }
 .bundle-items strong {
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .bundle-items small {
   color: #857a69;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .community-room.complete {
@@ -5564,8 +5456,7 @@ button {
   border: 1px solid #d2bd91;
   background: #1b1714;
   color: #f5ecd9;
-  font:
-    700 18px Arial,
+  font: 700 1.125rem Arial,
     sans-serif;
   image-rendering: pixelated;
 }
@@ -5593,8 +5484,7 @@ button {
 }
 .room-reward > span {
   color: #9b6a2c;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -5604,13 +5494,12 @@ button {
   grid-column: 2;
   align-self: center;
   color: #35573d;
-  font-size: 13px;
+  font-size: 0.8125rem;
   text-align: right;
 }
 .room-reward > small {
   color: #756853;
-  font:
-    9px/1.35 Arial,
+  font: 0.5625rem/1.35 Arial,
     sans-serif;
 }
 .room-reward.complete {
@@ -5640,13 +5529,12 @@ button {
   right: 15px;
   top: 14px;
   color: #a4906b;
-  font:
-    700 12px Arial,
+  font: 700 0.75rem Arial,
     sans-serif;
 }
 .crop-plan h2 {
   margin: 4px 0 12px;
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 .crop-plan-identity {
   display: flex;
@@ -5655,12 +5543,11 @@ button {
 }
 .crop-plan > strong {
   display: block;
-  font-size: 25px;
+  font-size: 1.5625rem;
 }
 .crop-plan > strong small {
   color: #857966;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .crop-plan dl {
@@ -5675,21 +5562,18 @@ button {
 }
 .crop-plan dt {
   color: #847866;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
 }
 .crop-plan dd {
   margin: 4px 0 0;
-  font:
-    700 11px Arial,
+  font: 700 0.6875rem Arial,
     sans-serif;
 }
 .crop-plan > p:last-child {
   color: #716656;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .building-catalog {
@@ -5707,26 +5591,24 @@ button {
 }
 .building-catalog-head h2 {
   margin: 3px 0 5px;
-  font-size: 21px;
+  font-size: 1.3125rem;
 }
 .building-catalog-head p:last-child {
   max-width: 850px;
   margin: 0;
   color: #c8d2c5;
-  font:
-    10px/1.5 Arial,
+  font: 0.625rem/1.5 Arial,
     sans-serif;
 }
 .building-catalog-head > strong {
   color: #f1cd72;
-  font-size: 30px;
+  font-size: 1.875rem;
   white-space: nowrap;
 }
 .building-catalog-head > strong small {
   display: block;
   color: #bac6b7;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
   text-align: right;
   text-transform: uppercase;
@@ -5753,8 +5635,7 @@ button {
   background: #eee4d2;
   border: 1px solid #d3c5ad;
   cursor: pointer;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .building-filters button.active {
@@ -5763,7 +5644,7 @@ button {
   border-color: #536f4e;
 }
 .building-filters b {
-  font-size: 8px;
+  font-size: 0.5rem;
 }
 .building-controls > label {
   flex: 0 0 auto;
@@ -5771,8 +5652,7 @@ button {
   align-items: center;
   gap: 7px;
   color: #756a58;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .building-controls select {
@@ -5780,8 +5660,7 @@ button {
   color: #2e392f;
   background: #fff9ed;
   border: 1px solid #c8b99f;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .building-group {
@@ -5806,18 +5685,17 @@ button {
 }
 .building-group > header h2 {
   margin: 2px 0 3px;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .building-group > header p:last-child {
   margin: 0;
   color: #746957;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .building-group > header > strong {
   color: #56744f;
-  font-size: 25px;
+  font-size: 1.5625rem;
 }
 .building-plan-list {
   display: flex;
@@ -5844,7 +5722,7 @@ button {
 }
 .building-plan-list h2 {
   margin: 3px 0 5px;
-  font-size: 19px;
+  font-size: 1.1875rem;
 }
 .building-description {
   min-width: 0;
@@ -5859,7 +5737,7 @@ button {
 .building-description > div > p:not(.eyebrow) {
   margin: 0;
   color: #776c5b;
-  font: 10px/1.4 Arial, sans-serif;
+  font: 0.625rem/1.4 Arial, sans-serif;
 }
 .building-catalog-artwork {
   position: relative;
@@ -5879,8 +5757,7 @@ button {
   padding: 3px 5px;
   color: #736652;
   background: #eee2ce;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .building-notes span.met {
@@ -5898,20 +5775,18 @@ button {
 }
 .building-price > strong {
   color: #4f7148;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .building-price small {
   margin-top: 4px;
   color: #877965;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .building-price > b {
   margin-top: 7px;
   color: #7c684c;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
 }
@@ -5928,8 +5803,7 @@ button {
   gap: 7px;
   background: #ece2d1;
   color: #8a5c39;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .material-list > span.done {
@@ -5937,7 +5811,7 @@ button {
   background: #dae7d3;
 }
 .material-list b {
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .material-list em {
   font-style: normal;
@@ -5954,7 +5828,7 @@ button {
 }
 .production-plan h2 {
   margin: 3px 0 14px;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .machine-plan-grid {
   display: grid;
@@ -5970,20 +5844,18 @@ button {
   border-top: 3px solid #718666;
 }
 .machine-plan-grid strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .machine-heading > span {
   margin: 6px 0;
   color: #756a5a;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .machine-plan-grid b {
   margin-top: auto;
   color: #4f7148;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .production-advice {
@@ -5996,8 +5868,7 @@ button {
 }
 .production-advice > p:last-of-type {
   color: #cad4c7;
-  font:
-    10px/1.5 Arial,
+  font: 0.625rem/1.5 Arial,
     sans-serif;
 }
 .reserve-list {
@@ -6012,8 +5883,7 @@ button {
   justify-content: space-between;
   background: #3a5040;
   color: #dce5d9;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .friendship-planner {
@@ -6036,8 +5906,7 @@ button {
 .pet-friendship-card span,
 .pet-friendship-card small {
   color: #756854;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .pet-progress {
@@ -6056,7 +5925,7 @@ button {
   background: #b9814f;
 }
 .pet-progress strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .friend-plan-head {
   padding: 13px 15px;
@@ -6074,14 +5943,12 @@ button {
   margin: 0 0 5px;
   max-width: 720px;
   color: #c9d3c6;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .friend-plan-head strong,
 .friend-plan-head span {
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .friend-plan-meta {
@@ -6099,8 +5966,7 @@ button {
   background: transparent;
   border: 1px solid #718373;
   cursor: help;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
 }
 .gift-points-tooltip > button:hover,
@@ -6133,7 +5999,7 @@ button {
   display: block;
   margin-bottom: 8px;
   color: #f1cd72;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .gift-reaction-row {
   margin-bottom: 12px;
@@ -6144,14 +6010,12 @@ button {
 }
 .gift-reaction-row b {
   color: #e8dfce;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
 }
 .gift-reaction-row em {
   color: #bcd7ae;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
   font-style: normal;
 }
@@ -6170,8 +6034,7 @@ button {
   color: #e0e8dc;
   border-right: 1px solid #536757;
   border-bottom: 1px solid #536757;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .gift-quality-row > b {
@@ -6181,8 +6044,7 @@ button {
 .gift-points-tooltip small {
   display: block;
   color: #b7c2b3;
-  font:
-    8px/1.5 Arial,
+  font: 0.5rem/1.5 Arial,
     sans-serif;
 }
 .friend-plan-head label {
@@ -6190,8 +6052,7 @@ button {
   align-items: center;
   gap: 7px;
   white-space: nowrap;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .friend-plan-head select {
@@ -6199,8 +6060,7 @@ button {
   color: #2e392f;
   background: #f5ecd9;
   border: 1px solid #9c927d;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
 }
 .friend-plan-list {
@@ -6244,13 +6104,12 @@ button {
   flex-direction: column;
 }
 .friend-plan-list strong {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .friend-plan-list span,
 .friend-plan-list small {
   color: #7d7160;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .friend-summary small {
@@ -6261,7 +6120,7 @@ button {
   top: 50%;
   right: 12px;
   translate: 0 -50%;
-  font-size: 18px !important;
+  font-size: 1.125rem !important;
   color: #936a3e;
 }
 .heart-track {
@@ -6296,10 +6155,10 @@ button {
   border-color: #c99069;
 }
 .friend-projection strong {
-  font-size: 16px;
+  font-size: 1rem;
 }
 .friend-projection span {
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .friend-gifts {
   min-width: 0;
@@ -6353,21 +6212,19 @@ button {
   display: block;
 }
 .ready-deliveries article > div > strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .ready-deliveries article > div > span {
   margin-top: 3px;
   color: #66523a;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: none;
 }
 .ready-deliveries article > div > small {
   margin-top: 3px;
   color: #756147;
-  font:
-    8px/1.35 Arial,
+  font: 0.5rem/1.35 Arial,
     sans-serif;
 }
 .crop-planning-sections {
@@ -6397,11 +6254,11 @@ button {
   color: #675d4e;
   background: #ece5d7;
   border-left: 4px solid #b28648;
-  font: 10px/1.45 Arial, sans-serif;
+  font: 0.625rem/1.45 Arial, sans-serif;
 }
 .planner-catalog-empty strong {
   color: #2d4b35;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .planner-quick-grid {
   display: grid;
@@ -6418,7 +6275,7 @@ button {
   flex-direction: column;
   gap: 5px;
   color: #8b5d31;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -6440,7 +6297,7 @@ button {
   color: #183729;
   background: #fffbf2;
   border: 1px solid #cdbd9f;
-  font: 11px Arial, sans-serif;
+  font: 0.6875rem Arial, sans-serif;
   text-transform: none;
   letter-spacing: normal;
 }
@@ -6460,7 +6317,7 @@ button {
   gap: 7px;
   cursor: pointer;
   list-style: none;
-  font: 11px Arial, sans-serif;
+  font: 0.6875rem Arial, sans-serif;
 }
 .planner-producer-menu summary::-webkit-details-marker {
   display: none;
@@ -6482,7 +6339,7 @@ button {
 }
 .planner-producer-menu small {
   color: #7b6d58;
-  font: 8px Arial, sans-serif;
+  font: 0.5rem Arial, sans-serif;
 }
 .planner-producer-options {
   position: absolute;
@@ -6514,7 +6371,7 @@ button {
   color: #183729;
   background: white;
   border: 1px solid #bca989;
-  font: 11px Arial, sans-serif;
+  font: 0.6875rem Arial, sans-serif;
 }
 .planner-producer-options section + section {
   margin-top: 7px;
@@ -6530,7 +6387,7 @@ button {
   grid-column: 1 / -1;
   margin: 2px 5px 5px;
   color: #8b5d31;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -6546,7 +6403,7 @@ button {
   border: 0;
   cursor: pointer;
   text-align: left;
-  font: 11px Arial, sans-serif;
+  font: 0.6875rem Arial, sans-serif;
 }
 .planner-producer-options button:hover,
 .planner-producer-options button.active {
@@ -6555,7 +6412,7 @@ button {
 .planner-producer-options p {
   margin: 7px;
   color: #766957;
-  font: 9px/1.4 Arial, sans-serif;
+  font: 0.5625rem/1.4 Arial, sans-serif;
 }
 .planner-check {
   flex-direction: row !important;
@@ -6576,7 +6433,7 @@ button {
   background: #ebe4d6;
   border: 1px solid #cdbd9f;
   cursor: pointer;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
 }
 .planner-segmented button.active {
   color: #fff5d8;
@@ -6593,7 +6450,7 @@ button {
   flex-direction: column;
   gap: 3px;
   color: #8b5d31;
-  font: 700 7px Arial, sans-serif;
+  font: 700 0.4375rem Arial, sans-serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -6610,7 +6467,7 @@ button {
   background: #3d5c45;
   border: 1px solid #294432;
   cursor: pointer;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
 }
 .planner-bookmark-toolbar input {
   min-width: 180px;
@@ -6618,7 +6475,7 @@ button {
   padding: 5px 8px;
   background: #fffaf0;
   border: 1px solid #c9b99e;
-  font: 9px Arial, sans-serif;
+  font: 0.5625rem Arial, sans-serif;
 }
 .planner-bookmark-toolbar button:disabled {
   opacity: 0.5;
@@ -6626,7 +6483,7 @@ button {
 }
 .planner-bookmark-toolbar span {
   color: #766957;
-  font: 9px Arial, sans-serif;
+  font: 0.5625rem Arial, sans-serif;
 }
 .forestry-options {
   margin-top: 8px;
@@ -6659,7 +6516,7 @@ button {
 .forestry-options legend,
 .forestry-species-grid label {
   color: #8b5d31;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -6691,7 +6548,7 @@ button {
   padding: 10px 12px;
   color: #f4ead5;
   background: #355641;
-  font: 10px/1.4 Arial, sans-serif;
+  font: 0.625rem/1.4 Arial, sans-serif;
 }
 .forestry-materials strong {
   flex: 0 0 auto;
@@ -6760,15 +6617,15 @@ button {
   white-space: nowrap;
 }
 .planner-bookmark-load strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .planner-bookmark-load small {
   color: #766957;
-  font: 8px Arial, sans-serif;
+  font: 0.5rem Arial, sans-serif;
 }
 .planner-bookmark-remove {
   width: 28px;
-  font-size: 16px;
+  font-size: 1rem;
 }
 .planner-bookmark-compare {
   padding: 0 7px;
@@ -6777,7 +6634,7 @@ button {
   gap: 4px;
   color: #52644f;
   border-left: 1px solid #d3c8b5;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
   cursor: pointer;
 }
 .planner-bookmark-compare input {
@@ -6811,21 +6668,21 @@ button {
 }
 .planner-result-head h3 {
   margin: 3px 0 4px;
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 .planner-result-head span {
   color: #cad6c8;
-  font: 9px Arial, sans-serif;
+  font: 0.5625rem Arial, sans-serif;
 }
 .planner-result-head > strong {
   color: #f0c861;
-  font-size: 27px;
+  font-size: 1.6875rem;
   text-align: right;
 }
 .planner-result-head > strong small {
   display: block;
   color: #d3ddcf;
-  font: 8px Arial, sans-serif;
+  font: 0.5rem Arial, sans-serif;
 }
 .planner-applied-assumptions {
   margin-top: 8px;
@@ -6838,7 +6695,7 @@ button {
   color: #e8f0df;
   background: #35513d;
   border: 1px solid #4d6d54;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
 }
 .planner-metrics {
   margin: 15px 0 0;
@@ -6855,13 +6712,13 @@ button {
 }
 .planner-metrics dt {
   color: #becdbb;
-  font: 8px Arial, sans-serif;
+  font: 0.5rem Arial, sans-serif;
   text-transform: uppercase;
 }
 .planner-metrics dd {
   margin: 0;
   color: #fff4d5;
-  font: 700 11px Arial, sans-serif;
+  font: 700 0.6875rem Arial, sans-serif;
 }
 .planner-scenarios {
   margin-top: 7px;
@@ -6879,20 +6736,20 @@ button {
 }
 .planner-scenarios span,
 .planner-scenarios small {
-  font: 8px Arial, sans-serif;
+  font: 0.5rem Arial, sans-serif;
 }
 .planner-scenarios strong {
   grid-row: span 2;
   align-self: center;
   color: #426445;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .planner-warnings {
   margin: 9px 0 0;
   padding: 8px 10px 8px 25px;
   color: #4a3528;
   background: #f0d7ae;
-  font: 9px/1.45 Arial, sans-serif;
+  font: 0.5625rem/1.45 Arial, sans-serif;
 }
 .planner-comparison {
   margin-top: 10px;
@@ -6909,12 +6766,12 @@ button {
 }
 .planner-comparison h3 {
   margin: 2px 0 3px;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .planner-comparison header p:last-child {
   margin: 0;
   color: #756a59;
-  font: 9px/1.4 Arial, sans-serif;
+  font: 0.5625rem/1.4 Arial, sans-serif;
 }
 .planner-comparison-table {
   margin-top: 11px;
@@ -6924,7 +6781,7 @@ button {
   width: 100%;
   border-collapse: collapse;
   background: #fffaf0;
-  font: 9px Arial, sans-serif;
+  font: 0.5625rem Arial, sans-serif;
 }
 .planner-comparison th,
 .planner-comparison td {
@@ -6936,18 +6793,18 @@ button {
 .planner-comparison thead th {
   color: #72512f;
   background: #e8decc;
-  font-size: 8px;
+  font-size: 0.5rem;
   text-transform: uppercase;
 }
 .planner-comparison tbody th {
   min-width: 145px;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .planner-comparison tbody th small {
   margin-top: 3px;
   display: block;
   color: #786d5d;
-  font: 7px Arial, sans-serif;
+  font: 0.4375rem Arial, sans-serif;
 }
 .planner-comparison tbody tr.current {
   background: #edf4e8;
@@ -6957,7 +6814,7 @@ button {
   margin: 0 0 4px;
   display: block;
   color: #557d58;
-  font: 700 7px Arial, sans-serif;
+  font: 700 0.4375rem Arial, sans-serif;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -7000,7 +6857,7 @@ button {
   grid-template-columns: minmax(90px, 150px) 1fr 90px;
   align-items: center;
   gap: 10px;
-  font: 9px Arial, sans-serif;
+  font: 0.5625rem Arial, sans-serif;
 }
 .planner-comparison-chart-row > strong {
   overflow: hidden;
@@ -7032,7 +6889,7 @@ button {
   padding: 0 7px;
   color: #52644f;
   border-left: 1px solid #d3c8b5;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
 }
 .planner-bookmark-name {
   grid-column: 1 / -1;
@@ -7042,7 +6899,7 @@ button {
   padding: 4px 6px;
   background: #fffaf0;
   border: 1px solid #d3c8b5;
-  font: 8px Arial, sans-serif;
+  font: 0.5rem Arial, sans-serif;
 }
 .planner-portfolio {
   margin-top: 10px;
@@ -7051,7 +6908,7 @@ button {
   gap: 5px;
   border-left: 3px solid #5f8b62;
   background: #e2eadc;
-  font: 9px/1.45 Arial, sans-serif;
+  font: 0.5625rem/1.45 Arial, sans-serif;
 }
 .planner-portfolio.conflicted {
   border-left-color: #b45d45;
@@ -7073,7 +6930,7 @@ button {
   color: #294432;
   background: #fffaf0;
   border: 1px solid #cdbd9f;
-  font: 9px Arial, sans-serif;
+  font: 0.5625rem Arial, sans-serif;
 }
 .planner-portfolio-save input { flex: 1; }
 .planner-portfolio-save button {
@@ -7081,7 +6938,7 @@ button {
   color: #fff5d8;
   background: #3d5c45;
   border: 1px solid #294432;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
   cursor: pointer;
 }
 .planner-saved-portfolios {
@@ -7110,7 +6967,7 @@ button {
 }
 .planner-saved-portfolios article small {
   color: #756a59;
-  font: 8px Arial, sans-serif;
+  font: 0.5rem Arial, sans-serif;
 }
 .planner-saved-portfolios input {
   grid-column: 1 / -1;
@@ -7122,7 +6979,7 @@ button {
   background: transparent;
   border: 0;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 1rem;
 }
 .planner-advanced {
   margin-top: 9px;
@@ -7132,7 +6989,7 @@ button {
 .planner-advanced summary {
   color: #3e5f43;
   cursor: pointer;
-  font: 700 10px Arial, sans-serif;
+  font: 700 0.625rem Arial, sans-serif;
 }
 .planner-advanced label {
   max-width: 300px;
@@ -7141,7 +6998,7 @@ button {
 .planner-advanced p {
   margin: 10px 0 0;
   color: #756a59;
-  font: 9px/1.45 Arial, sans-serif;
+  font: 0.5625rem/1.45 Arial, sans-serif;
 }
 .crop-section-title {
   display: flex;
@@ -7152,25 +7009,23 @@ button {
 }
 .crop-section-title h2 {
   margin: 3px 0 5px;
-  font-size: 21px;
+  font-size: 1.3125rem;
 }
 .crop-section-title p:last-child {
   margin: 0;
   color: #7b705f;
-  font:
-    10px/1.45 Arial,
+  font: 0.625rem/1.45 Arial,
     sans-serif;
 }
 .crop-section-title > strong {
   color: #4f7148;
-  font-size: 30px;
+  font-size: 1.875rem;
   text-align: right;
 }
 .crop-section-title > strong small {
   display: block;
   color: #817563;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .planted-grid {
@@ -7198,19 +7053,17 @@ button {
   border-left-color: #5d8754;
 }
 .planted-grid strong {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .planted-grid article > div > span {
   margin: 5px 0 3px;
   color: #53694e;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .planted-grid small {
   color: #837766;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .crop-simulation-guide {
@@ -7229,8 +7082,7 @@ button {
 }
 .crop-simulation-guide b {
   color: #596e52;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -7238,8 +7090,7 @@ button {
 .crop-simulation-guide span {
   margin-top: 4px;
   color: #716655;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .crop-options-section .crop-plan {
@@ -7260,8 +7111,7 @@ button {
   color: #6f6454;
   background: #eee4d3;
   border-left: 3px solid #b88a48;
-  font:
-    9px/1.45 Arial,
+  font: 0.5625rem/1.45 Arial,
     sans-serif;
 }
 .save-note {
@@ -7295,7 +7145,7 @@ button {
 }
 .live-panel-title h2 {
   margin: 3px 0 0;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .live-panel-title button {
   align-self: start;
@@ -7303,13 +7153,12 @@ button {
   color: #cbd7c8;
   background: transparent;
   cursor: pointer;
-  font-size: 25px;
+  font-size: 1.5625rem;
 }
 .live-offline {
   margin: 16px 0;
   color: #c4cfc1;
-  font:
-    11px/1.55 Arial,
+  font: 0.6875rem/1.55 Arial,
     sans-serif;
 }
 .live-stat-grid {
@@ -7327,8 +7176,7 @@ button {
 .live-stat-grid span,
 .live-location span {
   color: #aebdac;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -7336,7 +7184,7 @@ button {
 .live-stat-grid strong {
   margin-top: 4px;
   color: #f1cf72;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .live-location {
   padding: 11px;
@@ -7347,12 +7195,11 @@ button {
 }
 .live-location strong {
   margin: 4px 0;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .live-location small {
   color: #aebcac;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .live-panel-section {
@@ -7368,12 +7215,11 @@ button {
 }
 .live-section-title strong {
   color: #f0cc73;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .live-section-title span {
   color: #aebdac;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .live-inventory {
@@ -7392,15 +7238,13 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .live-inventory span {
   margin-top: 2px;
   color: #aebdac;
-  font:
-    7px Arial,
+  font: 0.4375rem Arial,
     sans-serif;
 }
 .live-route-state,
@@ -7417,8 +7261,7 @@ button {
   gap: 8px;
   background: #324438;
   color: #cbd6c8;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .live-route-state b,
@@ -7427,16 +7270,14 @@ button {
 }
 .live-empty {
   color: #afbdac;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .live-panel-foot {
   display: block;
   margin-top: 14px;
   color: #91a18f;
-  font:
-    8px/1.45 Arial,
+  font: 0.5rem/1.45 Arial,
     sans-serif;
 }
 .live-collection-grid {
@@ -7453,13 +7294,12 @@ button {
 }
 .live-collection-grid strong {
   color: #f1cf72;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .live-collection-grid span {
   margin-top: 3px;
   color: #aebdac;
-  font:
-    7px Arial,
+  font: 0.4375rem Arial,
     sans-serif;
   text-transform: uppercase;
 }
@@ -7640,7 +7480,7 @@ button {
   .achievements-heading h1,
   .daily-heading h1,
   .fishing-heading h1 {
-    font-size: 25px;
+    font-size: 1.5625rem;
   }
   .achievement-overview,
   .achievement-grid,
@@ -7701,7 +7541,7 @@ button {
     min-height: 0;
   }
   .daily-modal h1 {
-    font-size: 25px;
+    font-size: 1.5625rem;
   }
   .hour-buttons {
     grid-template-columns: repeat(4, 1fr);
@@ -7775,13 +7615,12 @@ button {
   flex-direction: column;
   color: #746958;
   background: #ede4d4;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .production-overview b {
   color: #4f7148;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .production-overview .attention {
   background: #f1d9b6;
@@ -7817,8 +7656,7 @@ button {
 .machine-plan-grid summary b {
   margin-top: auto;
   color: #4f7148;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .machine-details {
@@ -7830,14 +7668,13 @@ button {
   display: flex;
   flex-direction: column;
   color: #716655;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .machine-details p b {
   margin-bottom: 2px;
   color: #496544;
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .machine-details .ready-output b {
   color: #a55e2f;
@@ -7849,8 +7686,7 @@ button {
   display: block;
   margin-top: 10px;
   color: #aebdab;
-  font:
-    9px/1.4 Arial,
+  font: 0.5625rem/1.4 Arial,
     sans-serif;
 }
 .friend-summary {
@@ -7897,8 +7733,7 @@ button {
   color: #796e5d;
   background: #eee5d6;
   border: 1px solid #d4c7b2;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
 }
 .friend-daily-status > span.done {
@@ -7917,7 +7752,7 @@ button {
 }
 .friend-daily-status .weekly-gifts i {
   color: #c8b99e;
-  font-size: 8px;
+  font-size: 0.5rem;
 }
 .friend-daily-status .weekly-gifts i.filled {
   color: #b86f65;
@@ -7941,8 +7776,7 @@ button {
 }
 .friend-identity small {
   color: #7d7160;
-  font:
-    8px Arial,
+  font: 0.5rem Arial,
     sans-serif;
 }
 .npc-artwork {
@@ -7960,7 +7794,7 @@ button {
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: 16px;
+  font-size: 1rem;
 }
 .npc-artwork img {
   position: absolute;
@@ -8036,14 +7870,13 @@ button {
 }
 .planted-sort-controls > strong {
   color: #4f7148;
-  font-size: 30px;
+  font-size: 1.875rem;
   text-align: right;
 }
 .planted-sort-controls > strong small {
   display: block;
   color: #817563;
-  font:
-    9px Arial,
+  font: 0.5625rem Arial,
     sans-serif;
 }
 .planted-sort-controls label {
@@ -8051,8 +7884,7 @@ button {
   flex-direction: column;
   gap: 4px;
   color: #756a58;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
 }
@@ -8062,8 +7894,7 @@ button {
   color: #2e392f;
   background: #f5ecd9;
   border: 1px solid #c8b99f;
-  font:
-    10px Arial,
+  font: 0.625rem Arial,
     sans-serif;
   text-transform: none;
 }
@@ -8115,9 +7946,14 @@ button {
   color: #f5ecd9;
   background: #526b50;
   border: 1px solid #b79d72;
-  font:
-    700 12px Arial,
+  font: 700 0.75rem Arial,
     sans-serif;
+}
+.modded-item-fallback {
+  display: none;
+}
+.modded-item-artwork.missing .modded-item-fallback {
+  display: block;
 }
 .animal-artwork {
   position: relative;
@@ -8151,7 +7987,7 @@ button {
   color: #f5ecd9;
   background: #526b50;
   border: 1px solid #b79d72;
-  font: 700 12px Arial, sans-serif;
+  font: 700 0.75rem Arial, sans-serif;
 }
 .item-mention-artwork {
   width: 32px;
@@ -8161,11 +7997,19 @@ button {
   place-items: center;
 }
 .item-mention-artwork.money {
-  border-radius: 50%;
   color: #5c431d;
-  background: #e6b94f;
-  box-shadow: inset 0 0 0 2px #c88a2d;
-  font: 800 17px Georgia, serif;
+  font: 800 1.0625rem Georgia, serif;
+}
+.item-mention-artwork.money img {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+.item-mention-artwork.money .money-fallback {
+  display: none;
+}
+.item-mention-artwork.money img[hidden] + .money-fallback {
+  display: block;
 }
 .machine-plan-grid summary {
   display: grid;
@@ -8287,8 +8131,7 @@ button {
   color: #f5d486;
   background: #203b40;
   cursor: pointer;
-  font:
-    700 9px Arial,
+  font: 700 0.5625rem Arial,
     sans-serif;
 }
 .use-live-time:hover {
@@ -8322,12 +8165,11 @@ button {
 }
 .fishing-quest h2 {
   margin: 3px 0 4px;
-  font-size: 19px;
+  font-size: 1.1875rem;
 }
 .fishing-quest h2 small {
   color: #6b785f;
-  font:
-    700 12px Arial,
+  font: 700 0.75rem Arial,
     sans-serif;
 }
 .fishing-quest strong,
@@ -8335,8 +8177,7 @@ button {
   display: block;
   margin: 3px 0;
   color: #62594b;
-  font:
-    10px/1.4 Arial,
+  font: 0.625rem/1.4 Arial,
     sans-serif;
 }
 .mission-fish-conditions {
@@ -8350,8 +8191,7 @@ button {
   color: #53664e;
   background: rgba(255, 255, 255, 0.48);
   border: 1px solid rgba(79, 113, 72, 0.18);
-  font:
-    700 8px/1.2 Arial,
+  font: 700 0.5rem/1.2 Arial,
     sans-serif;
 }
 .mission-fish-progress {
@@ -8363,16 +8203,14 @@ button {
 .mission-fish-progress b {
   display: block;
   color: #4f7148;
-  font:
-    700 23px Arial,
+  font: 700 1.4375rem Arial,
     sans-serif;
 }
 .mission-fish-progress small {
   display: block;
   margin-top: 4px;
   color: #776b59;
-  font:
-    8px/1.35 Arial,
+  font: 0.5rem/1.35 Arial,
     sans-serif;
 }
 @media (max-width: 760px) {
@@ -8413,8 +8251,7 @@ button {
   color: #fff8df;
   background: #b76f20;
   border-radius: 2px;
-  font:
-    700 7px Arial,
+  font: 700 0.4375rem Arial,
     sans-serif;
   letter-spacing: 0.08em;
   vertical-align: middle;
@@ -8442,8 +8279,7 @@ button {
   color: #716655;
   background: #eee5d6;
   cursor: pointer;
-  font:
-    700 8px Arial,
+  font: 700 0.5rem Arial,
     sans-serif;
   text-transform: uppercase;
 }
@@ -8491,7 +8327,7 @@ button {
 .storage-heading h2,
 .goal-planner-heading h2 {
   margin: 2px 0 6px;
-  font: 700 30px Georgia, serif;
+  font: 700 1.875rem Georgia, serif;
 }
 .storage-heading p,
 .goal-planner-heading p {
@@ -8507,12 +8343,12 @@ button {
 .storage-totals strong,
 .goal-planner-heading > strong {
   display: block;
-  font: 700 34px Georgia, serif;
+  font: 700 2.125rem Georgia, serif;
 }
 .storage-totals span,
 .goal-planner-heading > strong small {
   display: block;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -8520,7 +8356,7 @@ button {
   display: block;
   margin-top: 8px;
   color: #8e7040;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .storage-controls {
   display: grid;
@@ -8538,7 +8374,7 @@ button {
   display: block;
   margin-bottom: 5px;
   color: #806d52;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -8587,13 +8423,13 @@ button {
 .storage-results article span {
   overflow: hidden;
   color: #81735f;
-  font-size: 9px;
+  font-size: 0.5625rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .storage-results article > b {
   color: #426b4c;
-  font: 700 20px Georgia, serif;
+  font: 700 1.25rem Georgia, serif;
 }
 .storage-container-groups {
   display: grid;
@@ -8660,13 +8496,13 @@ button {
   color: #fff8e9;
   border-color: #4d714d;
   background: #4d714d;
-  font: 700 18px Georgia, serif;
+  font: 700 1.125rem Georgia, serif;
 }
 .storage-container-identity small {
   display: block;
   margin-top: 2px;
   color: #806d52;
-  font: 600 9px Arial, sans-serif;
+  font: 600 0.5625rem Arial, sans-serif;
 }
 .storage-location-preview {
   position: relative;
@@ -8694,11 +8530,11 @@ button {
 }
 .storage-container-groups h3 {
   margin: 0;
-  font: 700 18px Georgia, serif;
+  font: 700 1.125rem Georgia, serif;
 }
 .storage-container-groups header span {
   color: #806d52;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -8741,11 +8577,11 @@ button {
 }
 .strategic-goal-builder h3 {
   margin: 2px 0;
-  font: 700 20px Georgia, serif;
+  font: 700 1.25rem Georgia, serif;
 }
 .strategic-goal-builder article span {
   color: #776a58;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .strategic-goal-builder dl {
   display: grid;
@@ -8759,12 +8595,12 @@ button {
 }
 .strategic-goal-builder dt {
   color: #8b744f;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
   text-transform: uppercase;
 }
 .strategic-goal-builder dd {
   margin: 0;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .goal-requirements {
   grid-column: 1 / -1;
@@ -8780,13 +8616,13 @@ button {
 }
 .goal-requirements header strong {
   color: #806d52;
-  font: 800 9px Arial, sans-serif;
+  font: 800 0.5625rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 .goal-requirements header span {
   color: #8b7d69;
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .goal-requirements ul {
   display: grid;
@@ -8819,7 +8655,7 @@ button {
   border-radius: 50%;
   color: #fff !important;
   background: #b78332;
-  font: 800 10px Arial, sans-serif !important;
+  font: 800 0.625rem Arial, sans-serif !important;
 }
 .goal-requirements li.ready .goal-resource-status {
   background: #5d8657;
@@ -8828,21 +8664,21 @@ button {
   overflow: hidden;
   margin: 0 !important;
   color: #28382d !important;
-  font: 700 11px Georgia, serif !important;
+  font: 700 0.6875rem Georgia, serif !important;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .goal-resource-count {
   margin: 0 !important;
   color: #425e49 !important;
-  font: 700 10px Arial, sans-serif !important;
+  font: 700 0.625rem Arial, sans-serif !important;
   white-space: nowrap;
 }
 .goal-requirements li small {
   grid-column: 3 / -1;
   margin: -4px 0 0 !important;
   color: #9a5f35;
-  font: 700 8px Arial, sans-serif !important;
+  font: 700 0.5rem Arial, sans-serif !important;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -8907,7 +8743,7 @@ button {
 .personal-goal-list article small {
   margin-top: 3px;
   color: #7d705e;
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .goal-check {
   width: 25px;
@@ -8928,7 +8764,7 @@ button {
   color: #8e594a;
   background: transparent;
   cursor: pointer;
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 800;
 }
 @media (max-width: 1150px) {
@@ -8951,7 +8787,7 @@ button {
 }
 .time-machine-heading h2 {
   margin: 2px 0 5px;
-  font: 700 25px Georgia, serif;
+  font: 700 1.5625rem Georgia, serif;
 }
 .time-machine-heading p {
   margin: 0;
@@ -8964,7 +8800,7 @@ button {
 }
 .time-machine-selectors label {
   color: #806d52;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -8996,13 +8832,13 @@ button {
 }
 .time-machine-grid article span {
   color: #776b5a;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
   text-transform: uppercase;
 }
 .time-machine-grid article strong {
   margin: 7px 0 3px;
   color: #315c3c;
-  font: 700 20px Georgia, serif;
+  font: 700 1.25rem Georgia, serif;
 }
 .valuation-toggle {
   display: flex;
@@ -9022,7 +8858,7 @@ button {
 }
 .valuation-toggle span {
   color: #827562;
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .farm-valuation {
   display: grid;
@@ -9042,13 +8878,13 @@ button {
   display: block;
 }
 .farm-valuation span {
-  font-size: 8px;
+  font-size: 0.5rem;
   text-transform: uppercase;
 }
 .farm-valuation strong {
   margin-top: 5px;
   color: #f0c661;
-  font: 700 18px Georgia, serif;
+  font: 700 1.125rem Georgia, serif;
 }
 .farm-valuation .total {
   background: #38553e;
@@ -9080,7 +8916,7 @@ button {
 }
 .completion-explorer-heading h2 {
   margin: 2px 0 0;
-  font: 700 24px Georgia, serif;
+  font: 700 1.5rem Georgia, serif;
 }
 .completion-explorer-heading nav {
   display: flex;
@@ -9092,7 +8928,7 @@ button {
   color: #6e6557;
   background: transparent;
   cursor: pointer;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
   text-transform: uppercase;
 }
 .completion-explorer-heading button.active {
@@ -9132,12 +8968,12 @@ button {
 }
 .completion-card div span {
   color: #705f47;
-  font: 700 9px Arial, sans-serif;
+  font: 700 0.5625rem Arial, sans-serif;
   text-transform: uppercase;
 }
 .completion-card div strong {
   color: #356344;
-  font: 700 19px Georgia, serif;
+  font: 700 1.1875rem Georgia, serif;
 }
 .completion-card > i {
   display: block;
@@ -9155,7 +8991,7 @@ button {
   min-height: 24px;
   margin: 8px 0 5px;
   color: #756956;
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .completion-card small {
   color: #a06d2c;
@@ -9168,7 +9004,7 @@ button {
   display: block;
   margin-top: 8px;
   color: #526d50;
-  font: 700 8px Arial, sans-serif;
+  font: 700 0.5rem Arial, sans-serif;
   font-style: normal;
   text-transform: uppercase;
 }
@@ -9178,7 +9014,7 @@ button {
 .collection-detail-note {
   margin: 0 0 14px;
   color: #71634f;
-  font: 10px/1.5 Arial, sans-serif;
+  font: 0.625rem/1.5 Arial, sans-serif;
 }
 .collection-checklist {
   display: grid;
@@ -9213,11 +9049,11 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .collection-checklist small {
   color: #796d5b;
-  font: 8px/1.35 Arial, sans-serif;
+  font: 0.5rem/1.35 Arial, sans-serif;
 }
 @media (max-width: 1250px) {
   .completion-card-grid {
@@ -9286,7 +9122,7 @@ button {
   list-style: none;
 }
 .history-timeline > summary::-webkit-details-marker { display: none; }
-.history-timeline > summary h2 { margin: .15rem 0; font: 700 21px Georgia, serif; }
+.history-timeline > summary h2 { margin: .15rem 0; font: 700 1.3125rem Georgia, serif; }
 .history-timeline > summary p:last-child { margin: 0; color: #776b5a; }
 .history-timeline > summary > span { display: flex; align-items: center; gap: .7rem; white-space: nowrap; color: #6b634f; font-size: .8rem; }
 .history-timeline > summary b { color: #4f714d; font-size: 1.2rem; transition: transform .18s ease; }
@@ -9297,3 +9133,83 @@ button {
   .live-alert-settings { grid-template-columns: 1fr; }
   .history-event-list article { grid-template-columns: 1fr; gap: .35rem; }
 }
+/* Text scales independently of window zoom and locally extracted artwork. */
+html { font-size: calc(16px * var(--text-scale, 1)); }
+:focus-visible { outline: 3px solid #146be0; outline-offset: 3px; box-shadow: 0 0 0 5px #fff; }
+.skip-link { position: fixed; left: 16px; top: -200px; z-index: 9999; padding: 12px; background: #fff; color: #111; }
+.skip-link:focus { top: 10px; }
+.content-focus-anchor { flex: 0 0 0; }
+dialog:modal { position: fixed; inset: 0; margin: auto; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow: auto; }
+dialog::backdrop { background: rgba(12,18,14,.74); }
+.accessibility-trigger { padding: 6px 10px; border: 1px solid currentColor; background: transparent; cursor: pointer; }
+.accessibility-dialog label { display: block; margin: 16px 0 8px; }
+.accessibility-dialog select, .accessibility-dialog > button:not(.help-close) { padding: 8px; margin: 4px; font: inherit; }
+.accessibility-dialog p { font: .875rem/1.5 Arial, sans-serif; }
+.dashboard-tour { width: 96%; margin: 0 auto 16px; flex: 0 0 auto; padding: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 18px; color: #fff7df; background: linear-gradient(115deg, #263e30, #182b23); border: 2px solid #e6bd62; border-radius: 10px; box-shadow: 0 6px 20px #0003, inset 0 0 0 4px #e6bd6214; font: .875rem/1.5 Arial, sans-serif; }
+.tour-emblem { flex: 0 0 56px; width: 56px; height: 56px; display: grid; place-items: center; border: 1px solid #e6bd62; border-radius: 50%; color: #ffdc89; background: #e6bd621a; font: 38px/1 Georgia, serif; }
+.tour-copy { flex: 1 1 300px; min-width: 0; }
+.tour-eyebrow { display: block; color: #ffdc89; text-transform: uppercase; letter-spacing: .12em; font-size: .7rem; font-weight: 800; }
+.dashboard-tour h2 { margin: 3px 0 6px; color: #fff7df; font: 700 1.5rem/1.2 Georgia, serif; }
+.dashboard-tour p { margin: 0; color: #e6eddf; max-width: 75ch; }
+.tour-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tour-actions button { padding: 10px 14px; border: 1px solid #a6b99e; border-radius: 5px; color: #fff7df; background: transparent; cursor: pointer; font: 700 .8rem/1.4 Arial, sans-serif; }
+.tour-actions .tour-primary { color: #252b1d; background: #f0c66b; border-color: #ffe2a1; box-shadow: 0 3px 0 #8b692f; }
+.tour-primary span { margin-left: 10px; }
+.tour-actions .tour-dismiss { border-color: transparent; text-decoration: underline; text-underline-offset: 3px; }
+.tour-steps { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 0 100%; padding-top: 14px; border-top: 1px solid #769078; }
+.tour-steps button { flex: 1 1 100px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #69816e; border-radius: 5px; background: #ffffff08; color: #e6eddf; cursor: pointer; font: 700 .75rem/1.4 Arial, sans-serif; }
+.tour-step-number { flex: 0 0 24px; height: 24px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 50%; }
+.tour-steps button[aria-current="step"] { color: #ffdc89; border: 2px solid #ffdc89; background: #e6bd621a; text-decoration: underline; text-underline-offset: 3px; }
+.tour-actions button:hover, .tour-steps button:hover { filter: brightness(1.15); }
+.app-shell { overflow: auto; }
+.topbar { height: auto; min-height: 68px; flex-basis: auto; flex-wrap: wrap; gap: 12px; }
+.view-tabs { height: auto; flex-wrap: wrap; overflow: visible; }
+.view-tabs button { min-height: 38px; height: auto; white-space: normal; }
+.workspace { min-height: 620px; }
+.map-column { grid-template-rows: auto auto minmax(200px, 1fr) auto; }
+.map-toolbar, .map-actions, .location-picker, .tile-strip { flex-wrap: wrap; gap: 8px; height: auto; padding-top: 8px; padding-bottom: 8px; }
+.map-tile-controls { margin: 0; padding: 6px 10px; border: 0; display: flex; flex-wrap: wrap; align-items: end; gap: 8px; font: .75rem/1.4 Arial, sans-serif; }
+.map-tile-controls legend { padding-top: 8px; font-weight: bold; }
+.map-tile-controls label { display: grid; gap: 2px; }
+.map-tile-controls input { width: 4.5em; padding: 4px; }
+.map-tile-controls button { padding: 5px 8px; white-space: normal; }
+.map-tile-controls small { flex-basis: 100%; }
+.tile-strip { min-height: 54px; }
+.tile-strip p { overflow-wrap: anywhere; }
+.locatable-item-card { position: relative; padding-right: 32px !important; }
+.locate-item-action { position: absolute; right: 3px; top: 3px; min-width: 24px; min-height: 24px; border: 1px solid currentColor; border-radius: 3px; background: #fffaf0; color: #30291f; cursor: pointer; font: 1rem/1 Arial, sans-serif; }
+button.item-mention-artwork { padding: 0; cursor: pointer; }
+button:disabled { cursor: default; opacity: .6; }
+.proposal-context-menu { max-width: calc(100vw - 24px); max-height: 60vh; overflow: auto; }
+.map-legend i.ready::after { content: '✓'; }
+.map-legend i.working::after { content: '◷'; }
+.map-legend i { display: inline-grid; place-items: center; min-width: 14px; min-height: 14px; color: #172219; font: bold 12px/1 Arial, sans-serif; }
+/* The contrast palette changes interface surfaces, never game image pixels. */
+html[data-high-contrast="true"] { --app-background: #fff; --ink: #111; --paper: #fff; --panel: #fff; --line: #111; --green: #111; --gold: #111; }
+html[data-high-contrast="true"] :is(.app-shell, .topbar, .panel, .map-column, .daily-page, .fishing-page, .planning-page, .growth-page, .achievements-page, dialog, article, section, header, footer, nav, aside, details, summary, button, input, select, textarea, table, th, td, label, p, h1, h2, h3, h4, li) { color: #111 !important; background-color: #fff !important; background-image: none !important; border-color: #111 !important; text-shadow: none !important; }
+html[data-high-contrast="true"] :is(span, small, strong, b, a) { color: #111 !important; text-shadow: none !important; }
+html[data-high-contrast="true"] :is(span, small, strong, b):not([class*="artwork"]):not([class*="sprite"]):not([class*="icon"]) { background-color: #fff !important; }
+html[data-high-contrast="true"] :is(button, input, select, textarea) { border: 1px solid #111 !important; }
+html[data-high-contrast="true"] :is(button.active, [aria-current="page"], [aria-pressed="true"], [aria-selected="true"]) { outline: 2px solid #111; outline-offset: -3px; text-decoration: underline; font-weight: bold; }
+html[data-high-contrast="true"] a { text-decoration: underline; background-color: #fff; }
+html[data-high-contrast="true"] :focus-visible { outline: 3px solid #005fcc !important; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+@media (max-width: 1100px) {
+  .app-shell.content-mode .topbar { position: relative; }
+  .workspace, .workspace.layers-collapsed { display: flex; flex-direction: column; min-height: auto; }
+  .workspace.view-hidden { display: none; }
+  .workspace .panel { max-height: 320px; flex: 0 0 auto; }
+  .workspace .map-column { height: auto; min-height: 620px; flex: 1 0 auto; }
+  .column-resizer { display: none; }
+}
+.help-close { width: 2rem; height: 2rem; display: grid; place-items: center; padding: 0; font-size: 1.625rem; line-height: 1; }
+.help-backdrop:has(dialog), .app-search-backdrop:has(dialog), .daily-modal-backdrop:has(dialog), .live-alert-backdrop:has(dialog), .item-locator-backdrop:has(dialog) { background: transparent; }
+.modal-close { width: 2rem; height: 2rem; display: grid; place-items: center; padding: 0; line-height: 1; }
+.balance-key, .earned-key { width: 18px; height: 0; border-top: 3px solid currentColor; background: none; }
+.earned-key { border-top-style: dashed; }
+.spending-bar { background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(0,0,0,.55) 3px 5px); }
+html[data-high-contrast="true"] .flow-bars i { background-color: #fff; border: 1px solid #111; }
+.chart-key .balance-key, .chart-key .earned-key { width: 18px; height: 0; }
+.balance-key { color: #557b4d; }
+.earned-key { color: #a86f16; }
+html[data-high-contrast="true"] :is(.balance-key, .earned-key) { color: #111; }

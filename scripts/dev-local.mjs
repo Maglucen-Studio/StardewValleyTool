@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, statSync, watch, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, watch, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { loadConfig, projectRoot, runtimeRoot, runtimePaths, validateConfig } from "./config.mjs";
 import { resolveLanguage } from "./localization.mjs";
@@ -24,6 +24,7 @@ const saveFile = config.savePath;
 const python = config.pythonCommand;
 const paths = runtimePaths(config);
 const liveDestination = resolve(runtimeRoot, "public/data/live-state.json");
+const activeProfileId = String(process.env.STARDEW_TOOL_PROFILE_ID || "default");
 const readerDirectory = resolve(runtimeRoot, ".cache/save-reader");
 const readerSave = resolve(readerDirectory, basename(saveFile));
 const gameSaveTemporary = `${saveFile}_STARDEWVALLEYSAVETMP`;
@@ -102,8 +103,12 @@ function copyLiveState() {
       ? `${liveSource}:${sourceStats.mtimeMs}:${sourceStats.size}`
       : "offline";
     if (fingerprint === copiedLiveFingerprint) return;
-    if (liveSource && existsSync(liveSource)) copyFileSync(liveSource, liveDestination);
-    else writeFileSync(liveDestination, JSON.stringify({ active: false }), "utf8");
+    if (liveSource && existsSync(liveSource)) {
+      const payload = JSON.parse(readFileSync(liveSource, "utf8"));
+      writeFileSync(liveDestination, JSON.stringify({ ...payload, profileId: activeProfileId }), "utf8");
+    } else {
+      writeFileSync(liveDestination, JSON.stringify({ active: false, profileId: activeProfileId }), "utf8");
+    }
     renderLocationMaps();
     syncRuntimePublic(["data/live-state.json", "data/farm-state.json", "assets/location-maps"]);
     copiedLiveFingerprint = fingerprint;

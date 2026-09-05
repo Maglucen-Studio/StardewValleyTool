@@ -31,6 +31,7 @@ import {
   resolveLanguage,
 } from "../scripts/localization.mjs";
 import { releaseNotesDecision } from "./release-notes.mjs";
+import { scanModCompatibility } from "../scripts/mod-compatibility.mjs";
 
 const desktopDevelopment = process.env.STARDEW_TOOL_DESKTOP_DEV === "1";
 const APP_ID = "io.github.maglucenstudio.stardewvalleycompanion";
@@ -58,6 +59,7 @@ let gameWasRunning = false;
 let windowStateSaveTimer = null;
 let setupWindowStateSaveTimer = null;
 let farmSwitching = false;
+let manualFarmSelectionDuringGame = null;
 let resolvedSourcePython = null;
 let updateState = { status: "idle", currentVersion: app.getVersion() };
 const backendToken = randomBytes(32).toString("hex");
@@ -355,6 +357,27 @@ function loadSetupWindowState() {
   return loadVisibleWindowState(setupWindowStatePath(), fallback, 720, 650);
 }
 
+function loadingWindowBounds() {
+  const width = 560;
+  const height = 430;
+  const saved = loadWindowState();
+  if (!Number.isFinite(saved.x) || !Number.isFinite(saved.y))
+    return { width, height };
+  const display = screen.getDisplayNearestPoint({
+    x: Math.round(saved.x + saved.width / 2),
+    y: Math.round(saved.y + saved.height / 2),
+  });
+  const area = display.workArea;
+  const centeredX = Math.round(saved.x + (saved.width - width) / 2);
+  const centeredY = Math.round(saved.y + (saved.height - height) / 2);
+  return {
+    width,
+    height,
+    x: Math.max(area.x, Math.min(centeredX, area.x + area.width - width)),
+    y: Math.max(area.y, Math.min(centeredY, area.y + area.height - height)),
+  };
+}
+
 function saveWindowState(window, path = windowStatePath()) {
   if (!window || window.isDestroyed()) return;
   const bounds = window.isMaximized()
@@ -410,7 +433,7 @@ function extractedAssetsAreStale(config, requiredAssets) {
   if (!existsSync(gameData)) return true;
   const extracted = readJson(gameData, {});
   if (
-    extracted?._localization?.catalogVersion !== 9
+    extracted?._localization?.catalogVersion !== 12
   )
     return true;
   return (
@@ -992,6 +1015,7 @@ async function initialize(config, progress = () => {}) {
         "Pantry-complete.png",
       ),
     );
+    requiredAssets.push(join(runtimeRoot, "public/assets/sprites/gold.png"));
     if (extractedAssetsAreStale(config, requiredAssets)) {
       const t = desktopTranslator(config);
       progress(t("loading.extractingAssets"));
@@ -1129,8 +1153,7 @@ function createLoadingWindow() {
   if (loadingWindow) return;
   loadingWindow = new BrowserWindow(
     secureWindowOptions({
-      width: 560,
-      height: 430,
+      ...loadingWindowBounds(),
       resizable: false,
       frame: false,
       webPreferences: { preload: join(projectRoot, "desktop", "preload.cjs") },
@@ -1298,12 +1321,13 @@ function isGameRunning() {
 function monitorGame() {
   setInterval(() => {
     const running = isGameRunning();
+    if (!running) manualFarmSelectionDuringGame = null;
     if (running && !gameWasRunning && validConfig(readConfig())) {
       startBackgroundTracking().catch((error) =>
         log(error?.stack || String(error)),
       );
     }
-    if (running && readConfig()?.autoFollowActiveSave !== false && !farmSwitching) {
+    if (running && !manualFarmSelectionDuringGame && readConfig()?.autoFollowActiveSave !== false && !farmSwitching) {
       const fresh = detectSaves().find(
         (save) => save.liveUpdatedAt && Date.now() - save.liveUpdatedAt < 9000,
       );
@@ -1415,9 +1439,18 @@ function installIpc() {
   });
   ipcMain.handle("farms:switch", async (event, incomingPath) => {
     requireDashboardSender(event);
-    return switchFarmConfig(incomingPath, (message) =>
-      event.sender.send("setup:progress", message),
-    );
+    const previousManualSelection = manualFarmSelectionDuringGame;
+    manualFarmSelectionDuringGame = isGameRunning()
+      ? resolve(String(incomingPath || ""))
+      : null;
+    try {
+      return await switchFarmConfig(incomingPath, (message) =>
+        event.sender.send("setup:progress", message),
+      );
+    } catch (error) {
+      manualFarmSelectionDuringGame = previousManualSelection;
+      throw error;
+    }
   });
   ipcMain.handle("settings:open", (event) => {
     requireDashboardSender(event);
@@ -1450,13 +1483,15 @@ function installIpc() {
     const liveStateAgeSeconds = liveStateUpdatedAt
       ? Math.max(0, Math.round((Date.now() - liveStateUpdatedAt) / 1000))
       : null;
+    const modCompatibility = scanModCompatibility(
+      config?.stardewPath ? join(config.stardewPath, "Mods") : null,
+    );
     return {
       version: app.getVersion(),
       packaged: app.isPackaged,
       development: desktopDevelopment,
       osVersion: osRelease(),
       architecture: process.arch,
-      profileId: profileIdForSave(config?.savePath),
       gameFound: Boolean(config?.stardewPath && existsSync(join(config.stardewPath, "Stardew Valley.dll"))),
       saveFound: Boolean(config?.savePath && existsSync(config.savePath)),
       smapiFound: Boolean(config?.stardewPath && existsSync(join(config.stardewPath, "StardewModdingAPI.dll"))),
@@ -1468,6 +1503,7 @@ function installIpc() {
       liveStateFound: Boolean(liveStateUpdatedAt),
       liveStateFresh: liveStateAgeSeconds !== null && liveStateAgeSeconds < 9,
       liveStateAgeSeconds,
+      modCompatibility,
     };
   });
   ipcMain.handle("clipboard:write", (event, value) => {
