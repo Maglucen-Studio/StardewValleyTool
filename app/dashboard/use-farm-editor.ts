@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useI18n } from "../i18n";
-import type { Snapshot, LiveState, Tile, Suggestion, Terrain } from "./snapshot-types";
+import type { Snapshot, LiveState, Tile, Suggestion } from "./snapshot-types";
 import type { ActiveView } from "./ui-types";
-import { reconcileProposals, buildingType, validateFarmPlacement } from "./farm-model";
+import { reconcileProposals, buildingType, validateFarmPlacement, mergeLiveTerrain } from "./farm-model";
 import { tileKey, TILE, tools } from "./farm-rendering";
 
 export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView: ActiveView) {
@@ -185,24 +185,9 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
     const savedTerrain = new Map(
       data.terrain.map((feature) => [tileKey(feature.x, feature.y), feature]),
     );
-    const terrain = live.farmMap.terrain.map((feature) => {
-      const saved = savedTerrain.get(tileKey(feature.x, feature.y));
-      if (!saved)
-        return {
-          x: feature.x,
-          y: feature.y,
-          kind: feature.kind,
-          watered: feature.watered,
-        } as Terrain;
-      if (feature.kind === "HoeDirt" && !feature.hasCrop) {
-        const soil = { ...saved };
-        delete soil.crop;
-        delete soil.phase;
-        delete soil.cropRow;
-        return { ...soil, watered: feature.watered };
-      }
-      return { ...saved, watered: feature.watered };
-    });
+    const terrain = live.farmMap.terrain.map((feature) =>
+      mergeLiveTerrain(savedTerrain.get(tileKey(feature.x, feature.y)), feature),
+    );
     return {
       ...data,
       terrain,

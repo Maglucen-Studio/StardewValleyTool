@@ -13,6 +13,9 @@ export type Terrain = Tile & {
   fertilized?: boolean;
   watered?: boolean;
   crop?: string;
+  hasCrop?: boolean;
+  cropSeedId?: string | null;
+  cropHarvestId?: string | null;
   phase?: number;
   cropRow?: number;
   flip?: boolean;
@@ -550,6 +553,12 @@ export type LiveTerrainState = Tile & {
   hasCrop: boolean;
   watered: boolean;
   ready: boolean;
+  cropSeedId?: string | null;
+  cropHarvestId?: string | null;
+  phase?: number | null;
+  cropRow?: number | null;
+  flip?: boolean | null;
+  dead?: boolean | null;
 };
 
 export type LiveFarmMap = {

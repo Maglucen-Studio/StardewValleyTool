@@ -689,8 +689,8 @@ test("farm history is checkpointed, backed up, and recovered across migrations",
   assert.match(bridge, /"pending\.checkpoint"/);
   assert.match(bridge, /keepBackup: true/);
   assert.match(bridge, /farmName = player\.farmName\.Value/);
-  assert.equal(JSON.parse(sourceManifest).Version, "5.1.1");
-  assert.equal(JSON.parse(bundledManifest).Version, "5.1.1");
+  assert.equal(JSON.parse(sourceManifest).Version, "5.1.2");
+  assert.equal(JSON.parse(bundledManifest).Version, "5.1.2");
 });
 
 test("farm switching isolates previous-day, history, and LIVE state by profile", async () => {

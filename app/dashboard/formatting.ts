@@ -103,7 +103,18 @@ export function routeLocationName(location: string, t: Translate) {
   return known.has(key) ? t(`location.${key}`) : location;
 }
 
-export function localizedTerrainFeature(feature: Terrain, t: Translate) {
+export function localizedTerrainFeature(feature: Terrain, t: Translate, names: Record<string, string> = {}) {
+  if (feature.kind === "HoeDirt" && (feature.hasCrop || feature.crop)) {
+    const harvestId = feature.cropHarvestId;
+    // Older saved maps used `crop` for the seed ID. Explicit null in LIVE means unknown.
+    const seedId = feature.cropSeedId === undefined ? feature.crop : feature.cropSeedId;
+    const id = harvestId || seedId;
+    if (!id) return t("map.terrain.plantedUnknown");
+    const qualifiedId = id.startsWith("(") ? id : `(O)${id}`;
+    const name = names[qualifiedId];
+    if (!name) return t("map.terrain.plantedUnresolved", { id: qualifiedId });
+    return t(harvestId ? "map.terrain.plantedCrop" : "map.terrain.plantedSeed", { name });
+  }
   const kindKey: Record<string, string> = {
     Grass: "grass",
     HoeDirt: "tilledSoil",

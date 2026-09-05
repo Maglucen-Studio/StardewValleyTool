@@ -1869,5 +1869,9 @@
   "compatibility.domain.maps": "Mapas",
   "compatibility.domain.quests": "Misiones y encargos",
   "compatibility.domain.other": "Otros datos o datos dinámicos",
-  "building.status.unverified": "Reglas de construcción sin verificar"
+  "building.status.unverified": "Reglas de construcción sin verificar",
+  "map.terrain.plantedCrop": "Tierra labrada · Cultivo: {name}",
+  "map.terrain.plantedSeed": "Tierra labrada · Semillas plantadas: {name}",
+  "map.terrain.plantedUnknown": "Tierra labrada con un cultivo plantado (tipo no disponible)",
+  "map.terrain.plantedUnresolved": "Tierra labrada · Cultivo sin identificar ({id})"
 }

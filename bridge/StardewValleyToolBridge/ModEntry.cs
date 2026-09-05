@@ -434,6 +434,12 @@ public sealed class ModEntry : Mod
             y = (int)pair.Key.Y,
             kind = pair.Value.GetType().Name,
             hasCrop = pair.Value is HoeDirt dirt && dirt.crop is not null,
+            cropSeedId = (pair.Value as HoeDirt)?.crop?.netSeedIndex.Value,
+            cropHarvestId = (pair.Value as HoeDirt)?.crop?.indexOfHarvest.Value,
+            phase = (pair.Value as HoeDirt)?.crop?.currentPhase.Value,
+            cropRow = (pair.Value as HoeDirt)?.crop?.rowInSpriteSheet.Value,
+            flip = (pair.Value as HoeDirt)?.crop?.flip.Value,
+            dead = (pair.Value as HoeDirt)?.crop?.dead.Value,
             watered = pair.Value is HoeDirt wateredDirt && wateredDirt.state.Value > 0,
             ready = pair.Value is HoeDirt cropDirt && cropDirt.crop?.fullyGrown.Value == true && cropDirt.crop.dayOfCurrentPhase.Value <= 0,
         }).ToArray();

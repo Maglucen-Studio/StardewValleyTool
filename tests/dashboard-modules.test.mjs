@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import ts from "typescript";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 async function pureModule(name) {
   const source = await readFile(new URL(`../app/dashboard/${name}.ts`, import.meta.url), "utf8");
@@ -23,6 +25,41 @@ test("game date and bundle formatting use the requested translation and locale",
   assert.deepEqual(JSON.parse(formatGameDate({ year: 2, season: "spring", day: 7 }, t)), { key: "date.game", year: 2, season: "Primavera", day: 7 });
   assert.equal(formatHarvestDate("unresolved-value", t), "unresolved-value");
   assert.equal(JSON.parse(formatBundleRequirement({ id: "-1", count: 123456, name: "Gold" }, t, "de-DE")).count, "123.456");
+});
+
+test("selected soil distinguishes empty tiles, named crops and unresolved planted seeds", async () => {
+  const { localizedTerrainFeature } = await pureModule("formatting");
+  const translate = (key, variables) => ({ key, ...variables });
+  const soil = { kind: "HoeDirt", x: 1, y: 2 };
+  assert.deepEqual(localizedTerrainFeature(soil, translate), { key: "map.terrain.tilledSoil" });
+  const planted = { ...soil, crop: "Seed", cropHarvestId: "(O)Harvest" };
+  assert.deepEqual(localizedTerrainFeature(planted, translate, { "(O)Harvest": "Cultivo local" }), { key: "map.terrain.plantedCrop", name: "Cultivo local" });
+  assert.deepEqual(localizedTerrainFeature({ ...soil, crop: "Seed" }, translate, { "(O)Seed": "Semillas locales" }), { key: "map.terrain.plantedSeed", name: "Semillas locales" });
+  assert.deepEqual(localizedTerrainFeature(planted, translate, { "(BC)Harvest": "Wrong namespace" }), { key: "map.terrain.plantedUnresolved", id: "(O)Harvest" });
+  assert.deepEqual(localizedTerrainFeature({ ...soil, hasCrop: true }, translate), { key: "map.terrain.plantedUnknown" });
+});
+
+test("LIVE soil identifies new and replanted crops and clears harvested crop details", async () => {
+  const { mergeLiveTerrain } = await pureModule("farm-model");
+  const { localizedTerrainFeature } = await pureModule("formatting");
+  const saved = { kind: "HoeDirt", x: 1, y: 2, crop: "OldSeed", cropHarvestId: "OldCrop", phase: 4, cropRow: 2 };
+  const live = { kind: "HoeDirt", x: 1, y: 2, hasCrop: true, watered: false, cropSeedId: "NewSeed", cropHarvestId: "NewCrop", phase: 0, cropRow: 3 };
+  for (const previous of [saved, undefined]) {
+    const next = mergeLiveTerrain(previous, live);
+    assert.equal(next.cropHarvestId, "NewCrop");
+    assert.equal(next.crop, "NewSeed");
+    assert.equal(next.phase, 0);
+  }
+  const empty = mergeLiveTerrain(saved, { ...live, hasCrop: false });
+  assert.equal(empty.crop, undefined);
+  assert.equal(empty.cropHarvestId, undefined);
+  const legacy = mergeLiveTerrain(saved, { kind: "HoeDirt", x: 1, y: 2, hasCrop: true, watered: true });
+  assert.equal(localizedTerrainFeature(legacy, (key) => key), "map.terrain.plantedUnknown");
+});
+
+test("save terrain exports seed and harvest identities while nil crops remain empty soil", () => {
+  const result = spawnSync(process.env.PYTHON || (process.platform === "win32" ? "python" : "python3"), [fileURLToPath(new URL("./terrain_snapshot_test.py", import.meta.url))], { encoding: "utf8", windowsHide: true });
+  assert.equal(result.status, 0, result.error?.message || result.stderr || result.stdout);
 });
 
 test("number formatting follows the selected locale including fixed decimals", async () => {

@@ -2235,18 +2235,7 @@ def museum_brief(root: ET.Element, player: ET.Element, progress: dict) -> dict:
     }
 
 
-def read_snapshot(save_path: Path) -> dict:
-    root = ET.parse(save_path).getroot()
-    player = root.find("player")
-    if player is None:
-        raise ValueError("The save does not contain a player")
-    locations = root.find("locations")
-    if locations is None:
-        raise ValueError("The save does not contain locations")
-    farm = next(location for location in locations if location.findtext("name") == "Farm")
-
-    objects = saved_objects(farm)
-
+def saved_terrain(farm: ET.Element) -> list[dict]:
     terrain = []
     terrain_nodes = farm.find("terrainFeatures")
     for item in terrain_nodes if terrain_nodes is not None else []:
@@ -2270,8 +2259,11 @@ def read_snapshot(save_path: Path) -> dict:
         elif kind == "HoeDirt":
             entry["watered"] = number(feature, "state") > 0
             crop = feature.find("crop")
-            if crop is not None:
+            if crop is not None and crop.attrib.get("{http://www.w3.org/2001/XMLSchema-instance}nil") != "true":
                 entry["crop"] = crop.findtext("netSeedIndex", crop.findtext("indexOfHarvest", "Crop"))
+                entry["hasCrop"] = True
+                entry["cropSeedId"] = qualified_item_id(crop.findtext("netSeedIndex", "")) or None
+                entry["cropHarvestId"] = qualified_item_id(crop.findtext("indexOfHarvest", "")) or None
                 entry["phase"] = number(crop, "currentPhase")
                 entry["cropRow"] = number(crop, "rowInSpriteSheet")
                 entry["flip"] = crop.findtext("flip", "false") == "true"
@@ -2280,6 +2272,22 @@ def read_snapshot(save_path: Path) -> dict:
             entry["stage"] = number(feature, "growthStage")
             entry["treeId"] = feature.findtext("treeId", "")
         terrain.append(entry)
+    return terrain
+
+
+def read_snapshot(save_path: Path) -> dict:
+    root = ET.parse(save_path).getroot()
+    player = root.find("player")
+    if player is None:
+        raise ValueError("The save does not contain a player")
+    locations = root.find("locations")
+    if locations is None:
+        raise ValueError("The save does not contain locations")
+    farm = next(location for location in locations if location.findtext("name") == "Farm")
+
+    objects = saved_objects(farm)
+
+    terrain = saved_terrain(farm)
 
     buildings = []
     building_nodes = farm.find("buildings")

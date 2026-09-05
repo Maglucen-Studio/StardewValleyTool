@@ -1869,5 +1869,9 @@
   "compatibility.domain.maps": "Maps",
   "compatibility.domain.quests": "Quests and orders",
   "compatibility.domain.other": "Other or dynamic data",
-  "building.status.unverified": "Unverified building rules"
+  "building.status.unverified": "Unverified building rules",
+  "map.terrain.plantedCrop": "Tilled soil · Crop: {name}",
+  "map.terrain.plantedSeed": "Tilled soil · Planted seeds: {name}",
+  "map.terrain.plantedUnknown": "Tilled soil with a planted crop (type unavailable)",
+  "map.terrain.plantedUnresolved": "Tilled soil · Unidentified crop ({id})"
 }

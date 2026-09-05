@@ -76,7 +76,7 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
     const key = tileKey(selected.x, selected.y);
     const result: string[] = [];
     const feature = mapData.terrain.find((t) => tileKey(t.x, t.y) === key);
-    if (feature) result.push(localizedTerrainFeature(feature, t));
+    if (feature) result.push(localizedTerrainFeature(feature, t, data.localizedNamesByQualifiedId));
     const object = mapData.objects.find((o) => tileKey(o.x, o.y) === key);
     if (object)
       result.push(
@@ -109,7 +109,7 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
     : mapData!.objects;
   const treeCount = mapData!.terrain.filter((t) => t.kind === "Tree").length;
   const cropCount = mapData!.terrain.filter(
-    (t) => t.kind === "HoeDirt" && t.crop,
+    (t) => t.kind === "HoeDirt" && (t.hasCrop || t.crop),
   ).length;
   const readyMachines = visibleObjects.filter((item) => item.ready);
   const processingMachines = visibleObjects.filter((item) => item.processing);

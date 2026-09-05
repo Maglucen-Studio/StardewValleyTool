@@ -1,5 +1,23 @@
-import type { Building, Suggestion, Snapshot, Tile } from "./snapshot-types";
+import type { Building, Suggestion, Snapshot, Tile, Terrain, LiveTerrainState } from "./snapshot-types";
 import type { ProposalState, Translate } from "./ui-types";
+
+export function mergeLiveTerrain(saved: Terrain | undefined, live: LiveTerrainState): Terrain {
+  if (live.kind !== "HoeDirt") return { ...(saved?.kind === live.kind ? saved : {}), x: live.x, y: live.y, kind: live.kind };
+  const soil: Terrain = { x: live.x, y: live.y, kind: live.kind, watered: live.watered, hasCrop: live.hasCrop };
+  if (!live.hasCrop) return soil;
+  // ID-less bridges cannot establish whether this is still the saved crop.
+  // Preserve legacy artwork but never present its old identity as current LIVE data.
+  return {
+    ...soil,
+    crop: live.cropSeedId || live.cropHarvestId || saved?.crop,
+    cropSeedId: live.cropSeedId ?? null,
+    cropHarvestId: live.cropHarvestId ?? null,
+    phase: live.phase ?? saved?.phase,
+    cropRow: live.cropRow ?? saved?.cropRow,
+    flip: live.flip ?? saved?.flip,
+    dead: live.dead ?? saved?.dead,
+  };
+}
 
 export function buildingType(item: Pick<Building, "name"> & { kind?: string }) {
   const value = `${item.kind || ""} ${item.name}`.toLowerCase();
