@@ -40,3 +40,19 @@ location = ET.fromstring("""<GameLocation><objects><item><key><Vector2><X>1</X><
 obj = snapshot.saved_objects(location)[0]
 assert obj["outputId"] == "(O)Example"
 assert obj["inputId"] == "(BC)Example"
+
+# Vanilla building materials must carry identity too, before the renderer sees them.
+original_inventory = snapshot.inventory_items
+snapshot.inventory_items = lambda *args: [
+    {"id": "(O)388", "name": "Madera", "count": 200},
+    {"id": "(O)Example", "name": "Wood", "count": 900},
+    {"id": "(BC)388", "name": "Wood", "count": 800},
+]
+try:
+    plan = snapshot.planning_brief(root, root.find("player"), root.find("locations"), "spring", 1, 0, [], {})
+    assert all(material["id"] for building in plan["buildings"] for material in building["materials"])
+    mill = next(building for building in plan["buildings"] if building["name"] == "Mill")
+    wood = next(material for material in mill["materials"] if material["id"] == "(O)388")
+    assert wood["owned"] == 200
+finally:
+    snapshot.inventory_items = original_inventory

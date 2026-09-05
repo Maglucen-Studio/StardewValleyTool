@@ -432,6 +432,13 @@ KNOWN_ITEM_IDS = {
     "Dragon Tooth": "852",
     "Banana": "91",
     "Fiber": "771",
+    "Clam": "372",
+    "Clay": "330",
+    "Coral": "393",
+    "Green Algae": "153",
+    "Refined Quartz": "338",
+    "Seaweed": "152",
+    "Starfruit": "268",
 }
 
 SEASON_CROP_PLANS = {
@@ -1151,9 +1158,10 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
     available = inventory_items(root, player, locations, game_data)
     gift_tastes = game_data.get("giftTastes", {})
     modded_characters = game_data.get("moddedCharacters", {})
-    counts: dict[str, int] = {}
+    inventory_by_id: dict[str, int] = {}
     for item in available:
-        counts[item["name"]] = counts.get(item["name"], 0) + item["count"]
+        item_id = qualified_item_id(item.get("id", ""), item.get("spriteKind", "object"))
+        inventory_by_id[item_id] = inventory_by_id.get(item_id, 0) + item["count"]
 
     farm = next((location for location in locations if location.findtext("name") == "Farm"), None)
     placed_buildings: dict[str, int] = {}
@@ -1199,7 +1207,10 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
 
     buildings = []
     for plan in BUILDING_PLANS:
-        materials = [{"name": name, "owned": counts.get(name, 0), "needed": needed} for name, needed in plan["materials"].items()]
+        materials = [{
+            "id": qualified_item_id(KNOWN_ITEM_IDS.get(name, "")), "name": name,
+            "owned": inventory_by_id.get(qualified_item_id(KNOWN_ITEM_IDS.get(name, "")), 0), "needed": needed,
+        } for name, needed in plan["materials"].items()]
         save_name = plan.get("saveName", plan["name"])
         owned, completed, prerequisite_met = building_progress(plan["name"], save_name)
         if plan["name"] == "Pam's House":
@@ -1224,10 +1235,6 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
             "affordable": money >= plan["money"] and all(item["owned"] >= item["needed"] for item in materials),
         })
 
-    inventory_by_id: dict[str, int] = {}
-    for item in available:
-        item_id = qualified_item_id(item.get("id", ""))
-        inventory_by_id[item_id] = inventory_by_id.get(item_id, 0) + item["count"]
     for entry in game_data.get("productionCatalog", {}).get("buildings", []):
         if not entry.get("modded"):
             continue
