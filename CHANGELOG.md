@@ -2,6 +2,28 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.12.0 — 2026-09-05
+
+### New
+
+- Added persistent high contrast, independent text sizing from 75% to 200%, and a prominent, replayable six-step dashboard guide.
+- Added keyboard map coordinate controls for inspecting tiles and placing or moving companion proposals, with accessible dialogs and named storage-location actions.
+- Added route profiles and contextual delivery and fishing stops that account for access, unlocked transport, festivals, and shop hours.
+- Added support for verified local Content Patcher crop changes and local modded fishing data, with contextual compatibility information when changes cannot be verified.
+
+### Improved
+
+- Proposal actions are available through both left and right clicks, with a shared menu for movement, completion, reopening, and deletion.
+- Dashboard navigation, session tracking, map rendering, and planning views now have separate modules and regression coverage.
+- Machine states and economy charts use symbols, solid or dashed lines, and striped bars alongside color.
+
+### Fixed
+
+- Farm selection now isolates history and LIVE state, and the development loader respects the saved display.
+- Inventory, machines, planning materials, and tool identities preserve qualified game identifiers and product variants.
+- Map inspection distinguishes empty tilled soil from planted crops and seeds, including updated LIVE crop identities through bridge 5.1.2.
+- Currency and language indicators use artwork extracted from the local game installation without distributing game assets.
+
 ## 1.11.1 — 2026-09-04
 
 ### Improved
