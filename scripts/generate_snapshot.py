@@ -1286,8 +1286,10 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
     for obj in objects:
         if not is_production_machine(obj):
             continue
-        entry = machine_counts.setdefault(obj["name"], {
-            "id": obj.get("id", ""), "name": obj["name"], "count": 0, "ready": 0, "working": 0, "idle": 0,
+        machine_id = qualified_item_id(obj.get("id", ""), "craftable" if obj.get("big") else "object")
+        machine_key = machine_id or f"legacy:{obj['name']}"
+        entry = machine_counts.setdefault(machine_key, {
+            "id": machine_id, "name": obj["name"], "count": 0, "ready": 0, "working": 0, "idle": 0,
             "readyOutputs": {}, "workingOutputs": {}, "inputs": {}, "locations": set(),
             "nextReadyMinutes": None,
         })

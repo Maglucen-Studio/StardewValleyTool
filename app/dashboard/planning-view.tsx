@@ -1,5 +1,7 @@
 "use client";
 
+import { summarizeLiveMachines } from "./machine-selectors";
+
 import { useI18n } from "../i18n";
 import { useState } from "react";
 import { useEffect } from "react";
@@ -7,8 +9,8 @@ import { ProductionCalculator } from "../planning/production-calculator";
 import { type Snapshot, type LiveState, type BuildingPlan, type StorageInventoryItem, type StorageSourceDetail, type BundleRequirement, type FriendshipPlan } from "./snapshot-types";
 import { type FarmHistory, type PlanningSection, type PersonalGoal, type StrategicGoalTarget } from "./ui-types";
 import { resolveGameDisplayName, isVanillaFriend } from "./game-names";
-import { inventoryItemId, normalizeObjectId } from "./identity";
-import { liveStorageSource, readyBundleDeliveries, summarizeLiveMachines } from "./selectors";
+import { inventoryItemId, normalizeObjectId, sameInventoryIdentity } from "./identity";
+import { liveStorageSource, readyBundleDeliveries } from "./selectors";
 import { localizedStorageSource, formatHarvestDate, buildingPlanText, communityRoomName, communityBundleName, formatLiveTime, formatBundleRequirement, communityRoomReward, cropPlanNote, buildingCategoryName, buildingProjectTypeName, routeLocationName, formatMachineDuration } from "./formatting";
 import { readableStorageSource, readableStorageLocation, StorageLocationPreview } from "./storage";
 import { ItemMentionArtwork, CommunityRoomArtwork, ModdedItemArtwork, SheetArtwork, AnimalArtwork, StorageArtwork, StorageContainerArtwork, GoalRequirements, NpcArtwork, GiftGroup } from "./artwork";
@@ -168,8 +170,7 @@ export function PlanningView({
           ...live.inventory.map((item) => {
             const savedItem = savedBackpackInventory.find(
               (candidate) =>
-                inventoryItemId(candidate) === inventoryItemId(item) &&
-                candidate.name === item.name,
+                sameInventoryIdentity(candidate, item),
             );
             return {
               ...savedItem,
@@ -188,8 +189,7 @@ export function PlanningView({
                 const source = liveStorageSource(item);
                 const savedItem = savedChestInventory.find(
                   (candidate) =>
-                    inventoryItemId(candidate) === inventoryItemId(item) &&
-                    candidate.name === item.name,
+                    sameInventoryIdentity(candidate, item),
                 );
                 const savedDetail = savedItem?.sourceDetails?.find(
                   (detail) => detail.source === source,
@@ -1511,18 +1511,19 @@ export function PlanningView({
                   const duration = formatMachineDuration(
                     machine.nextReadyMinutes,
                   );
-                  const isCrabPot = machine.name === "Crab Pot";
+                  const isObjectMachine = machine.id?.startsWith("(O)");
+                  const isCrabPot = machine.id === "(O)710";
                   return (
                     <details
                       className={
                         machine.ready ? "has-ready" : idle ? "has-idle" : ""
                       }
-                      key={machine.name}
+                      key={machine.id || machine.name}
                     >
                       <summary>
                         <SheetArtwork
                           id={machine.id}
-                          kind={isCrabPot ? "object" : "craftable"}
+                          kind={isObjectMachine ? "object" : "craftable"}
                           label={machine.displayName || machine.name}
                         />
                         <span className="machine-heading">
@@ -1592,12 +1593,12 @@ export function PlanningView({
           <section className="production-advice">
             <p className="eyebrow">{t("web.planning.nextBottleneck")}</p>
             <h2>
-              {machines.some((machine) => machine.name === "Keg")
+              {machines.some((machine) => machine.id === "(BC)12")
                 ? t("web.production.fillKegsFirst")
                 : t("web.production.preserveJarsFirst")}
             </h2>
             <p>
-              {machines.some((machine) => machine.name === "Keg")
+              {machines.some((machine) => machine.id === "(BC)12")
                 ? t("web.production.kegAdvice")
                 : machineTotals.ready
                   ? t("web.production.collectBeforeBatch", { count: machineTotals.ready })

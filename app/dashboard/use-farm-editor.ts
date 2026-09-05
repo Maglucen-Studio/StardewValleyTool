@@ -152,7 +152,7 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
     }
   }, [data, mapLocation]);
 
-  const persist = (next: Suggestion[], remember = true) => {
+  const persist = useCallback((next: Suggestion[], remember = true) => {
     if (remember) setProposalUndo(localSuggestions);
     setLocalSuggestions(next);
     fetch("/api/preferences", {
@@ -160,7 +160,7 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ suggestions: next }),
     }).catch(() => undefined);
-  };
+  }, [localSuggestions]);
 
   const persistProposalLinks = (next: Record<string, string>) => {
     setProposalLinks(next);
@@ -258,18 +258,18 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
     return () => window.cancelAnimationFrame(frame);
   }, [activeView, centerOnFarmhouse, mapData, mapLocation]);
 
-  const validatePlacement = (point: Tile, width: number, height: number) =>
-    validateFarmPlacement(mapData, proposalStates, point, width, height, t);
+  const validatePlacement = useCallback((point: Tile, width: number, height: number) =>
+    validateFarmPlacement(mapData, proposalStates, point, width, height, t), [mapData, proposalStates, t]);
 
-  const pointFromEvent = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const pointFromEvent = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     return {
       x: Math.floor(((event.clientX - rect.left) / rect.width) * 80),
       y: Math.floor(((event.clientY - rect.top) / rect.height) * 65),
     };
-  };
+  }, []);
 
-  const openProposalMenu = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const openProposalMenu = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     event.stopPropagation();
     const point = pointFromEvent(event);
@@ -290,7 +290,7 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
       x: event.clientX,
       y: event.clientY,
     });
-  };
+  }, [localSuggestions, pointFromEvent]);
 
 
   const handleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -336,7 +336,7 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
       ]);
       setTool("inspect");
     }
-  }, [localSuggestions, movingProposalId, openProposalMenu, persist, proposalEditMode, tool, validatePlacement]);
+  }, [localSuggestions, movingProposalId, openProposalMenu, persist, proposalEditMode, tool, validatePlacement, pointFromEvent]);
 
 
   useEffect(() => {

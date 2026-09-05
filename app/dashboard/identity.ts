@@ -24,3 +24,8 @@ export const normalizeObjectId = (id?: string | null) => qualifyItemId(id, "obje
 
 export const inventoryItemId = (item: Pick<ItemArtwork, "id" | "spriteKind">) =>
   qualifyItemId(item.id, item.spriteKind || "object");
+
+export function sameInventoryIdentity(left: Pick<ItemArtwork, "id" | "spriteKind">, right: Pick<ItemArtwork, "id" | "spriteKind">) {
+  const id = inventoryItemId(left);
+  return Boolean(id) && id === inventoryItemId(right);
+}
