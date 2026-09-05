@@ -269,7 +269,31 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
     };
   };
 
-  const handleClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const openProposalMenu = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const point = pointFromEvent(event);
+    const proposal = [...localSuggestions].reverse().find(
+      (item) =>
+        point.x >= item.x &&
+        point.x < item.x + item.width &&
+        point.y >= item.y &&
+        point.y < item.y + item.height,
+    );
+    if (!proposal) {
+      setProposalMenu(null);
+      return;
+    }
+    setProposalMenu({
+      id: proposal.id,
+      name: proposal.name.replace(/^(Proposed|Future|Optional) /, ""),
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
+
+
+  const handleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     setProposalMenu(null);
     const point = pointFromEvent(event);
     setSelected(point);
@@ -312,30 +336,8 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
       ]);
       setTool("inspect");
     }
-  };
+  }, [localSuggestions, movingProposalId, openProposalMenu, persist, proposalEditMode, tool, validatePlacement]);
 
-  const openProposalMenu = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const point = pointFromEvent(event);
-    const proposal = [...localSuggestions].reverse().find(
-      (item) =>
-        point.x >= item.x &&
-        point.x < item.x + item.width &&
-        point.y >= item.y &&
-        point.y < item.y + item.height,
-    );
-    if (!proposal) {
-      setProposalMenu(null);
-      return;
-    }
-    setProposalMenu({
-      id: proposal.id,
-      name: proposal.name.replace(/^(Proposed|Future|Optional) /, ""),
-      x: event.clientX,
-      y: event.clientY,
-    });
-  };
 
   useEffect(() => {
     if (!proposalMenu) return;
