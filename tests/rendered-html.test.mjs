@@ -1619,7 +1619,8 @@ test("Production counts functional machines, interiors, live storage, and action
   assert.match(bridge, /machines = cachedMachines/);
   assert.match(bridge, /id = pair\.Value\.QualifiedItemId/);
   assert.match(bridge, /"Crab Pot"/);
-  assert.match(generator, /"id": obj\.get\("id", ""\)/);
+  assert.match(generator, /"id": machine_id/);
+  assert.match(generator, /machine_id = qualified_item_id/);
 });
 
 test("Grandpa forecast separates projected milestones from points confirmed today", async () => {
