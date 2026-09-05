@@ -236,7 +236,11 @@ export function ItemMentionArtwork({
         title={t("web.itemMentionArtwork.gold")}
         aria-hidden="true"
       >
-        g
+        {/* Extracted from the user's local game installation at runtime. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/assets/sprites/gold.png" alt="" width={32} height={32}
+          onError={(event) => { event.currentTarget.hidden = true; }} />
+        <span className="money-fallback">g</span>
       </span>
     );
   }

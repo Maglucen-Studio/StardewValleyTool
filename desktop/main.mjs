@@ -1015,6 +1015,7 @@ async function initialize(config, progress = () => {}) {
         "Pantry-complete.png",
       ),
     );
+    requiredAssets.push(join(runtimeRoot, "public/assets/sprites/gold.png"));
     if (extractedAssetsAreStale(config, requiredAssets)) {
       const t = desktopTranslator(config);
       progress(t("loading.extractingAssets"));

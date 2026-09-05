@@ -8240,11 +8240,19 @@ button {
   place-items: center;
 }
 .item-mention-artwork.money {
-  border-radius: 50%;
   color: #5c431d;
-  background: #e6b94f;
-  box-shadow: inset 0 0 0 2px #c88a2d;
   font: 800 17px Georgia, serif;
+}
+.item-mention-artwork.money img {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+.item-mention-artwork.money .money-fallback {
+  display: none;
+}
+.item-mention-artwork.money img[hidden] + .money-fallback {
+  display: block;
 }
 .machine-plan-grid summary {
   display: grid;
