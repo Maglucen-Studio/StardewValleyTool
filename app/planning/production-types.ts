@@ -51,4 +51,3 @@ export type ProductionCatalog = {
   fishPonds?: ProductionPond[];
   feedUnitCost?: number;
 };
-
