@@ -183,7 +183,7 @@
   "fishing.here": "AQUÍ",
   "fishing.caught": "CAPTURADO",
   "fishing.modRuleUnverified": "REGLA DE MOD",
-  "fishing.modRuleDetail": "Este pez procede de un mod con condiciones de disponibilidad que Companion no puede verificar por completo.",
+  "fishing.modRuleDetail": "Las condiciones de disponibilidad de este pez no se pueden verificar por completo.",
   "fishing.wiki": "Wiki",
   "fishing.noneMissingNow": "No te falta ningún pez disponible a esta hora y con este tiempo. Cambia la hora para planificar el resto del día.",
   "fishing.noneAvailableNow": "No hay peces disponibles a esta hora y con este tiempo.",
@@ -1868,5 +1868,6 @@
   "compatibility.domain.locations": "Ubicaciones",
   "compatibility.domain.maps": "Mapas",
   "compatibility.domain.quests": "Misiones y encargos",
-  "compatibility.domain.other": "Otros datos o datos dinámicos"
+  "compatibility.domain.other": "Otros datos o datos dinámicos",
+  "building.status.unverified": "Reglas de construcción sin verificar"
 }

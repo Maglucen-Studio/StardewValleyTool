@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join } from "node:path";
 
 import JSON5 from "json5";
-import { supportedAssetLoad, supportedDataEdit } from "./content-patcher-catalog.mjs";
+import { createCatalogState, inspectContentPatcherPack } from "./content-patcher-catalog.mjs";
 
 const SAFE_CODE_MODS = new Set([
   "maglucen.stardewvalleytoolbridge",
@@ -10,7 +10,7 @@ const SAFE_CODE_MODS = new Set([
   "pathoschild.contentpatcher",
   "smapi.savebackup",
 ]);
-const SUPPORTED_CONTENT_PACK_DOMAINS = new Set(["items", "crops", "fish", "recipes", "npcs", "buildings", "locations"]);
+const SUPPORTED_CONTENT_PACK_DOMAINS = new Set(["items", "crops", "fish", "recipes", "npcs", "buildings", "locations", "machines", "animals"]);
 const DOMAIN_ORDER = ["items", "crops", "fish", "recipes", "machines", "animals", "npcs", "buildings", "locations", "maps", "quests", "other"];
 
 function domainForTarget(target) {
@@ -29,17 +29,6 @@ function domainForTarget(target) {
   if (/^maps\//.test(normalized)) return "maps";
   if (/^data\/(quests|specialorders)/.test(normalized)) return "quests";
   return "other";
-}
-
-function supportedContentChange(change, target) {
-  const action = String(change?.Action || "").toLowerCase();
-  const normalized = String(target || "").replace(/\\/g, "/").toLowerCase();
-  if (supportedDataEdit(change, normalized)) return true;
-  return (
-    !change?.When &&
-    (action === "editdata" && ["data/characters", "data/npcgifttastes"].includes(normalized)) ||
-    (!change?.When && action === "load" && /^(characters|portraits)\/[^/]+$/.test(normalized))
-  );
 }
 
 function safeReadJson5(path, failures) {
@@ -69,53 +58,8 @@ function manifestPaths(root, depth = 0) {
   return found;
 }
 
-function targetsFromValue(value) {
-  if (Array.isArray(value)) return value.flatMap(targetsFromValue);
-  return String(value || "").split(",").map((target) => target.trim()).filter(Boolean);
-}
-
-function inspectContentFile(path, packRoot, state, visited, depth = 0) {
-  const resolvedPath = resolve(path);
-  const relativePath = relative(packRoot, resolvedPath);
-  if (depth > 8 || relativePath.startsWith("..") || visited.has(resolvedPath)) {
-    state.unsupportedChangeCount += 1;
-    return;
-  }
-  visited.add(resolvedPath);
-  const content = safeReadJson5(resolvedPath, state.failures);
-  if (!content) return;
-  const changes = Array.isArray(content.Changes) ? content.Changes : [];
-  for (const change of changes) {
-    if (!change || typeof change !== "object") continue;
-    const action = String(change.Action || "").toLowerCase();
-    if (action === "include") {
-      const includes = targetsFromValue(change.FromFile);
-      if (!includes.length || includes.some((entry) => entry.includes("{{"))) {
-        state.unsupportedChangeCount += 1;
-        continue;
-      }
-      for (const included of includes)
-        inspectContentFile(join(dirname(resolvedPath), included), packRoot, state, visited, depth + 1);
-      continue;
-    }
-    const targets = targetsFromValue(change.Target);
-    if (!targets.length) {
-      state.unsupportedChangeCount += 1;
-      continue;
-    }
-    for (const target of targets) {
-      if (supportedAssetLoad(change, target)) continue;
-      const domain = domainForTarget(target);
-      state.alteredDomains.add(domain);
-      if (domain === "other" || !SUPPORTED_CONTENT_PACK_DOMAINS.has(domain) || !supportedContentChange(change, target))
-        state.uncertainDomains.add(domain);
-      else
-        state.supportedDomains.add(domain);
-    }
-  }
-}
-
 export function scanModCompatibility(modsRoot) {
+  const catalog = createCatalogState();
   const state = {
     installedModCount: 0,
     contentPackCount: 0,
@@ -138,7 +82,7 @@ export function scanModCompatibility(modsRoot) {
       if (contentPackFor === "pathoschild.contentpatcher") {
         const packRoot = dirname(manifestPath);
         const contentPath = join(packRoot, "content.json");
-        if (existsSync(contentPath)) inspectContentFile(contentPath, packRoot, state, new Set());
+        if (existsSync(contentPath)) inspectContentPatcherPack(packRoot, catalog);
         else state.failures.count += 1;
       } else {
         state.unsupportedChangeCount += 1;
@@ -149,6 +93,18 @@ export function scanModCompatibility(modsRoot) {
     state.codeModCount += 1;
     if (!SAFE_CODE_MODS.has(uniqueId)) state.unclassifiedCodeModCount += 1;
   }
+  state.unsupportedChangeCount += catalog.unsupportedChangeCount;
+  state.failures.count += catalog.parseFailureCount;
+  for (const change of catalog.changes) {
+    if (change.asset && change.supported && change.target.startsWith("mods/")) continue;
+    const domain = domainForTarget(change.target);
+    state.alteredDomains.add(domain);
+    if (!change.supported || !SUPPORTED_CONTENT_PACK_DOMAINS.has(domain)) state.uncertainDomains.add(domain);
+    else state.supportedDomains.add(domain);
+  }
+  // Unknown targets or unreadable files can affect any consumer; retain explicit global uncertainty.
+  if (state.failures.count || state.unsupportedChangeCount) state.uncertainDomains.add("other");
+  for (const domain of state.uncertainDomains) state.supportedDomains.delete(domain);
   if (state.unclassifiedCodeModCount > 0) state.uncertainDomains.add("other");
   const sortDomains = (values) => [...values].sort((left, right) => DOMAIN_ORDER.indexOf(left) - DOMAIN_ORDER.indexOf(right));
   const uncertain = state.failures.count > 0 || state.unsupportedChangeCount > 0 || state.uncertainDomains.size > 0;

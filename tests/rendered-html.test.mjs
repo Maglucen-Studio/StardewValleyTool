@@ -1017,7 +1017,7 @@ test("Friendship planning includes the pet, available gifts, sorting, and Grandp
     /VANILLA_FRIENDSHIP_NPCS = frozenset\(BIRTHDAYS\.values\(\)\)/,
   );
   assert.match(generator, /name not in VANILLA_FRIENDSHIP_NPCS/);
-  assert.match(generator, /"id": name, "name": name/);
+  assert.match(generator, /"id": name, "name": character\.get/);
   assert.match(generator, /"giftsToday": number\(value, "GiftsToday"\)/);
   assert.match(generator, /"pet": pet/);
   assert.match(
@@ -1094,14 +1094,9 @@ test("friendship artwork is extracted privately from the local game", async () =
   assert.match(extractor, /"Leah", "Leo", "Lewis"/);
   assert.match(extractor, /public\/assets\/characters\/\$\{name\}\.png/);
   assert.match(extractor, /public\/assets\/portraits\/\$\{name\}\.png/);
-  assert.match(extractor, /findContentPacks\(modsRoot\)/);
-  assert.match(extractor, /import JSON5 from "json5"/);
-  assert.match(extractor, /\^\(Characters\|Portraits\)/);
-  assert.match(extractor, /gameData\.moddedCharacters = moddedNpcs\.metadata/);
-  assert.match(
-    extractor,
-    /Object\.assign\(gameData\.giftTastes, moddedNpcs\.giftTastes\)/,
-  );
+  assert.match(extractor, /contentPatcherOverlay\.npcTextures/);
+  assert.match(extractor, /gameData\.moddedCharacters = npcMetadata/);
+  assert.match(extractor, /addCatalogEntries\(gameData\.giftTastes/);
   assert.match(desktop, /"characters", "Abigail\.png"/);
   assert.match(desktop, /"portraits", "Abigail\.png"/);
 });
@@ -1187,8 +1182,8 @@ test("modded fishing uses the local structured catalog and preserves uncertain r
   assert.match(extractor, /Dictionary<string, LocationData> locations/);
   assert.match(generator, /catalog_fish = \{/);
   assert.match(generator, /catalog_entry\.get\("artworkUrl"\)/);
-  assert.match(generator, /"verified": bool\(catalog_entry\.get/);
-  assert.match(page, /fish\.modded && !fish\.verified/);
+  assert.match(generator, /"verified":/);
+  assert.match(page, /fish\.verified === false/);
   assert.match(page, /<ModdedItemArtwork url=\{fish\.artworkUrl\}/);
 });
 
@@ -1696,8 +1691,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 11/);
-  assert.match(desktop, /catalogVersion !== 11/);
+  assert.match(extractor, /catalogVersion: 12/);
+  assert.match(desktop, /catalogVersion !== 12/);
   assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
   assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);

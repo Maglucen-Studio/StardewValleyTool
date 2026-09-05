@@ -1220,6 +1220,29 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
             "affordable": money >= plan["money"] and all(item["owned"] >= item["needed"] for item in materials),
         })
 
+    inventory_by_id: dict[str, int] = {}
+    for item in available:
+        item_id = qualified_item_id(item.get("id", ""))
+        inventory_by_id[item_id] = inventory_by_id.get(item_id, 0) + item["count"]
+    for entry in game_data.get("productionCatalog", {}).get("buildings", []):
+        if not entry.get("modded"):
+            continue
+        materials = [{
+            "id": material["id"], "name": material.get("name") or material["id"],
+            "owned": inventory_by_id.get(material["id"], 0), "needed": material["count"],
+        } for material in entry.get("materials", [])]
+        prerequisite = entry.get("prerequisite") or ""
+        prerequisite_met = not prerequisite or placed_buildings.get(prerequisite, 0) > 0
+        verified = entry.get("verified") is True
+        buildings.append({
+            "id": entry["id"], "name": entry.get("name") or entry["id"],
+            "category": "Upgrades" if prerequisite else "Robin", "projectType": "Building upgrade" if prerequisite else "Farm building",
+            "money": entry["money"], "materials": materials, "why": "", "prerequisite": prerequisite,
+            "owned": placed_buildings.get(entry["id"], 0), "completed": False,
+            "prerequisiteMet": prerequisite_met, "available": True, "modded": True, "verified": verified,
+            "affordable": verified and prerequisite_met and money >= entry["money"] and all(item["owned"] >= item["needed"] for item in materials),
+        })
+
     crops = []
     days_left = 28 - day
     for plan in SEASON_CROP_PLANS.get(season, []):
@@ -1237,10 +1260,13 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
     for item in player.findall("friendshipData/item"):
         name = item.findtext("key/string")
         value = item.find("value/Friendship")
-        if not name or name not in VANILLA_FRIENDSHIP_NPCS or value is None:
+        if not name or (name not in VANILLA_FRIENDSHIP_NPCS and name not in modded_characters) or value is None:
             continue
         points = number(value, "Points")
         birthday_date = next(((birthday_season, birthday) for (birthday_season, birthday), person in BIRTHDAYS.items() if person == name), None)
+        character = modded_characters.get(name, {})
+        if not birthday_date and character.get("birthSeason") and character.get("birthDay"):
+            birthday_date = (character["birthSeason"], character["birthDay"])
         birthday_day = None
         if birthday_date:
             birthday_season, birthday = birthday_date
@@ -1248,7 +1274,7 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
             birthday_index = {"spring": 0, "summer": 1, "fall": 2, "winter": 3}.get(birthday_season, 0) * 28 + birthday
             birthday_day = (birthday_index - current_index) % 112
         friendships.append({
-            "id": name, "name": name, "points": points, "hearts": points // 250,
+            "id": name, "name": character.get("displayName") or name, "points": points, "hearts": points // 250,
             "talkedToday": bool_value(value, "TalkedToToday"), "giftsToday": number(value, "GiftsToday"),
             "giftsThisWeek": number(value, "GiftsThisWeek"),
             "daysToBirthday": birthday_day,
@@ -1552,9 +1578,10 @@ def fishing_brief(root: ET.Element, player: ET.Element, season: str, day: int, p
         game_data = json.loads(GAME_DATA.read_text(encoding="utf-8"))
         raw_fish = game_data.get("fish", {})
         catalog_fish = {
-            unqualified_item_id(item.get("id", "")): item
+            str(item.get("id", "")).removeprefix("(O)"): item
             for item in game_data.get("productionCatalog", {}).get("fishing", [])
             if isinstance(item, dict) and item.get("id")
+            and (not str(item["id"]).startswith("(") or str(item["id"]).startswith("(O)"))
         }
     except (OSError, json.JSONDecodeError):
         raw_fish = {}
@@ -1570,10 +1597,12 @@ def fishing_brief(root: ET.Element, player: ET.Element, season: str, day: int, p
     desert_open = any(key in mail for key in ("ccVault", "jojaVault", "ccVaultFin"))
     ginger_open = "willyBoatFixed" in mail
     legendary_levels = {"159": 5, "160": 3, "163": 10, "775": 6}
-    location_nodes = root.find("locations")
-    saved_locations = {
-        location.findtext("name", "")
-        for location in (location_nodes if location_nodes is not None else [])
+    # A serialized location can be a locked template. Only modeled progression
+    # gates prove access; presence in the save does not unlock a custom map.
+    supported_location_ids = {
+        "Beach", "Town", "Mountain", "Forest", "Woods", "Sewer", "Desert",
+        "WitchSwamp", "BugLand", "IslandSouth", "IslandSouthEast",
+        "IslandSouthEastCave", "IslandWest",
     }
 
     def catalog_location(entry: dict) -> str:
@@ -1614,35 +1643,56 @@ def fishing_brief(root: ET.Element, player: ET.Element, season: str, day: int, p
         parts = raw.split("/")
         if len(parts) < 9 or not parts[1].isdigit():
             continue
-        catalog_entry = catalog_fish.get(unqualified_item_id(fish_id), {})
+        fish_id = str(fish_id).removeprefix("(O)")
+        if fish_id.startswith("("):
+            continue
+        catalog_entry = catalog_fish.get(fish_id, {})
         times_raw = [int(value) for value in parts[5].split() if value.isdigit()]
         windows = catalog_entry.get("windows") or [
             [times_raw[index], times_raw[index + 1]]
             for index in range(0, len(times_raw) - 1, 2)
         ]
         catalog_locations = catalog_entry.get("locations") or []
-        locations = FISH_LOCATIONS.get(fish_id) or list(dict.fromkeys(
+        use_catalog_locations = fish_id not in FISH_LOCATIONS or catalog_entry.get("modded", False)
+        locations = (list(dict.fromkeys(
             catalog_location(entry) for entry in catalog_locations if catalog_location(entry)
-        ))
+        )) if use_catalog_locations else FISH_LOCATIONS[fish_id])
         if not locations:
             continue
-        accessible = [location for location in locations if accessible_location(location)]
-        if fish_id not in FISH_LOCATIONS:
-            accessible_catalog_locations = [
-                catalog_location(entry)
-                for entry in catalog_locations
-                if entry.get("verified") and (
-                    str(entry.get("id") or "") in saved_locations
-                    or str(entry.get("id") or "") in {"Beach", "Town", "Forest", "Mountain", "Woods", "Sewer", "Desert"}
+        minimum_level = legendary_levels.get(fish_id, 0)
+        uncertain_locations = []
+        if use_catalog_locations:
+            eligible = []
+            levels = []
+            for entry in catalog_locations:
+                location = catalog_location(entry)
+                try:
+                    level = max(minimum_level, int(entry.get("minFishingLevel") or 0))
+                except (ValueError, TypeError):
+                    uncertain_locations.append(location)
+                    continue
+                known_rules = (
+                    entry.get("verified") and not entry.get("condition")
+                    and not entry.get("unsupportedRules")
+                    and not entry.get("requireMagicBait")
+                    and not entry.get("ignoreFishDataRequirements")
+                    and str(entry.get("id") or "") in supported_location_ids
                 )
-            ]
-            accessible = list(dict.fromkeys(location for location in accessible_catalog_locations if location))
-        minimum_level = max(
-            [legendary_levels.get(fish_id, 0)]
-            + [int(entry.get("minFishingLevel") or 0) for entry in catalog_locations]
-        )
-        if progress.get("fishing", 0) < minimum_level:
-            accessible = []
+                if not known_rules:
+                    uncertain_locations.append(location)
+                    continue
+                levels.append(level)
+                spawn_season = str(entry.get("season") or "").lower()
+                if spawn_season and spawn_season != season:
+                    continue
+                if location and accessible_location(location) and progress.get("fishing", 0) >= level:
+                    eligible.append(location)
+            accessible = list(dict.fromkeys(eligible))
+            minimum_level = min(levels, default=minimum_level)
+        else:
+            accessible = [location for location in locations if accessible_location(location)]
+            if progress.get("fishing", 0) < minimum_level:
+                accessible = []
         fish_seasons = FISH_SEASONS.get(fish_id, parts[6].split())
         fish_weather = "rainy" if fish_id == "163" else parts[7]
         fish.append({
@@ -1652,7 +1702,8 @@ def fishing_brief(root: ET.Element, player: ET.Element, season: str, day: int, p
             "basePrice": catalog_entry.get("basePrice") or FISH_PRICES.get(fish_id, 0),
             "minFishingLevel": minimum_level, "caught": unqualified_item_id(fish_id) in caught,
             "modded": bool(catalog_entry.get("modded", False)),
-            "verified": bool(catalog_entry.get("verified", fish_id in FISH_LOCATIONS)),
+            "verified": (not uncertain_locations and (not use_catalog_locations or bool(catalog_entry.get("verified", False)))),
+            "uncertainLocations": list(dict.fromkeys(location for location in uncertain_locations if location)),
             "spriteIndex": catalog_entry.get("spriteIndex"),
             "artworkUrl": catalog_entry.get("artworkUrl"),
             "artworkColumns": catalog_entry.get("artworkColumns"),
@@ -2029,9 +2080,9 @@ def long_term_collection_brief(
     def output_details(recipe: str, crafting: bool = False) -> tuple[str, str]:
         parts = str(recipe).split("/")
         output = parts[2].split()[0] if len(parts) > 2 and parts[2].strip() else ""
-        output = output.removeprefix("(O)").removeprefix("(BC)")
         is_big = crafting and len(parts) > 3 and parts[3].strip().casefold() == "true"
-        return output, "craftable" if is_big else "object"
+        kind = "craftable" if is_big or output.startswith("(BC)") else "object"
+        return qualified_item_id(output, kind), kind
 
     cooking = []
     for name, recipe in game_data.get("cookingRecipes", {}).items():
@@ -2040,7 +2091,7 @@ def long_term_collection_brief(
         cooking.append({
             "id": item_id, "name": name, "complete": count > 0,
             "count": count, "learned": name in cooked,
-            "spriteKind": sprite_kind, "spriteIndex": item_id,
+            "spriteKind": sprite_kind, "spriteIndex": unqualified_item_id(item_id),
         })
 
     crafting = []
@@ -2052,7 +2103,7 @@ def long_term_collection_brief(
         crafting.append({
             "id": item_id, "name": name, "complete": count > 0,
             "count": count, "learned": name in crafted,
-            "spriteKind": sprite_kind, "spriteIndex": item_id,
+            "spriteKind": sprite_kind, "spriteIndex": unqualified_item_id(item_id),
         })
 
     return {

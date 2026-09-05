@@ -114,6 +114,7 @@ export function calculateFishPondPlan(input) {
     return [key, { units: Math.round(units[key] * pondCount * 100) / 100, grossRevenue, netProfit, profitPerDay: horizon.durationDays ? Math.floor(netProfit / horizon.durationDays) : netProfit }];
   }));
   const warnings = [...horizon.warnings];
+  if (pond.verified === false) warnings.push("unverified-producer-data");
   if (unlockedPopulation < pond.maxPopulation) warnings.push("pond-population-gated");
   if (pond.producedItems?.some(item => item.condition)) warnings.push("pond-conditional-output");
   if (processRoe) warnings.push("pond-roe-processing-estimate");

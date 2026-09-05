@@ -7,6 +7,7 @@ using Microsoft.Xna.Framework.Content;
 using StardewValley.GameData.BigCraftables;
 using StardewValley.GameData.Buildings;
 using StardewValley.GameData.Crops;
+using StardewValley.GameData.Characters;
 using StardewValley.GameData.FruitTrees;
 using StardewValley.GameData.FarmAnimals;
 using StardewValley.GameData.FishPonds;
@@ -38,6 +39,7 @@ static class GameCatalogReader
     public static string Read(string contentRoot, string? overlayPath)
     {
         using var content = new ContentManager(new EmptyServices(), contentRoot);
+        var characterIds = content.Load<Dictionary<string, CharacterData>>("Data/Characters").Keys.ToArray();
         Dictionary<string, CropData> crops = content.Load<Dictionary<string, CropData>>("Data/Crops");
         Dictionary<string, ObjectData> objects = content.Load<Dictionary<string, ObjectData>>("Data/Objects");
         Dictionary<string, FruitTreeData> fruitTrees = content.Load<Dictionary<string, FruitTreeData>>("Data/FruitTrees");
@@ -59,6 +61,9 @@ static class GameCatalogReader
         int skippedRecipeEdits = 0;
         int skippedBuildingEdits = 0;
         int skippedLocationEdits = 0;
+        int skippedMachineEdits = 0, skippedAnimalEdits = 0, skippedPondEdits = 0, skippedTreeEdits = 0;
+        var moddedMachineIds = new HashSet<string>();
+        var moddedBuildingIds = new HashSet<string>();
         var moddedFishIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (!string.IsNullOrWhiteSpace(overlayPath) && File.Exists(overlayPath))
@@ -71,6 +76,30 @@ static class GameCatalogReader
             {
                 try { return entry.Deserialize<T>(jsonOptions); }
                 catch { return null; }
+            }
+            int AddEntries<T>(Dictionary<string, T> target, Dictionary<string, JsonElement>? entries, HashSet<string>? added = null) where T : class
+            {
+                int skipped = 0;
+                foreach ((string id, JsonElement entry) in entries ?? new())
+                {
+                    T? value = DeserializeEntry<T>(entry);
+                    if (target.ContainsKey(id) || value is null) { skipped++; continue; }
+                    target[id] = value;
+                    added?.Add(id);
+                }
+                return skipped;
+            }
+            skippedMachineEdits += AddEntries(bigCraftables, overlay?.BigCraftables);
+            skippedMachineEdits += AddEntries(machines, overlay?.Machines, moddedMachineIds);
+            skippedAnimalEdits += AddEntries(farmAnimals, overlay?.FarmAnimals);
+            skippedTreeEdits += AddEntries(fruitTrees, overlay?.FruitTrees);
+            skippedTreeEdits += AddEntries(wildTrees, overlay?.WildTrees);
+            foreach ((string id, JsonElement entry) in overlay?.FishPondData ?? new())
+            {
+                FishPondData? value = DeserializeEntry<FishPondData>(entry);
+                if (value is null || fishPondRules.Any(rule => rule.Id == id)) { skippedPondEdits++; continue; }
+                value.Id = id;
+                fishPondRules.Add(value);
             }
             foreach ((string id, JsonElement entry) in overlay?.Objects ?? new())
             {
@@ -103,13 +132,13 @@ static class GameCatalogReader
             {
                 if (buildings.ContainsKey(id)) { skippedBuildingEdits += 1; continue; }
                 BuildingData? value = DeserializeEntry<BuildingData>(entry);
-                if (value is not null) buildings[id] = value; else skippedBuildingEdits += 1;
+                if (value is not null) { buildings[id] = value; moddedBuildingIds.Add(id); } else skippedBuildingEdits += 1;
             }
             foreach ((string id, JsonElement entry) in overlay?.Locations ?? new())
             {
                 if (locations.ContainsKey(id)) { skippedLocationEdits += 1; continue; }
                 LocationData? value = DeserializeEntry<LocationData>(entry);
-                if (value is not null) locations[id] = value; else skippedLocationEdits += 1;
+                if (value is not null) { locations[id] = value; foreach (SpawnFishData spawn in value.Fish ?? new()) if (!string.IsNullOrWhiteSpace(spawn.ItemId)) moddedFishIds.Add(Unqualify(spawn.ItemId)); } else skippedLocationEdits += 1;
             }
             foreach (LocationFishOverlay addition in overlay?.LocationFish ?? new())
             {
@@ -121,6 +150,7 @@ static class GameCatalogReader
                     if (value is null) { skippedLocationEdits += 1; continue; }
                     if (location.Fish.Any(item => item.Id == value.Id)) { skippedLocationEdits += 1; continue; }
                     location.Fish.Add(value);
+                    if (!string.IsNullOrWhiteSpace(value.ItemId)) moddedFishIds.Add(Unqualify(value.ItemId));
                 }
             }
             foreach (ShopItemOverlay addition in overlay?.ShopItems ?? new())
@@ -143,7 +173,7 @@ static class GameCatalogReader
             int close = id.IndexOf(')');
             return close >= 0 ? id[(close + 1)..] : id;
         }
-        ObjectData? ObjectFor(string id) => objects.GetValueOrDefault(Unqualify(id));
+        ObjectData? ObjectFor(string id) => id.StartsWith('(') && !id.StartsWith("(O)") ? null : objects.GetValueOrDefault(Unqualify(id));
         int PurchasePriceFor(ShopItemData item)
         {
             if (!string.IsNullOrWhiteSpace(item.TradeItemId)) return 0;
@@ -181,6 +211,17 @@ static class GameCatalogReader
                 .ToArray();
         }
 
+        static string[] UnsupportedSpawnRules(SpawnFishData spawn)
+        {
+            var reasons = new List<string>();
+            if (!string.IsNullOrWhiteSpace(spawn.Condition)) reasons.Add("condition");
+            if (!string.IsNullOrWhiteSpace(spawn.FishAreaId) || spawn.BobberPosition is not null || spawn.PlayerPosition is not null) reasons.Add("position");
+            if (spawn.MinDistanceFromShore > 0 || spawn.MaxDistanceFromShore >= 0) reasons.Add("shore-distance");
+            if (spawn.CatchLimit > 0 || spawn.IsBossFish) reasons.Add("catch-limit");
+            if (spawn.RequireMagicBait || spawn.IgnoreFishDataRequirements) reasons.Add("bait-or-requirements");
+            if (spawn.RandomItemId?.Count > 0 || spawn.ChanceModifiers?.Count > 0 || spawn.Chance <= 0) reasons.Add("spawn-rules");
+            return reasons.ToArray();
+        }
         var fishingCatalog = fish.Select(pair =>
         {
             string[] parts = pair.Value.Split('/');
@@ -199,7 +240,11 @@ static class GameCatalogReader
                         fishAreaId = spawn.FishAreaId,
                         minFishingLevel = spawn.MinFishingLevel,
                         condition = spawn.Condition,
-                        verified = string.IsNullOrWhiteSpace(spawn.Condition) && spawn.RandomItemId?.Count is not > 0,
+                        season = spawn.Season?.ToString().ToLowerInvariant(),
+                        requireMagicBait = spawn.RequireMagicBait,
+                        ignoreFishDataRequirements = spawn.IgnoreFishDataRequirements,
+                        unsupportedRules = UnsupportedSpawnRules(spawn),
+                        verified = UnsupportedSpawnRules(spawn).Length == 0,
                     }))
                 .ToArray();
             int.TryParse(parts.ElementAtOrDefault(1), out int difficulty);
@@ -324,7 +369,7 @@ static class GameCatalogReader
                 yield = new { min = 1, expected = 1, max = 1 },
                 space = FruitTreeClearanceTiles,
                 clearance = FruitTreeClearanceTiles,
-                verified = primaryFruit is not null && fruit is not null && fruit.Price > 0 && purchasePrice > 0,
+                verified = primaryFruit is not null && fruit is not null && fruit.Price > 0 && purchasePrice > 0 && pair.Value.Fruit.Count == 1 && string.IsNullOrWhiteSpace(primaryFruit.Condition) && primaryFruit.RandomItemId?.Count is not > 0 && primaryFruit.Chance >= 1 && primaryFruit.Season is null,
             };
         }).ToArray();
 
@@ -359,6 +404,7 @@ static class GameCatalogReader
             {
                 id = $"wild-tree:{pair.Key}",
                 treeType = pair.Key,
+                verified = pair.Value.TapItems.Count == 1 && pair.Value.TapItems.All(item => string.IsNullOrWhiteSpace(item.Condition) && item.RandomItemId?.Count is not > 0 && item.Chance >= 1 && item.PreviousItemId?.Count is not > 0 && item.DaysUntilReadyModifiers?.Count is not > 0),
                 seed = DescribeItem(pair.Value.SeedItemId),
                 growthChance = pair.Value.GrowthChance,
                 fertilizedGrowthChance = pair.Value.FertilizedGrowthChance,
@@ -416,11 +462,12 @@ static class GameCatalogReader
 
         var supportedMachineNames = new HashSet<string>(new[] { "Keg", "Preserves Jar", "Dehydrator", "Fish Smoker", "Cheese Press", "Mayonnaise Machine", "Loom" });
         var artisanMachines = new List<object>();
+        var verifiedModMachines = new HashSet<string>();
         foreach ((string machineId, MachineData machineData) in machines)
         {
             string unqualifiedMachineId = Unqualify(machineId);
             BigCraftableData? machine = bigCraftables.GetValueOrDefault(unqualifiedMachineId);
-            if (machine is null || !supportedMachineNames.Contains(machine.Name)) continue;
+            if (machine is null || (!supportedMachineNames.Contains(machine.Name) && !moddedMachineIds.Contains(machineId))) continue;
             foreach ((string rawInputId, ObjectData inputData) in objects)
             {
                 string inputId = QualifyObject(rawInputId);
@@ -439,7 +486,18 @@ static class GameCatalogReader
                     .Select(item => new { item = DescribeItem(item.ItemId), quantity = Math.Max(1, item.RequiredCount) }).ToArray();
                 int additionalInputCost = (machineData.AdditionalConsumedItems ?? new List<MachineItemAdditionalConsumedItems>())
                     .Sum(item => (ObjectFor(item.ItemId)?.Price ?? 0) * Math.Max(1, item.RequiredCount));
+                bool missingAdditionalInputs = (machineData.AdditionalConsumedItems ?? new()).Any(item => ObjectFor(item.ItemId) is not { Price: > 0 });
                 bool hasUnmodeledModifiers = outputRule.PriceModifiers?.Count > 0 || outputRule.StackModifiers?.Count > 0 || outputRule.QualityModifiers?.Count > 0;
+                bool verified = inputData.Price > 0 && outputData.Price > 0 && !hasUnmodeledModifiers && !missingAdditionalInputs && outputRule.RandomItemId?.Count is not > 0 && rule.OutputItem?.Count == 1 && (rule.MinutesUntilReady > 0 || rule.DaysUntilReady > 0);
+                if (moddedMachineIds.Contains(machineId))
+                {
+                    // Only deterministic fixed input/output additions are modeled. Runtime
+                    // callbacks, alternative rules and custom query logic stay uncertain.
+                    verified &= machineData.OutputRules?.Count == 1 && rule.Triggers?.Count == 1
+                        && trigger.RequiredItemId == inputId && string.IsNullOrWhiteSpace(trigger.Condition)
+                        && outputRule.CustomData?.Count is not > 0 && !rule.RecalculateOnCollect;
+                    if (verified) verifiedModMachines.Add(machineId);
+                }
                 artisanMachines.Add(new
                 {
                     id = $"machine:{machineId}:{rule.Id}:{inputId}",
@@ -461,10 +519,12 @@ static class GameCatalogReader
                     artisanEligible = outputData.Category == GameObject.artisanGoodsCategory,
                     additionalInputs,
                     additionalInputCost,
-                    verified = inputData.Price > 0 && outputData.Price > 0 && !hasUnmodeledModifiers,
+                    verified,
                 });
             }
         }
+
+        skippedMachineEdits += moddedMachineIds.Count(id => !verifiedModMachines.Contains(id));
 
         // Casks use an output method instead of a normal item query. Preserve the
         // exact input identity (including flavored wine) and expose the local
@@ -523,6 +583,7 @@ static class GameCatalogReader
             return new
             {
                 id = $"animal:{pair.Key}",
+                verified = requiredBuildingData is not null && pair.Value.ProduceItemIds.Count == 1 && pair.Value.DeluxeProduceItemIds.Count <= 1 && pair.Value.ProduceItemIds.Concat(pair.Value.DeluxeProduceItemIds).All(item => string.IsNullOrWhiteSpace(item.Condition) && ObjectFor(item.ItemId) is { Price: > 0 }) && string.IsNullOrWhiteSpace(pair.Value.UnlockCondition) && pair.Value.ProduceItemIds.All(item => item.MinimumFriendship <= 0),
                 name = pair.Key,
                 texture = pair.Value.Texture,
                 pair.Value.SpriteWidth,
@@ -562,6 +623,7 @@ static class GameCatalogReader
                 return new
                 {
                     id = $"pond:{fishId}",
+                    verified = rule.ProducedItems.Count > 0 && rule.ProducedItems.All(item => string.IsNullOrWhiteSpace(item.Condition) && item.RandomItemId?.Count is not > 0 && ObjectFor(item.ItemId) is { Price: > 0 }),
                     fish = DescribeItem(fishId),
                     processedRoe = DescribeItem(fishId == "(O)698" ? "(O)445" : "(O)447"),
                     ruleId = rule.Id,
@@ -586,8 +648,16 @@ static class GameCatalogReader
             .Where(item => item is not null)
             .ToArray();
 
+        var buildingCatalog = buildings.Select(pair => new
+        {
+            id = pair.Key, name = pair.Value.Name, money = pair.Value.BuildCost,
+            materials = (pair.Value.BuildMaterials ?? new()).Select(item => new { id = QualifyObject(item.ItemId), name = ObjectFor(item.ItemId)?.Name, count = item.Amount }).ToArray(),
+            buildDays = pair.Value.BuildDays, prerequisite = pair.Value.BuildingToUpgrade,
+            condition = pair.Value.BuildCondition, modded = moddedBuildingIds.Contains(pair.Key),
+            verified = string.IsNullOrWhiteSpace(pair.Value.BuildCondition) && pair.Value.BuildCost >= 0 && (pair.Value.BuildMaterials ?? new()).All(item => ObjectFor(item.ItemId) is not null && item.Amount > 0),
+        }).ToArray();
         return JsonSerializer.Serialize(
-            new { catalogVersion = 7, source = "local-game", crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, fishing = fishingCatalog, feedUnitCost = PurchasePrice("(O)178"), overlayDiagnostics = new { skipped = new { items = skippedObjectEdits + skippedShopEdits, crops = skippedCropEdits, fish = skippedFishEdits, recipes = skippedRecipeEdits, buildings = skippedBuildingEdits, locations = skippedLocationEdits } } },
+            new { catalogVersion = 8, source = "local-game", characterIds, buildings = buildingCatalog, crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, fishing = fishingCatalog, feedUnitCost = PurchasePrice("(O)178"), overlayDiagnostics = new { skipped = new { items = skippedObjectEdits + skippedShopEdits, crops = skippedCropEdits + skippedTreeEdits, fish = skippedFishEdits + skippedPondEdits, recipes = skippedRecipeEdits, buildings = skippedBuildingEdits, locations = skippedLocationEdits, machines = skippedMachineEdits, animals = skippedAnimalEdits } } },
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
         );
     }
@@ -599,6 +669,12 @@ static class GameCatalogReader
 
     private sealed class CatalogOverlay
     {
+        public Dictionary<string, JsonElement> BigCraftables { get; set; } = new();
+        public Dictionary<string, JsonElement> Machines { get; set; } = new();
+        public Dictionary<string, JsonElement> FarmAnimals { get; set; } = new();
+        public Dictionary<string, JsonElement> FishPondData { get; set; } = new();
+        public Dictionary<string, JsonElement> FruitTrees { get; set; } = new();
+        public Dictionary<string, JsonElement> WildTrees { get; set; } = new();
         public Dictionary<string, JsonElement> Objects { get; set; } = new();
         public Dictionary<string, JsonElement> Crops { get; set; } = new();
         public Dictionary<string, string> Fish { get; set; } = new();

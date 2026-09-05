@@ -183,7 +183,7 @@
   "fishing.here": "HERE",
   "fishing.caught": "CAUGHT",
   "fishing.modRuleUnverified": "MOD RULE",
-  "fishing.modRuleDetail": "This fish comes from a mod with availability conditions Companion cannot fully verify.",
+  "fishing.modRuleDetail": "The availability conditions for this fish cannot be fully verified.",
   "fishing.wiki": "Wiki",
   "fishing.noneMissingNow": "No available fish are missing at this time in this weather. Change the time to plan the rest of the day.",
   "fishing.noneAvailableNow": "No fish are available at this time in this weather.",
@@ -1868,5 +1868,6 @@
   "compatibility.domain.locations": "Locations",
   "compatibility.domain.maps": "Maps",
   "compatibility.domain.quests": "Quests and orders",
-  "compatibility.domain.other": "Other or dynamic data"
+  "compatibility.domain.other": "Other or dynamic data",
+  "building.status.unverified": "Unverified building rules"
 }
