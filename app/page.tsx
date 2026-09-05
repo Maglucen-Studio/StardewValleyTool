@@ -1715,8 +1715,44 @@ export default function Home() {
                 }}
               >
                 <strong>{proposalMenu.name}</strong>
+                {proposalStates.find((proposal) => proposal.id === proposalMenu.id)?.status === "pending" && (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setProposalEditMode(true);
+                        setMovingProposalId(proposalMenu.id);
+                        setTool("inspect");
+                        setPlacementError(t("map.proposal.chooseNewPosition"));
+                        setProposalMenu(null);
+                      }}
+                    >{t("web.home.move")}</button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        persistProposalResolutions({ ...proposalResolutions, [proposalMenu.id]: "resolved" });
+                        setProposalMenu(null);
+                      }}
+                    >{t("web.home.markPlanDone")}</button>
+                  </>
+                )}
+                {proposalStates.find((proposal) => proposal.id === proposalMenu.id)?.status === "resolved" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      const next = { ...proposalResolutions };
+                      delete next[proposalMenu.id];
+                      persistProposalResolutions(next);
+                      setProposalMenu(null);
+                    }}
+                  >{t("web.home.reopenPlan")}</button>
+                )}
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={() => {
                     persist(localSuggestions.filter((item) => item.id !== proposalMenu.id));
                     setProposalMenu(null);

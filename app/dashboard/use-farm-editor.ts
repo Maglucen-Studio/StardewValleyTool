@@ -285,6 +285,10 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
       setPlacementError("");
       return;
     }
+    if (!proposalEditMode || tool === "inspect") {
+      openProposalMenu(event);
+      return;
+    }
     if (proposalEditMode && tool !== "inspect") {
       const active = tools.find((item) => item.id === tool)!;
       const invalid = validatePlacement(point, active.width, active.height);
@@ -312,6 +316,7 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
 
   const openProposalMenu = (event: React.MouseEvent<HTMLCanvasElement>) => {
     event.preventDefault();
+    event.stopPropagation();
     const point = pointFromEvent(event);
     const proposal = [...localSuggestions].reverse().find(
       (item) =>
