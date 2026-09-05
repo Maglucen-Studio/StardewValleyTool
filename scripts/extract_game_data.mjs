@@ -7,6 +7,7 @@ import { unpackToFiles } from "xnb";
 import { loadConfig, projectRoot, runtimeRoot, runtimePaths, validateConfig } from "./config.mjs";
 import { ensureRuntimeDirectories, syncRuntimePublic } from "./runtime-files.mjs";
 import { renderCommunityRooms } from "./render-community-rooms.mjs";
+import { extractCurrencyIcon } from "./extract-currency-icon.mjs";
 import { localizedXnbPath } from "./localization.mjs";
 import { scanModCompatibility } from "./mod-compatibility.mjs";
 import { buildContentPatcherCatalogOverlay } from "./content-patcher-catalog.mjs";
@@ -261,6 +262,7 @@ const textures = {
   "Characters/Farmer/skinColors.xnb": "assetbuild/unpacked/farmer/skinColors.png",
   "Characters/Farmer/shoeColors.xnb": "assetbuild/unpacked/farmer/shoeColors.png",
   "LooseSprites/Cursors.xnb": "assetbuild/unpacked/Cursors.png",
+  "TileSheets/debris.xnb": "assetbuild/unpacked/debris.png",
   "LooseSprites/map.xnb": "public/assets/maps/world-spring.png",
   "LooseSprites/map_summer.xnb": "public/assets/maps/world-summer.png",
   "LooseSprites/map_fall.xnb": "public/assets/maps/world-fall.png",
@@ -338,6 +340,7 @@ await Promise.all([
   copyFile(resolve(project, "assetbuild/unpacked/farmer/hats.png"), resolve(project, "public/assets/sprites/hats.png")),
   copyFile(resolve(project, "assetbuild/unpacked/farmer/shirts.png"), resolve(project, "public/assets/sprites/shirts.png")),
 ]);
+await extractCurrencyIcon(project);
 
 await Promise.all([
   unpackBinary("Maps/CommunityCenter_Refurbished.xnb", "tbin", "assetbuild/unpacked/CommunityCenter_Refurbished.tbin"),

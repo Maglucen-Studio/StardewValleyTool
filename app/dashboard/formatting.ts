@@ -1,6 +1,14 @@
 import { type Translate, type UpdateState, type DisplayNamedGameValue } from "./ui-types";
 import { type BundleRequirement, type DailyQuest, type LiveQuest, type LocalizedValue, type Terrain, type Interior, type BuildingPlan, type CropPlan } from "./snapshot-types";
 
+export function formatNumber(value: number, locale: string, options?: Intl.NumberFormatOptions) {
+  return new Intl.NumberFormat(locale, options).format(value);
+}
+
+export function formatDecimal(value: number, locale: string, digits: number) {
+  return formatNumber(value, locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
 export const seasonName = (season: string) =>
   ({ spring: "Spring", summer: "Summer", fall: "Fall", winter: "Winter" })[
     season
@@ -51,7 +59,7 @@ export function formatBundleRequirement(
   locale: string,
 ) {
   return item.id === "-1"
-    ? t("community.payment", { count: item.count.toLocaleString(locale) })
+    ? t("community.payment", { count: formatNumber(item.count, locale) })
     : `${item.count}× ${item.displayName || item.name}`;
 }
 
@@ -95,7 +103,18 @@ export function routeLocationName(location: string, t: Translate) {
   return known.has(key) ? t(`location.${key}`) : location;
 }
 
-export function localizedTerrainFeature(feature: Terrain, t: Translate) {
+export function localizedTerrainFeature(feature: Terrain, t: Translate, names: Record<string, string> = {}) {
+  if (feature.kind === "HoeDirt" && (feature.hasCrop || feature.crop)) {
+    const harvestId = feature.cropHarvestId;
+    // Older saved maps used `crop` for the seed ID. Explicit null in LIVE means unknown.
+    const seedId = feature.cropSeedId === undefined ? feature.crop : feature.cropSeedId;
+    const id = harvestId || seedId;
+    if (!id) return t("map.terrain.plantedUnknown");
+    const qualifiedId = id.startsWith("(") ? id : `(O)${id}`;
+    const name = names[qualifiedId];
+    if (!name) return t("map.terrain.plantedUnresolved", { id: qualifiedId });
+    return t(harvestId ? "map.terrain.plantedCrop" : "map.terrain.plantedSeed", { name });
+  }
   const kindKey: Record<string, string> = {
     Grass: "grass",
     HoeDirt: "tilledSoil",
@@ -127,8 +146,8 @@ export function localizedStorageSource(source: string, t: Translate) {
 }
 
 export function routeItemName(item: DisplayNamedGameValue, t: Translate) {
-  if (item.name === "Artifact Spot") return t("world.artifactSpot");
-  if (item.name === "Seed Spot") return t("world.seedSpot");
+  if (item.id && ["590", "(O)590"].includes(item.id)) return t("world.artifactSpot");
+  if (item.id && ["SeedSpot", "(O)SeedSpot"].includes(item.id)) return t("world.seedSpot");
   return item.displayName || item.name;
 }
 

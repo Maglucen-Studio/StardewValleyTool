@@ -1,4 +1,7 @@
 "use client";
+import { formatNumber, formatDecimal } from "./formatting";
+
+import { commonCraftingGoals } from "./planning-goals";
 
 import { summarizeLiveMachines } from "./machine-selectors";
 
@@ -9,29 +12,13 @@ import { ProductionCalculator } from "../planning/production-calculator";
 import { type Snapshot, type LiveState, type BuildingPlan, type StorageInventoryItem, type StorageSourceDetail, type BundleRequirement, type FriendshipPlan } from "./snapshot-types";
 import { type FarmHistory, type PlanningSection, type PersonalGoal, type StrategicGoalTarget } from "./ui-types";
 import { resolveGameDisplayName, isVanillaFriend } from "./game-names";
-import { inventoryItemId, normalizeObjectId, sameInventoryIdentity } from "./identity";
+import { inventoryItemId, inventoryQuantity, inventoryToolTier, normalizeObjectId, sameInventoryIdentity } from "./identity";
 import { liveStorageSource, readyBundleDeliveries } from "./selectors";
 import { localizedStorageSource, formatHarvestDate, buildingPlanText, communityRoomName, communityBundleName, formatLiveTime, formatBundleRequirement, communityRoomReward, cropPlanNote, buildingCategoryName, buildingProjectTypeName, routeLocationName, formatMachineDuration } from "./formatting";
 import { readableStorageSource, readableStorageLocation, StorageLocationPreview } from "./storage";
 import { ItemMentionArtwork, CommunityRoomArtwork, ModdedItemArtwork, SheetArtwork, AnimalArtwork, StorageArtwork, StorageContainerArtwork, GoalRequirements, NpcArtwork, GiftGroup } from "./artwork";
 import { BuildingPreview } from "./farm-rendering";
 import { WikiLink } from "./ui";
-
-export const commonCraftingGoals = [
-  { name: "Quality Sprinkler", materials: { "Iron Bar": 1, "Gold Bar": 1, "Refined Quartz": 1 } },
-  { name: "Iridium Sprinkler", materials: { "Gold Bar": 1, "Iridium Bar": 1, "Battery Pack": 1 } },
-  { name: "Keg", materials: { Wood: 30, "Copper Bar": 1, "Iron Bar": 1, "Oak Resin": 1 } },
-  { name: "Preserves Jar", materials: { Wood: 50, Stone: 40, Coal: 8 } },
-  { name: "Mayonnaise Machine", materials: { Wood: 15, Stone: 15, "Earth Crystal": 1, "Copper Bar": 1 } },
-  { name: "Cheese Press", materials: { Wood: 45, Stone: 45, Hardwood: 10, "Copper Bar": 1 } },
-  { name: "Loom", materials: { Wood: 60, Fiber: 30, "Pine Tar": 1 } },
-  { name: "Oil Maker", materials: { Slime: 50, Hardwood: 20, "Gold Bar": 1 } },
-  { name: "Cask", materials: { Wood: 20, Hardwood: 1 } },
-  { name: "Crystalarium", materials: { Stone: 99, "Gold Bar": 5, "Iridium Bar": 2, "Battery Pack": 1 } },
-  { name: "Seed Maker", materials: { Wood: 25, Coal: 10, "Gold Bar": 1 } },
-  { name: "Lightning Rod", materials: { "Iron Bar": 1, "Refined Quartz": 1, "Bat Wing": 5 } },
-  { name: "Bee House", materials: { Wood: 40, Coal: 8, "Iron Bar": 1, "Maple Syrup": 1 } },
-] as const;
 
 export function PlanningView({
   current,
@@ -218,10 +205,8 @@ export function PlanningView({
             : savedChestInventory),
         ]
       : plan.inventory;
-  const inventoryCount = (name: string) =>
-    inventory
-      .filter((item) => item.name === name)
-      .reduce((sum, item) => sum + item.count, 0);
+  const inventoryCount = (id?: string) =>
+    inventoryQuantity(inventory, id);
   const storageIndex = Object.values(
     inventory.reduce<
       Record<
@@ -233,6 +218,7 @@ export function PlanningView({
         }
       >
     >((index, item) => {
+      // Legacy inventory payloads lack preserve metadata; retain distinct product variants.
       const key = `${inventoryItemId(item)}:${item.name}`;
       const existing = index[key] || {
         id: item.id,
@@ -281,8 +267,8 @@ export function PlanningView({
       return index;
     }, {}),
   );
-  const artworkForItem = (name: string) =>
-    storageIndex.find((item) => item.name === name);
+  const artworkForItem = (id?: string) =>
+    storageIndex.find((item) => Boolean(id) && inventoryItemId(item) === normalizeObjectId(id));
   const storageLocations = Array.from(
     new Set(storageIndex.flatMap((item) => item.sources)),
   ).sort((a, b) => a.localeCompare(b));
@@ -640,7 +626,7 @@ export function PlanningView({
   const buildingOptions = visibleBuildings.map((building) => {
     const materials = building.materials.map((material) => ({
       ...material,
-      owned: live.active ? material.id ? inventory.filter((item) => inventoryItemId(item) === material.id).reduce((sum, item) => sum + item.count, 0) : inventoryCount(material.name) : material.owned,
+      owned: live.active ? inventoryCount(material.id) : material.owned,
     }));
     const resourcesReady =
       buildingMoney >= building.money &&
@@ -707,7 +693,7 @@ export function PlanningView({
     .map((building) => {
       const materials = building.materials.map((material) => ({
         ...material,
-        owned: material.id ? inventory.filter((item) => inventoryItemId(item) === material.id).reduce((sum, item) => sum + item.count, 0) : inventoryCount(material.name),
+        owned: inventoryCount(material.id),
       }));
       const missing = materials.filter(
         (material) => material.owned < material.needed,
@@ -731,7 +717,7 @@ export function PlanningView({
         bottleneck: !building.prerequisiteMet
           ? buildingPlanText(building, "prerequisite", t) || t("goal.previousUpgrade")
           : moneyMissing > 0
-            ? t("goal.goldNeeded", { amount: moneyMissing.toLocaleString(locale) })
+            ? t("goal.goldNeeded", { amount: formatNumber(moneyMissing, locale) })
             : missing.length
               ? missing
                   .map(
@@ -757,13 +743,13 @@ export function PlanningView({
             name: material.displayName || material.name,
             available: material.owned,
             required: material.needed,
-            artwork: artworkForItem(material.name),
+            artwork: artworkForItem(material.id),
           })),
         ],
       };
     });
   const toolTiers = ["", "Copper", "Steel", "Gold", "Iridium"];
-  const upgradeBars = ["", "Copper Bar", "Iron Bar", "Gold Bar", "Iridium Bar"];
+  const upgradeBars = ["", "(O)334", "(O)335", "(O)336", "(O)337"];
   const upgradeCosts = [0, 2000, 5000, 10000, 25000];
   const toolTargets: StrategicGoalTarget[] = [
     "Axe",
@@ -771,17 +757,12 @@ export function PlanningView({
     "Hoe",
     "Watering Can",
   ].flatMap((tool) => {
-    const currentTier = storageIndex.reduce((highest, item) => {
-      const tier = toolTiers.findIndex((prefix) =>
-        prefix ? item.name === `${prefix} ${tool}` : item.name === tool,
-      );
-      return Math.max(highest, tier);
-    }, 0);
+    const currentTier = inventoryToolTier(storageIndex, tool.replaceAll(" ", ""));
     const targetTier = currentTier + 1;
     if (targetTier >= toolTiers.length) return [];
     const bar = upgradeBars[targetTier];
-    const localizedBar = gameName(bar);
-    const localizedTool = gameName(`${toolTiers[targetTier]} ${tool}`);
+    const localizedBar = gameName(bar, bar);
+    const localizedTool = gameName(`${toolTiers[targetTier]} ${tool}`, `(T)${toolTiers[targetTier]}${tool.replaceAll(" ", "")}`);
     const barMissing = Math.max(0, 5 - inventoryCount(bar));
     const moneyMissing = Math.max(0, upgradeCosts[targetTier] - buildingMoney);
     const ready = barMissing === 0 && moneyMissing === 0;
@@ -789,12 +770,12 @@ export function PlanningView({
       id: `tool:${tool}:${targetTier}`,
       category: t("goal.category.toolUpgrade"),
       title: localizedTool,
-      progress: `${inventoryCount(bar)}/5 ${localizedBar} · ${buildingMoney.toLocaleString(locale)}/${upgradeCosts[targetTier].toLocaleString(locale)}g`,
+      progress: `${inventoryCount(bar)}/5 ${localizedBar} · ${formatNumber(buildingMoney, locale)}/${formatNumber(upgradeCosts[targetTier], locale)}g`,
       bottleneck: ready
         ? t("goal.tool.takeToClint")
         : [
             barMissing ? `${barMissing} ${localizedBar}` : "",
-            moneyMissing ? `${moneyMissing.toLocaleString(locale)}g` : "",
+            moneyMissing ? `${formatNumber(moneyMissing, locale)}g` : "",
           ].filter(Boolean).join(" · "),
       forecast:
         ready
@@ -821,12 +802,13 @@ export function PlanningView({
   });
   const craftingTargets: StrategicGoalTarget[] = commonCraftingGoals.map(
     (recipe) => {
-      const materials = (Object.entries(recipe.materials) as [string, number][]).map(
-        ([name, amount]) => ({
+      const materials = recipe.materials.map(
+        ({ id, name, quantity }) => ({
+          id,
           name,
-          displayName: gameName(name),
-          needed: amount * craftingQuantity,
-          owned: inventoryCount(name),
+          displayName: gameName(name, id),
+          needed: quantity * craftingQuantity,
+          owned: inventoryCount(id),
         }),
       );
       const missing = materials.filter((item) => item.owned < item.needed);
@@ -847,7 +829,7 @@ export function PlanningView({
           name: material.displayName || material.name,
           available: material.owned,
           required: material.needed,
-          artwork: artworkForItem(material.name),
+          artwork: artworkForItem(material.id),
         })),
       };
     },
@@ -881,7 +863,7 @@ export function PlanningView({
             name: item.name,
             available: item.owned,
             required: item.count,
-            artwork: artworkForItem(item.name),
+            artwork: artworkForItem(item.id),
           })),
           requirementsLabel: t("goal.bundle.choose", { count: needed }),
         };
@@ -943,10 +925,10 @@ export function PlanningView({
         </div>
         <div className="planning-balance">
           <strong>
-            {(live.active
+            {formatNumber((live.active
               ? (live.money ?? current.money)
               : current.money
-            ).toLocaleString(locale)}
+            ), locale)}
             g
           </strong>
           <span>
@@ -1028,7 +1010,7 @@ export function PlanningView({
                     <ItemMentionArtwork
                       id={item.id}
                       name={item.name}
-                      item={artworkForItem(item.name)}
+                      item={artworkForItem(item.id)}
                     />
                     <div>
                       <strong>{formatBundleRequirement(item, t, locale)}</strong>
@@ -1037,7 +1019,7 @@ export function PlanningView({
                       </span>
                       <small>
                         {t("community.ownedAvailable", {
-                          count: `${item.owned.toLocaleString(locale)}${item.id === "-1" ? "g" : ""}`,
+                          count: `${formatNumber(item.owned, locale)}${item.id === "-1" ? "g" : ""}`,
                         })}{item.sources.length
                           ? ` · ${[...new Set(item.sources)].map(displayStorageSource).join(" · ")}`
                           : ""}
@@ -1121,7 +1103,7 @@ export function PlanningView({
                             <ItemMentionArtwork
                               id={item.id}
                               name={item.name}
-                              item={artworkForItem(item.name)}
+                              item={artworkForItem(item.id)}
                             />
                             <span className="bundle-item-copy">
                               <strong>{formatBundleRequirement(item, t, locale)}</strong>
@@ -1129,7 +1111,7 @@ export function PlanningView({
                                 {item.donated
                                   ? t("community.donated")
                                   : item.id === "-1"
-                                    ? t("community.goldAvailable", { count: item.owned.toLocaleString(locale) })
+                                    ? t("community.goldAvailable", { count: formatNumber(item.owned, locale) })
                                     : t(item.quality ? "community.storedQuality" : "community.stored", {
                                         owned: item.owned,
                                         count: item.count,
@@ -1401,12 +1383,12 @@ export function PlanningView({
                           </div>
                           <div className="building-price">
                             <strong>
-                              {building.money.toLocaleString(locale)}g
+                              {formatNumber(building.money, locale)}g
                             </strong>
                             <small>
                               {buildingMoney >= building.money
                                 ? t("building.money.enough")
-                                : t("building.money.missing", { amount: (building.money - buildingMoney).toLocaleString(locale) })}
+                                : t("building.money.missing", { amount: formatNumber((building.money - buildingMoney), locale) })}
                             </small>
                             <b>{status}</b>
                           </div>
@@ -1423,7 +1405,7 @@ export function PlanningView({
                                 >
                                   <ItemMentionArtwork
                                     name={material.name}
-                                    item={artworkForItem(material.name)}
+                                    item={artworkForItem(material.id)}
                                   />
                                   <b>{material.displayName || material.name}</b>
                                   <em>
@@ -1609,16 +1591,16 @@ export function PlanningView({
             <div className="reserve-list">
               <span>
                 <b>{t("web.planning.blueberry")}</b>
-                {inventoryCount("Blueberry")}{t("web.planning.stored")}</span>
+                {inventoryCount("(O)258")}{t("web.planning.stored")}</span>
               <span>
                 <b>{t("web.planning.melon")}</b>
-                {inventoryCount("Melon")}{t("web.planning.stored")}</span>
+                {inventoryCount("(O)254")}{t("web.planning.stored")}</span>
               <span>
                 <b>{t("web.planning.hops")}</b>
-                {inventoryCount("Hops")}{t("web.planning.stored")}</span>
+                {inventoryCount("(O)304")}{t("web.planning.stored")}</span>
               <span>
                 <b>{t("web.planning.starfruit")}</b>
-                {inventoryCount("Starfruit")}{t("web.planning.stored")}</span>
+                {inventoryCount("(O)268")}{t("web.planning.stored")}</span>
             </div>
             <small className="inventory-source-note">
               {live.active
@@ -1644,7 +1626,7 @@ export function PlanningView({
             <div className="storage-totals">
               <strong>{storageIndex.length}</strong>
               <span>{t("storage.itemTypes")}</span>
-              <b>{t("storage.units", { count: inventory.reduce((sum, item) => sum + item.count, 0).toLocaleString(locale) })}</b>
+              <b>{t("storage.units", { count: formatNumber(inventory.reduce((sum, item) => sum + item.count, 0), locale) })}</b>
             </div>
           </div>
           <div className="storage-controls">
@@ -1714,7 +1696,7 @@ export function PlanningView({
                     <strong>{item.displayName || item.name}</strong>
                     <span>{item.sources.map(displayStorageSource).join(" · ")}</span>
                   </div>
-                  <b>{item.count.toLocaleString(locale)}</b>
+                  <b>{formatNumber(item.count, locale)}</b>
                 </article>
               ))}
             </div>
@@ -1744,7 +1726,7 @@ export function PlanningView({
                         live={live}
                         sprites={sprites}
                       />
-                      <span>{t("storage.groupSummary", { types: group.items.length, units: group.items.reduce((sum, item) => sum + item.count, 0).toLocaleString(locale) })}</span>
+                      <span>{t("storage.groupSummary", { types: group.items.length, units: formatNumber(group.items.reduce((sum, item) => sum + item.count, 0), locale) })}</span>
                     </div>
                   </header>
                   <div className="storage-results">
@@ -1752,7 +1734,7 @@ export function PlanningView({
                       <article key={`${group.source}:${item.id}:${item.name}`}>
                         <StorageArtwork item={item} />
                         <div><strong>{item.displayName || item.name}</strong></div>
-                        <b>{item.count.toLocaleString(locale)}</b>
+                        <b>{formatNumber(item.count, locale)}</b>
                       </article>
                     ))}
                   </div>
@@ -1914,7 +1896,7 @@ export function PlanningView({
               </strong>
               <small>
                 {petElapsed > 0
-                  ? t("friendship.pet.projection", { rate: petDailyGain.toFixed(1), days: petElapsed, points: projectedPetPoints, date: t("date.game", { year: 3, season: t("season.spring"), day: 1 }) })
+                  ? t("friendship.pet.projection", { rate: formatDecimal(petDailyGain, locale, 1), days: petElapsed, points: projectedPetPoints, date: t("date.game", { year: 3, season: t("season.spring"), day: 1 }) })
                   : t("friendship.pet.noProjection")}
               </small>
             </div>
@@ -2001,7 +1983,7 @@ export function PlanningView({
                   ? t("friendship.projection.reached", { hearts: Math.min(10, friend.hearts) })
                   : projectionStatus === "unknown"
                     ? t("friendship.projection.none")
-                    : t("friendship.projection.grandpa", { hearts: projection.projectedHearts.toFixed(1) });
+                    : t("friendship.projection.grandpa", { hearts: formatDecimal(projection.projectedHearts, locale, 1) });
               return (
                 <article
                   className={`${friend.talkedToday ? "talked" : ""} ${expanded ? "expanded" : ""}`}
@@ -2095,7 +2077,7 @@ export function PlanningView({
                           <div>
                             <p className="eyebrow">{t("web.planning.year3Spring1Projection")}</p>
                             <strong>
-                              {projection.projectedHearts.toFixed(1)}{t("web.planning.hearts")}{" "}
+                              {formatDecimal(projection.projectedHearts, locale, 1)}{t("web.planning.hearts")}{" "}
                               {projection.projectedPoints}{t("web.planning.points")}</strong>
                             <span>
                               {projection.projectedPoints >= 1975
@@ -2106,7 +2088,7 @@ export function PlanningView({
                         </div>
                         <small>
                           {projection.sampleDays > 0
-                            ? t("friendship.projection.observedPace", { rate: projection.dailyGain.toFixed(1), tracked: projection.sampleDays, remaining: projection.daysRemaining })
+                            ? t("friendship.projection.observedPace", { rate: formatDecimal(projection.dailyGain, locale, 1), tracked: projection.sampleDays, remaining: projection.daysRemaining })
                             : t("friendship.projection.notEnoughHistory")}
                         </small>
                       </section>

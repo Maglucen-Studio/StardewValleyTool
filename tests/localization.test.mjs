@@ -106,7 +106,7 @@ test("desktop and renderer keep the Companion locale synchronized", async () => 
   const [provider, layout, page, styles, preload, desktop, development, setup, setupScript] = await Promise.all([
     readFile(new URL("../app/i18n.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/dashboard/ui.tsx", import.meta.url), "utf8").then(async (ui) => ui + await readFile(new URL("../app/page.tsx", import.meta.url), "utf8")),
+    readFile(new URL("../app/dashboard/ui.tsx", import.meta.url), "utf8").then(async (ui) => ui + await readFile(new URL("../app/page.tsx", import.meta.url), "utf8") + await readFile(new URL("../app/dashboard/use-dashboard-session.ts", import.meta.url), "utf8")),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../desktop/preload.cjs", import.meta.url), "utf8"),
     readFile(new URL("../desktop/main.mjs", import.meta.url), "utf8"),

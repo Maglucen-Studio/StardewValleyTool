@@ -25,7 +25,18 @@ export const normalizeObjectId = (id?: string | null) => qualifyItemId(id, "obje
 export const inventoryItemId = (item: Pick<ItemArtwork, "id" | "spriteKind">) =>
   qualifyItemId(item.id, item.spriteKind || "object");
 
-export function sameInventoryIdentity(left: Pick<ItemArtwork, "id" | "spriteKind">, right: Pick<ItemArtwork, "id" | "spriteKind">) {
-  const id = inventoryItemId(left);
-  return Boolean(id) && id === inventoryItemId(right);
+export function sameInventoryIdentity(left: Partial<Pick<ItemArtwork, "id" | "spriteKind">>, right: Partial<Pick<ItemArtwork, "id" | "spriteKind">>) {
+  const id = qualifyItemId(left.id, left.spriteKind);
+  return Boolean(id) && id === qualifyItemId(right.id, right.spriteKind);
+}
+
+export function inventoryQuantity(items: (Partial<Pick<ItemArtwork, "id" | "spriteKind">> & { count: number })[], id?: string) {
+  return items.filter((item) => sameInventoryIdentity(item, { id }))
+    .reduce((total, item) => total + item.count, 0);
+}
+
+export function inventoryToolTier(items: Partial<Pick<ItemArtwork, "id" | "spriteKind">>[], toolId: string) {
+  // Data/Tools keys from the installed game; these are identifiers, not labels.
+  return ["", "Copper", "Steel", "Gold", "Iridium"].reduce((highest, prefix, tier) =>
+    items.some((item) => sameInventoryIdentity(item, { id: `(T)${prefix}${toolId}` })) ? tier : highest, 0);
 }

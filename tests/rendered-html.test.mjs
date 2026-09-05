@@ -344,7 +344,7 @@ test("map layers collapse and interiors use an interactive sprite canvas", async
   );
   assert.match(page, /drawBuildingSprite\(ctx, sprites, suggestion\)/);
   assert.match(page, /drawBuildingSprite\(ctx, sprites, building\)/);
-  assert.match(page, /if \(activeView === "map"\) draw\(\)/);
+  assert.match(page, /if \(activeView !== "map"\) return; draw\(\)/);
   assert.match(page, /useState<Record<string, HTMLImageElement>>\(\{\}\)/);
   assert.match(page, /window\.setTimeout\(\(\) => finish\(null\), 8000\)/);
   assert.match(
@@ -370,7 +370,7 @@ test("map layers collapse and interiors use an interactive sprite canvas", async
   assert.match(page, /hasCenteredFarmRef/);
   assert.match(
     page,
-    /requestAnimationFrame\(\(\) => window\.requestAnimationFrame\(draw\),?\s*\)/,
+    /secondFrame = window\.requestAnimationFrame\(draw\)/,
   );
   assert.match(styles, /\.workspace\.layers-collapsed/);
   assert.match(styles, /\.workspace\.view-hidden \{ display: none; \}/);
@@ -689,8 +689,8 @@ test("farm history is checkpointed, backed up, and recovered across migrations",
   assert.match(bridge, /"pending\.checkpoint"/);
   assert.match(bridge, /keepBackup: true/);
   assert.match(bridge, /farmName = player\.farmName\.Value/);
-  assert.equal(JSON.parse(sourceManifest).Version, "5.1.0");
-  assert.equal(JSON.parse(bundledManifest).Version, "5.1.0");
+  assert.equal(JSON.parse(sourceManifest).Version, "5.1.2");
+  assert.equal(JSON.parse(bundledManifest).Version, "5.1.2");
 });
 
 test("farm switching isolates previous-day, history, and LIVE state by profile", async () => {
@@ -765,7 +765,7 @@ test("live mode avoids recursive copies and recovers from missed filesystem even
   );
   assert.match(localServer, /setInterval\(copyLiveState, 1000\)\.unref\(\)/);
   assert.match(localServer, /sourceStats\.mtimeMs/);
-  assert.match(page, /if \(document\.hidden\) return Promise\.resolve\(\)/);
+  assert.match(page, /if \(document\.hidden \|\| loading\) return Promise\.resolve\(\)/);
   assert.match(page, /previous\.updatedAt === next\.updatedAt/);
   assert.match(bridge, /refreshSlowState: liveTicks % 5 == 0/);
   assert.match(bridge, /ToUnixTimeMilliseconds\(\) \/ 4000 \* 4000/);
@@ -1424,7 +1424,7 @@ test("qualified item identities cannot confuse objects with big craftables", asy
 
 test("farm proposals may replace natural features but not placed machines", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /object\.kind === "Litter" \|\| object\.name === "Artifact Spot"/);
+  assert.match(page, /\["590", "\(O\)590"\]\.includes\(object\.id\)/);
   assert.match(page, /\["Tree", "FruitTree"\]\.includes\(feature\.kind\)/);
   assert.match(page, /t\("map\.error\.placedObject"\)/);
   assert.doesNotMatch(page, /Trees or crops must be removed first/);

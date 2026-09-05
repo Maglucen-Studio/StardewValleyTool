@@ -387,7 +387,16 @@ export function useFarmCanvas({ canvasRef, base, hover, mapData, localSuggestion
   ]);
 
   useEffect(() => {
-    if (activeView === "map") draw();
+    if (activeView !== "map") return;
+    draw();
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(draw);
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
   }, [activeView, draw, mapLocation]);
   return draw;
 }

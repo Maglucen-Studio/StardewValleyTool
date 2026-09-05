@@ -1,4 +1,7 @@
 "use client";
+import { sameInventoryIdentity } from "./identity";
+
+import { formatNumber, formatDecimal } from "./formatting";
 
 import { useI18n } from "../i18n";
 import { useState } from "react";
@@ -319,8 +322,8 @@ export function DailyBriefView({
     ? [
         {
           label: t("today.change.balance"),
-          value: `${current.money - previous.money >= 0 ? "+" : ""}${(current.money - previous.money).toLocaleString("en-US")}g`,
-          detail: t("today.change.balanceDetail", { earned: (currentEconomy?.income || 0).toLocaleString(locale), spent: (currentEconomy?.spending || 0).toLocaleString(locale) }),
+          value: `${current.money - previous.money >= 0 ? "+" : ""}${formatNumber((current.money - previous.money), locale)}g`,
+          detail: t("today.change.balanceDetail", { earned: formatNumber((currentEconomy?.income || 0), locale), spent: formatNumber((currentEconomy?.spending || 0), locale) }),
           tone: current.money >= previous.money ? "positive" : "negative",
         },
         {
@@ -413,8 +416,7 @@ export function DailyBriefView({
   );
   const routeFish = routeFishingQuest
     ? current.fishingBrief.fish.find((fish) =>
-        fish.id === String(routeFishingQuest.requestedId || "").replace(/^\(O\)/, "") ||
-        fish.name === routeFishingQuest.requestedName)
+        sameInventoryIdentity(fish, { id: String(routeFishingQuest.requestedId || "") }))
     : undefined;
   const fishingRouteOpportunity = fishingQuestRouteStop(routeFish, {
     season: live.active ? live.season || current.season : current.season,
@@ -822,10 +824,10 @@ export function DailyBriefView({
   const sessionChanges = sessionBaseline
     ? [
         currentSession.money !== sessionBaseline.money
-          ? t("today.session.balance", { amount: `${currentSession.money - sessionBaseline.money >= 0 ? "+" : ""}${(currentSession.money - sessionBaseline.money).toLocaleString(locale)}` })
+          ? t("today.session.balance", { amount: `${currentSession.money - sessionBaseline.money >= 0 ? "+" : ""}${formatNumber((currentSession.money - sessionBaseline.money), locale)}` })
           : null,
         currentSession.totalMoneyEarned !== sessionBaseline.totalMoneyEarned
-          ? t("today.session.earned", { amount: Math.max(0, currentSession.totalMoneyEarned - sessionBaseline.totalMoneyEarned).toLocaleString(locale) })
+          ? t("today.session.earned", { amount: formatNumber(Math.max(0, currentSession.totalMoneyEarned - sessionBaseline.totalMoneyEarned), locale) })
           : null,
         currentSession.readyCrops !== sessionBaseline.readyCrops
           ? t("today.session.readyCrops", { count: `${currentSession.readyCrops - sessionBaseline.readyCrops >= 0 ? "+" : ""}${currentSession.readyCrops - sessionBaseline.readyCrops}` })
@@ -947,7 +949,7 @@ export function DailyBriefView({
             <strong>{text(brief.luck.advice)}</strong>
             <span>
               {brief.luck.value > 0 ? "+" : ""}
-              {brief.luck.value.toFixed(3)}
+              {formatDecimal(brief.luck.value, locale, 3)}
             </span>
             {brief.luck.recommendations.map((item, index) => (
               <p key={index}>{text(item)}</p>
@@ -1043,7 +1045,7 @@ export function DailyBriefView({
                     : displayedQuest.accepted
                       ? t("today.quest.acceptedDays", { days: displayedQuest.daysLeft })
                       : t("today.quest.availablePierre")}{" "}
-                  · {displayedQuest.reward.toLocaleString(locale)}g
+                  · {formatNumber(displayedQuest.reward, locale)}g
                 </p>
                 <p
                   className={
@@ -1255,7 +1257,7 @@ export function DailyBriefView({
                     </div>
                     {acceptedQuest.reward > 0 && (
                       <strong>
-                        {acceptedQuest.reward.toLocaleString(locale)}g
+                        {formatNumber(acceptedQuest.reward, locale)}g
                       </strong>
                     )}
                   </div>

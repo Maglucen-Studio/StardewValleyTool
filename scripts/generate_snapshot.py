@@ -432,6 +432,13 @@ KNOWN_ITEM_IDS = {
     "Dragon Tooth": "852",
     "Banana": "91",
     "Fiber": "771",
+    "Clam": "372",
+    "Clay": "330",
+    "Coral": "393",
+    "Green Algae": "153",
+    "Refined Quartz": "338",
+    "Seaweed": "152",
+    "Starfruit": "268",
 }
 
 SEASON_CROP_PLANS = {
@@ -627,7 +634,11 @@ def saved_objects(location: ET.Element) -> list[dict]:
             "ready": ready,
             "processing": bool(output and not ready and minutes > 0),
             "output": output,
+            "outputId": qualified_item_id(held_object.findtext("itemId", held_object.findtext("parentSheetIndex", "")), "craftable" if bool_value(held_object, "bigCraftable") else "object") if held_object is not None else None,
+            "outputVariant": held_object.findtext("preservedParentSheetIndex") if held_object is not None else None,
+            "inputVariant": last_input.findtext("preservedParentSheetIndex") if last_input is not None else None,
             "input": last_input.findtext("name") if last_input is not None else None,
+            "inputId": qualified_item_id(last_input.findtext("itemId", last_input.findtext("parentSheetIndex", "")), "craftable" if bool_value(last_input, "bigCraftable") else "object") if last_input is not None else None,
             "minutesUntilReady": minutes,
             "readyInDays": math.ceil(minutes / 1440) if output and not ready and minutes > 0 else 0,
             "color": color,
@@ -1147,9 +1158,10 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
     available = inventory_items(root, player, locations, game_data)
     gift_tastes = game_data.get("giftTastes", {})
     modded_characters = game_data.get("moddedCharacters", {})
-    counts: dict[str, int] = {}
+    inventory_by_id: dict[str, int] = {}
     for item in available:
-        counts[item["name"]] = counts.get(item["name"], 0) + item["count"]
+        item_id = qualified_item_id(item.get("id", ""), item.get("spriteKind", "object"))
+        inventory_by_id[item_id] = inventory_by_id.get(item_id, 0) + item["count"]
 
     farm = next((location for location in locations if location.findtext("name") == "Farm"), None)
     placed_buildings: dict[str, int] = {}
@@ -1195,7 +1207,10 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
 
     buildings = []
     for plan in BUILDING_PLANS:
-        materials = [{"name": name, "owned": counts.get(name, 0), "needed": needed} for name, needed in plan["materials"].items()]
+        materials = [{
+            "id": qualified_item_id(KNOWN_ITEM_IDS.get(name, "")), "name": name,
+            "owned": inventory_by_id.get(qualified_item_id(KNOWN_ITEM_IDS.get(name, "")), 0), "needed": needed,
+        } for name, needed in plan["materials"].items()]
         save_name = plan.get("saveName", plan["name"])
         owned, completed, prerequisite_met = building_progress(plan["name"], save_name)
         if plan["name"] == "Pam's House":
@@ -1220,10 +1235,6 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
             "affordable": money >= plan["money"] and all(item["owned"] >= item["needed"] for item in materials),
         })
 
-    inventory_by_id: dict[str, int] = {}
-    for item in available:
-        item_id = qualified_item_id(item.get("id", ""))
-        inventory_by_id[item_id] = inventory_by_id.get(item_id, 0) + item["count"]
     for entry in game_data.get("productionCatalog", {}).get("buildings", []):
         if not entry.get("modded"):
             continue
@@ -1283,6 +1294,12 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
     friendships.sort(key=lambda entry: (entry["daysToBirthday"] if entry["daysToBirthday"] is not None else 999, entry["points"]))
 
     machine_counts: dict[str, dict] = {}
+    def add_machine_product(products: dict, name: str, item_id: str | None, variant: str | None):
+        identity = qualified_item_id(item_id) if item_id else ""
+        variant = qualified_item_id(variant) if variant else ""
+        key = (identity, variant) if identity else ("legacy", name)
+        product = products.setdefault(key, {**({"id": identity} if identity else {}), **({"variant": variant} if variant else {}), "name": name, "count": 0})
+        product["count"] += 1
     for obj in objects:
         if not is_production_machine(obj):
             continue
@@ -1301,12 +1318,12 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
             entry["locations"].add(obj["location"])
         output = obj.get("output")
         if output and obj.get("ready"):
-            entry["readyOutputs"][output] = entry["readyOutputs"].get(output, 0) + 1
+            add_machine_product(entry["readyOutputs"], output, obj.get("outputId"), obj.get("outputVariant"))
         elif output and obj.get("processing"):
-            entry["workingOutputs"][output] = entry["workingOutputs"].get(output, 0) + 1
+            add_machine_product(entry["workingOutputs"], output, obj.get("outputId"), obj.get("outputVariant"))
         machine_input = obj.get("input")
         if machine_input and obj.get("processing"):
-            entry["inputs"][machine_input] = entry["inputs"].get(machine_input, 0) + 1
+            add_machine_product(entry["inputs"], machine_input, obj.get("inputId"), obj.get("inputVariant"))
         minutes = obj.get("minutesUntilReady", 0)
         if obj.get("processing") and minutes > 0:
             entry["nextReadyMinutes"] = minutes if entry["nextReadyMinutes"] is None else min(entry["nextReadyMinutes"], minutes)
@@ -1314,9 +1331,9 @@ def planning_brief(root: ET.Element, player: ET.Element, locations: ET.Element, 
     for entry in sorted(machine_counts.values(), key=lambda item: item["name"]):
         machines.append({
             **entry,
-            "readyOutputs": [{"name": name, "count": count} for name, count in sorted(entry["readyOutputs"].items())],
-            "workingOutputs": [{"name": name, "count": count} for name, count in sorted(entry["workingOutputs"].items())],
-            "inputs": [{"name": name, "count": count} for name, count in sorted(entry["inputs"].items())],
+            "readyOutputs": sorted(entry["readyOutputs"].values(), key=lambda item: (item["name"], item.get("id", ""))),
+            "workingOutputs": sorted(entry["workingOutputs"].values(), key=lambda item: (item["name"], item.get("id", ""))),
+            "inputs": sorted(entry["inputs"].values(), key=lambda item: (item["name"], item.get("id", ""))),
             "locations": sorted(entry["locations"]),
         })
     pet_node = next((node for node in root.iter() if node.find("friendshipTowardFarmer") is not None), None)
@@ -2218,18 +2235,7 @@ def museum_brief(root: ET.Element, player: ET.Element, progress: dict) -> dict:
     }
 
 
-def read_snapshot(save_path: Path) -> dict:
-    root = ET.parse(save_path).getroot()
-    player = root.find("player")
-    if player is None:
-        raise ValueError("The save does not contain a player")
-    locations = root.find("locations")
-    if locations is None:
-        raise ValueError("The save does not contain locations")
-    farm = next(location for location in locations if location.findtext("name") == "Farm")
-
-    objects = saved_objects(farm)
-
+def saved_terrain(farm: ET.Element) -> list[dict]:
     terrain = []
     terrain_nodes = farm.find("terrainFeatures")
     for item in terrain_nodes if terrain_nodes is not None else []:
@@ -2253,8 +2259,11 @@ def read_snapshot(save_path: Path) -> dict:
         elif kind == "HoeDirt":
             entry["watered"] = number(feature, "state") > 0
             crop = feature.find("crop")
-            if crop is not None:
+            if crop is not None and crop.attrib.get("{http://www.w3.org/2001/XMLSchema-instance}nil") != "true":
                 entry["crop"] = crop.findtext("netSeedIndex", crop.findtext("indexOfHarvest", "Crop"))
+                entry["hasCrop"] = True
+                entry["cropSeedId"] = qualified_item_id(crop.findtext("netSeedIndex", "")) or None
+                entry["cropHarvestId"] = qualified_item_id(crop.findtext("indexOfHarvest", "")) or None
                 entry["phase"] = number(crop, "currentPhase")
                 entry["cropRow"] = number(crop, "rowInSpriteSheet")
                 entry["flip"] = crop.findtext("flip", "false") == "true"
@@ -2263,6 +2272,22 @@ def read_snapshot(save_path: Path) -> dict:
             entry["stage"] = number(feature, "growthStage")
             entry["treeId"] = feature.findtext("treeId", "")
         terrain.append(entry)
+    return terrain
+
+
+def read_snapshot(save_path: Path) -> dict:
+    root = ET.parse(save_path).getroot()
+    player = root.find("player")
+    if player is None:
+        raise ValueError("The save does not contain a player")
+    locations = root.find("locations")
+    if locations is None:
+        raise ValueError("The save does not contain locations")
+    farm = next(location for location in locations if location.findtext("name") == "Farm")
+
+    objects = saved_objects(farm)
+
+    terrain = saved_terrain(farm)
 
     buildings = []
     building_nodes = farm.find("buildings")
