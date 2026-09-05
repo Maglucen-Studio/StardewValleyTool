@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
-import { readFile as readRawFile } from "node:fs/promises";
+import { readFile as readRawFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import { furnitureDestination } from "../app/furniture-layout.mjs";
 import { isForegroundMapLayer } from "../scripts/render-community-rooms.mjs";
 
 async function readFile(path, encoding) {
-  const source = await readRawFile(path, encoding);
+  let source = await readRawFile(path, encoding);
+  if (path instanceof URL && path.pathname.endsWith("/app/page.tsx")) {
+    const directory = new URL("../app/dashboard/", import.meta.url);
+    const names = (await readdir(directory)).filter((name) => /\.tsx?$/.test(name)).sort();
+    source += "\n" + (await Promise.all(names.map((name) => readRawFile(new URL(name, directory), encoding)))).join("\n");
+  }
   const pathname = path instanceof URL ? path.pathname : String(path);
   if (!/\.(?:tsx|css)$/.test(pathname)) return source;
   return source.replace(/>\s+</g, "><").replace(/\s+/g, " ");
@@ -76,7 +81,7 @@ test("furniture sprites anchor to the bottom of their saved collision footprint"
 
   const [generator, page] = await Promise.all([
     readRawFile(new URL("../scripts/generate_snapshot.py", import.meta.url), "utf8"),
-    readRawFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(generator, /item\.find\("boundingBox"\)/);
   assert.match(generator, /"footprintHeight": footprint_height/);
@@ -93,7 +98,7 @@ test("interior foreground map layers occlude furniture like Stardew Valley", asy
 
   const [renderer, page, styles] = await Promise.all([
     readRawFile(new URL("../scripts/render-storage-location-maps.mjs", import.meta.url), "utf8"),
-    readRawFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readRawFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   assert.match(renderer, /renderLocation\(mapName, season, \{ layered: true \}\)/);
