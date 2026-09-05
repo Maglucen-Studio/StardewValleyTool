@@ -254,10 +254,7 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
     };
   }, []);
 
-  const openProposalMenu = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const point = pointFromEvent(event);
+  const openProposalMenuAt = useCallback((point: Tile, position: Tile) => {
     const proposal = [...localSuggestions].reverse().find(
       (item) =>
         point.x >= item.x &&
@@ -272,15 +269,20 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
     setProposalMenu({
       id: proposal.id,
       name: proposal.name.replace(/^(Proposed|Future|Optional) /, ""),
-      x: event.clientX,
-      y: event.clientY,
+      x: position.x,
+      y: position.y,
     });
-  }, [localSuggestions, pointFromEvent]);
+  }, [localSuggestions]);
+
+  const openProposalMenu = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openProposalMenuAt(pointFromEvent(event), { x: event.clientX, y: event.clientY });
+  }, [openProposalMenuAt, pointFromEvent]);
 
 
-  const handleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+  const activateTile = useCallback((point: Tile, position: Tile) => {
     setProposalMenu(null);
-    const point = pointFromEvent(event);
     setSelected(point);
     if (movingProposalId) {
       const moving = localSuggestions.find((item) => item.id === movingProposalId);
@@ -295,7 +297,7 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
       return;
     }
     if (!proposalEditMode || tool === "inspect") {
-      openProposalMenu(event);
+      openProposalMenuAt(point, position);
       return;
     }
     if (proposalEditMode && tool !== "inspect") {
@@ -321,7 +323,12 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
       ]);
       setTool("inspect");
     }
-  }, [localSuggestions, movingProposalId, openProposalMenu, persist, proposalEditMode, tool, validatePlacement, pointFromEvent]);
+  }, [localSuggestions, movingProposalId, openProposalMenuAt, persist, proposalEditMode, tool, validatePlacement]);
+
+  const handleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    event.stopPropagation();
+    activateTile(pointFromEvent(event), { x: event.clientX, y: event.clientY });
+  }, [activateTile, pointFromEvent]);
 
 
   useEffect(() => {
@@ -331,5 +338,5 @@ export function useFarmEditor(data: Snapshot | null, live: LiveState, activeView
     return () => document.removeEventListener("click", close);
   }, [proposalMenu]);
 
-  return { hover, movingProposalId, mapData, selected, mapLocation, showState, setShowState, showProduction, setShowProduction, proposalStates, showSuggestions, setShowSuggestions, showGrid, setShowGrid, showBlocked, setShowBlocked, proposalEditMode, setProposalEditMode, setTool, setMovingProposalId, tool, proposalUndo, setProposalUndo, localSuggestions, persist, setMapLocation, setSelected, setPlacementError, centerOnFarmhouse, setZoom, zoom, mapViewportRef, canvasRef, setHover, pointFromEvent, handleClick, openProposalMenu, proposalMenu, setProposalMenu, placementError, persistProposalResolutions, proposalResolutions, persistProposalLinks, proposalLinks };
+  return { activateTile, hover, movingProposalId, mapData, selected, mapLocation, showState, setShowState, showProduction, setShowProduction, proposalStates, showSuggestions, setShowSuggestions, showGrid, setShowGrid, showBlocked, setShowBlocked, proposalEditMode, setProposalEditMode, setTool, setMovingProposalId, tool, proposalUndo, setProposalUndo, localSuggestions, persist, setMapLocation, setSelected, setPlacementError, centerOnFarmhouse, setZoom, zoom, mapViewportRef, canvasRef, setHover, pointFromEvent, handleClick, openProposalMenu, proposalMenu, setProposalMenu, placementError, persistProposalResolutions, proposalResolutions, persistProposalLinks, proposalLinks };
 }

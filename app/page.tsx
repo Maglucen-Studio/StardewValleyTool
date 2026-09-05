@@ -1,5 +1,8 @@
 "use client";
+import { AccessibleDialog } from "./dashboard/accessible-dialog";
 
+import { AccessibilitySettings, DashboardTour } from "./dashboard/accessibility";
+import { useMenuKeyboard } from "./dashboard/use-menu-keyboard";
 import { FarmEditorView } from "./dashboard/farm-editor-view";
 import { useDashboardSession } from "./dashboard/use-dashboard-session";
 import { useFarmAssets } from "./dashboard/use-farm-assets";
@@ -55,6 +58,7 @@ export default function Home() {
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const languageSwitchingRef = useRef(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
+  useMenuKeyboard(showLanguageMenu, languageMenuRef);
   const [showHelp, setShowHelp] = useState(false);
   const [releaseNotes, setReleaseNotes] = useState<{
     currentVersion: string;
@@ -230,7 +234,8 @@ export default function Home() {
   useEffect(() => {
     const locate = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target?.closest("button, a, summary, input, select, textarea, [role='button']")) {
+      const interactive = target?.closest("button, a, summary, input, select, textarea, [role='button']");
+      if (interactive && !interactive.hasAttribute("data-storage-item")) {
         return;
       }
       const card = target?.closest<HTMLElement>(
@@ -633,6 +638,7 @@ export default function Home() {
         } as CSSProperties
       }
     >
+      <a className="skip-link" href="#dashboard-content">{t("accessibility.skipContent")}</a>
       {switchingFarm && (
         <div className="farm-switch-feedback" role="status" aria-live="assertive">
           <span className="farm-switch-spinner" aria-hidden="true" />
@@ -913,6 +919,7 @@ export default function Home() {
             <option value={2}>200%</option>
           </select>
         </label>
+        <AccessibilitySettings />
         <div className="language-selector" ref={languageMenuRef}>
           <button
             type="button"
@@ -945,12 +952,12 @@ export default function Home() {
           )}
         </div>
       </header>
+      <DashboardTour navigate={navigateTo} />
       {showAppSearch && (
         <div className="app-search-backdrop" onPointerDown={() => setShowAppSearch(false)}>
-          <section
+          <AccessibleDialog
             className="app-search-dialog"
-            role="dialog"
-            aria-modal="true"
+            onDismiss={() => setShowAppSearch(false)}
             aria-label={t("web.home.searchTheCompanion")}
             onPointerDown={(event) => event.stopPropagation()}
           >
@@ -959,7 +966,7 @@ export default function Home() {
                 <p className="eyebrow">{t("web.home.jumpToAnything")}</p>
                 <h2>{t("web.home.searchTheCompanion")}</h2>
               </div>
-              <kbd>{t("web.home.esc")}</kbd>
+              <button type="button" onClick={() => setShowAppSearch(false)} aria-label={t("accessibility.close")}>×</button>
             </header>
             <input
               ref={appSearchInputRef}
@@ -980,15 +987,14 @@ export default function Home() {
               )}
             </div>
             <footer><kbd>{t("web.home.ctrl")}</kbd> + <kbd>F</kbd>{t("web.home.opensThisSearchFromAnywhere")}</footer>
-          </section>
+          </AccessibleDialog>
         </div>
       )}
       {releaseNotes && (
         <div className="help-backdrop" onPointerDown={closeReleaseNotes}>
-          <section
+          <AccessibleDialog
             className="help-dialog release-notes-dialog"
-            role="dialog"
-            aria-modal="true"
+            onDismiss={closeReleaseNotes}
             aria-labelledby="release-notes-title"
             onPointerDown={(event) => event.stopPropagation()}
           >
@@ -1005,15 +1011,14 @@ export default function Home() {
             <div className="release-notes-actions">
               <button type="button" onClick={closeReleaseNotes}>{t("releaseNotes.continue")}</button>
             </div>
-          </section>
+          </AccessibleDialog>
         </div>
       )}
       {showHelp && (
         <div className="help-backdrop" onPointerDown={() => setShowHelp(false)}>
-          <section
+          <AccessibleDialog
             className="help-dialog"
-            role="dialog"
-            aria-modal="true"
+            onDismiss={() => setShowHelp(false)}
             aria-labelledby="help-title"
             onPointerDown={(event) => event.stopPropagation()}
           >
@@ -1097,7 +1102,7 @@ export default function Home() {
               )}
             </div>
             <ChangelogHistory />
-          </section>
+          </AccessibleDialog>
         </div>
       )}
       {locatedItemName && (
@@ -1134,6 +1139,7 @@ export default function Home() {
         />
       )}
 
+      <div id="dashboard-content" tabIndex={-1} className="content-focus-anchor" />
       <FarmEditorView data={data} live={live} activeView={activeView} base={base} sprites={sprites} />
       {activeView !== "map" &&
         (activeView === "fishing" ? (

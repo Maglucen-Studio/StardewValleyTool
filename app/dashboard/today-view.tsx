@@ -1,4 +1,5 @@
 "use client";
+import { AccessibleDialog } from "./accessible-dialog";
 import { sameInventoryIdentity } from "./identity";
 
 import { formatNumber, formatDecimal } from "./formatting";
@@ -68,10 +69,9 @@ export function DailyBriefModal({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section
+      <AccessibleDialog
         className="daily-modal"
-        role="dialog"
-        aria-modal="true"
+            onDismiss={onClose}
         aria-labelledby="daily-title"
       >
         <button
@@ -161,7 +161,7 @@ export function DailyBriefModal({
             {t("today.brief.viewAgenda")}
           </button>
         </div>
-      </section>
+      </AccessibleDialog>
     </div>
   );
 }
@@ -1292,7 +1292,8 @@ export function DailyBriefView({
                           title={t("storage.clickToLocate", { item: item.displayName || item.name })}
                           key={`${item.name}-${index}`}
                         >
-                          <ItemMentionArtwork name={item.name} />
+              <button type="button" className="locate-item-action" data-storage-item={item.name} aria-label={t("storage.clickToLocateNamed", { name: item.name })}>⌖</button>
+                          <ItemMentionArtwork name={item.name} locatable={false} />
                           <span>{item.count}× {item.displayName || item.name} · {item.sources.join(" · ")}</span>
                         </p>
                       ))}

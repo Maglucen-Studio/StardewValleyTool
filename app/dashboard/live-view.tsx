@@ -1,4 +1,5 @@
 "use client";
+import { AccessibleDialog } from "./accessible-dialog";
 import { formatNumber } from "./formatting";
 
 import { useI18n } from "../i18n";
@@ -141,10 +142,9 @@ export function LiveAlertCenter({
   };
   return (
     <div className="live-alert-backdrop" onPointerDown={onClose}>
-      <section
+      <AccessibleDialog
         className="live-alert-dialog"
-        role="dialog"
-        aria-modal="true"
+            onDismiss={onClose}
         aria-labelledby="live-alert-title"
         onPointerDown={(event) => event.stopPropagation()}
       >
@@ -179,7 +179,7 @@ export function LiveAlertCenter({
           ))}
         </fieldset>
         <small className="dialog-escape-hint">{t("web.liveAlertCenter.clickOutsideOrPressEscToClose")}</small>
-      </section>
+      </AccessibleDialog>
     </div>
   );
 }

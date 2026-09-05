@@ -1,4 +1,5 @@
 "use client";
+import { AccessibleDialog } from "./accessible-dialog";
 import { sameInventoryIdentity } from "./identity";
 
 import { formatNumber } from "./formatting";
@@ -464,6 +465,7 @@ export function GrowthView({
           </div>
           <div
             className="grandpa-shrine"
+            role="img"
             aria-label={t("growth.projectedCandles", { count: projectedCandles })}
           >
             <GrandpaShrineArtwork candles={projectedCandles} />
@@ -639,7 +641,7 @@ export function GrowthView({
           </div>
           <div className="flow-list">
             {entries.slice(-10).map((entry) => (
-              <div className="flow-row" key={entry.dateKey}>
+              <div className="flow-row" key={entry.dateKey} role="group" aria-label={t("accessibility.cashFlow", { income: formatNumber(entry.income, locale), spending: formatNumber(entry.spending, locale) })}>
                 <span>
                   {entry.seasonLabel.slice(0, 3)} {entry.day}
                 </span>
@@ -1222,10 +1224,9 @@ export function AchievementsView({
       </section>}
       {openCollection && openChecklist && (
         <div className="item-locator-backdrop" onPointerDown={() => setOpenCollectionId(null)}>
-          <section
+          <AccessibleDialog
             className="item-locator-dialog collection-detail-dialog"
-            role="dialog"
-            aria-modal="true"
+            onDismiss={() => setOpenCollectionId(null)}
             aria-label={t("collection.missingFor", { collection: openCollection.label })}
             onPointerDown={(event) => event.stopPropagation()}
           >
@@ -1274,7 +1275,7 @@ export function AchievementsView({
             ) : (
               <p className="empty-daily">{t("web.achievements.theExactMissingEntriesAreNotAvailableFromThis")}</p>
             )}
-          </section>
+          </AccessibleDialog>
         </div>
       )}
       {visibleSections.museum && <section className="museum-guide" aria-labelledby="museum-guide-title" style={{ order: sectionOrder.indexOf("museum") + 1 }}>
@@ -1452,6 +1453,7 @@ export function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
     const canvas = ref.current;
     if (!canvas || !entries.length) return;
     const draw = () => {
+    const highContrast = document.documentElement.dataset.highContrast === "true";
     const chartWidth = Math.max(320, canvas.clientWidth || width);
     const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
     const backingWidth = Math.round(chartWidth * pixelRatio);
@@ -1464,7 +1466,7 @@ export function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
     ctx.clearRect(0, 0, chartWidth, height);
     ctx.font = "12px Arial";
     ctx.textAlign = "right";
-    ctx.fillStyle = "#817560";
+    ctx.fillStyle = highContrast ? "#111" : "#817560";
     const maximum = Math.max(
       1,
       ...entries.flatMap((entry) => [entry.money, entry.totalMoneyEarned]),
@@ -1483,7 +1485,8 @@ export function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
       );
     }
     const paint = (key: "money" | "totalMoneyEarned", color: string) => {
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = highContrast ? "#111" : color;
+      ctx.setLineDash(key === "totalMoneyEarned" ? [8, 5] : []);
       ctx.lineWidth = 3;
       ctx.beginPath();
       entries.forEach((entry, index) => {
@@ -1496,15 +1499,16 @@ export function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
           (height - pad.top - pad.bottom) * (1 - entry[key] / maximum);
         if (!index) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
-        ctx.fillStyle = color;
+        ctx.fillStyle = highContrast ? "#111" : color;
         ctx.fillRect(x - 2.5, y - 2.5, 5, 5);
       });
       ctx.stroke();
+      ctx.setLineDash([]);
     };
     paint("totalMoneyEarned", "#d39a35");
     paint("money", "#557b4d");
     ctx.textAlign = "center";
-    ctx.fillStyle = "#817560";
+    ctx.fillStyle = highContrast ? "#111" : "#817560";
     const labels =
       entries.length > 7
         ? entries.filter(
@@ -1549,7 +1553,7 @@ export function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
         ctx.fillStyle = "#fff9ed";
         ctx.fill();
         ctx.lineWidth = 3;
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = highContrast ? "#111" : color;
         ctx.stroke();
       });
     }
@@ -1557,7 +1561,9 @@ export function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
     draw();
     const observer = new ResizeObserver(draw);
     observer.observe(canvas);
-    return () => observer.disconnect();
+    const appearance = new MutationObserver(draw);
+    appearance.observe(document.documentElement, { attributes: true, attributeFilter: ["data-high-contrast", "style"] });
+    return () => { observer.disconnect(); appearance.disconnect(); };
   }, [entries, hoverIndex, pad.bottom, pad.left, pad.right, pad.top]);
   const selectNearest = (clientX: number) => {
     const canvas = ref.current;
@@ -1575,6 +1581,7 @@ export function EconomyChart({ entries }: { entries: HistoryEntry[] }) {
     <div className="economy-chart-wrap">
       <canvas
         className="economy-chart"
+        role="img"
         ref={ref}
         width={width}
         height={height}
