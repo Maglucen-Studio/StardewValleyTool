@@ -6,6 +6,7 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  Notification,
   screen,
   shell,
   Tray,
@@ -32,6 +33,12 @@ import {
 } from "../scripts/localization.mjs";
 import { releaseNotesDecision } from "./release-notes.mjs";
 import { scanModCompatibility } from "../scripts/mod-compatibility.mjs";
+import {
+  deriveLocalAlertCandidates,
+  isQuietHour,
+  normalizeLocalAlertSettings,
+  selectLocalAlerts,
+} from "./local-alerts.mjs";
 
 const desktopDevelopment = process.env.STARDEW_TOOL_DESKTOP_DEV === "1";
 const APP_ID = "io.github.maglucenstudio.stardewvalleycompanion";
@@ -62,6 +69,8 @@ let farmSwitching = false;
 let manualFarmSelectionDuringGame = null;
 let resolvedSourcePython = null;
 let updateState = { status: "idle", currentVersion: app.getVersion() };
+let localAlertTimer = null;
+let localAlertState = {};
 const backendToken = randomBytes(32).toString("hex");
 const localServiceHost = desktopDevelopment ? "localhost" : "127.0.0.1";
 
@@ -174,6 +183,83 @@ function migrateLegacyDesktopData(target) {
 
 function readConfig() {
   return readJson(configPath, null);
+}
+
+function localAlertStatePath() {
+  return join(desktopDataRoot, "local-alert-state.json");
+}
+
+function notificationContent(candidate, config) {
+  const t = desktopTranslator(config);
+  if (candidate.category === "machines")
+    return { title: t("alert.machinesReady", { count: candidate.count }), body: t("notification.machinesDetail") };
+  if (candidate.category === "crops")
+    return { title: t("alert.cropsReady", { count: candidate.count }), body: t("notification.cropsDetail") };
+  if (candidate.category === "birthdays")
+    return { title: t("alert.birthday", { person: candidate.person }), body: t("notification.birthdayDetail") };
+  if (candidate.category === "deadlines")
+    return { title: t("notification.deadlines", { count: candidate.count }), body: t("notification.deadlinesDetail") };
+  if (candidate.category === "fishing")
+    return { title: t("notification.fishing", { count: candidate.count }), body: t("notification.fishingDetail") };
+  if (candidate.category === "events")
+    return { title: t("notification.event", { event: candidate.event }), body: t("notification.eventDetail") };
+  if (candidate.category === "energy")
+    return { title: t("alert.lowEnergy"), body: t("notification.energyDetail", { current: candidate.energy, max: candidate.maxEnergy }) };
+  if (candidate.category === "tool")
+    return { title: t("alert.toolReady"), body: t("notification.toolDetail") };
+  return { title: t("alert.bundleDeliveries", { count: candidate.count }), body: t("notification.bundlesDetail") };
+}
+
+function openAlertTarget(target) {
+  const send = () => mainWindow?.webContents.send("alerts:navigate", target);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    revealWindow(mainWindow);
+    send();
+    return;
+  }
+  createLoadingWindow();
+  createDashboard().then(send).catch(showFatal);
+}
+
+function scanLocalAlerts() {
+  const config = readConfig();
+  if (!validConfig(config) || config.closeToTray === false) return;
+  const settings = normalizeLocalAlertSettings(config.alertSettings);
+  const now = Date.now();
+  const live = readJson(join(runtimeRoot, "public", "data", "live-state.json"), null);
+  const snapshot = readJson(join(runtimeRoot, "public", "data", "farm-state.json"), null);
+  const candidates = deriveLocalAlertCandidates(live, snapshot, now);
+  const foreground = Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isMinimized());
+  const result = selectLocalAlerts({
+    candidates,
+    settings,
+    state: localAlertState,
+    now,
+    quiet: isQuietHour(settings) || foreground,
+  });
+  localAlertState = result.state;
+  mkdirSync(dirname(localAlertStatePath()), { recursive: true });
+  writeFileSync(localAlertStatePath(), JSON.stringify(localAlertState, null, 2), "utf8");
+  if (!Notification.isSupported()) return;
+  for (const candidate of result.alerts) {
+    const notification = new Notification({ ...notificationContent(candidate, config), silent: false });
+    notification.on("click", () => openAlertTarget(candidate.target));
+    notification.show();
+  }
+}
+
+function startLocalAlerts() {
+  if (localAlertTimer) return;
+  localAlertState = readJson(localAlertStatePath(), {});
+  scanLocalAlerts();
+  localAlertTimer = setInterval(scanLocalAlerts, 2000);
+  localAlertTimer.unref();
+}
+
+function stopLocalAlerts() {
+  if (localAlertTimer) clearInterval(localAlertTimer);
+  localAlertTimer = null;
+  localAlertState = {};
 }
 
 function releaseNotesStatePath() {
@@ -1572,6 +1658,7 @@ function installIpc() {
       autoLaunch: app.isPackaged && incoming?.autoLaunch !== false,
       closeToTray: incoming?.closeToTray !== false,
       autoFollowActiveSave: incoming?.autoFollowActiveSave !== false,
+      alertSettings: normalizeLocalAlertSettings(incoming?.alertSettings),
       languageMode: ["game", "en", "es"].includes(incoming?.languageMode)
         ? incoming.languageMode
         : "game",
@@ -1582,6 +1669,8 @@ function installIpc() {
     if (!validConfig(config)) throw new Error(desktopTranslator(config)("setup.invalid"));
     mkdirSync(dirname(configPath), { recursive: true });
     writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    stopLocalAlerts();
+    if (config.closeToTray !== false) startLocalAlerts();
     publishLocalizationState(config);
     Menu.setApplicationMenu(createApplicationMenu());
     if (tray) {
@@ -1654,6 +1743,7 @@ else {
       }, testExitMs).unref();
     const activeConfig = readConfig();
     if (!validConfig(activeConfig)) return createSetupWindow();
+    if (activeConfig.closeToTray !== false) startLocalAlerts();
     if (app.isPackaged && activeConfig.autoLaunch !== false)
       app.setLoginItemSettings({
         openAtLogin: true,
@@ -1675,6 +1765,7 @@ else {
 
 app.on("before-quit", () => {
   quitting = true;
+  stopLocalAlerts();
   if (backend && !backend.killed) backend.kill();
 });
 app.on("window-all-closed", () => {
