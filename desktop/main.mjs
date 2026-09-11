@@ -242,7 +242,11 @@ function scanLocalAlerts() {
   writeFileSync(localAlertStatePath(), JSON.stringify(localAlertState, null, 2), "utf8");
   if (!Notification.isSupported()) return;
   for (const candidate of result.alerts) {
-    const notification = new Notification({ ...notificationContent(candidate, config), silent: false });
+    const notification = new Notification({
+      ...notificationContent(candidate, config),
+      icon: join(workRoot, "desktop", "resources", "icon.png"),
+      silent: false,
+    });
     notification.on("click", () => openAlertTarget(candidate.target));
     notification.show();
   }
