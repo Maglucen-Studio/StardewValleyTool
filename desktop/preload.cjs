@@ -37,6 +37,11 @@ contextBridge.exposeInMainWorld("stardewDesktop", {
     ipcRenderer.on("navigation:history", listener);
     return () => ipcRenderer.removeListener("navigation:history", listener);
   },
+  onAlertNavigate: callback => {
+    const listener = (_event, target) => callback(target);
+    ipcRenderer.on("alerts:navigate", listener);
+    return () => ipcRenderer.removeListener("alerts:navigate", listener);
+  },
   getSetupState: () => ipcRenderer.invoke("setup:get-state"),
   chooseGame: () => ipcRenderer.invoke("setup:choose-game"),
   chooseSave: () => ipcRenderer.invoke("setup:choose-save"),
@@ -47,6 +52,7 @@ contextBridge.exposeInMainWorld("stardewDesktop", {
     autoLaunch: config?.autoLaunch !== false,
     closeToTray: config?.closeToTray !== false,
     autoFollowActiveSave: config?.autoFollowActiveSave !== false,
+    alertSettings: config?.alertSettings || {},
     languageMode: ["game", "en", "es"].includes(config?.languageMode)
       ? config.languageMode
       : "game",

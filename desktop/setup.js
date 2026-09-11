@@ -108,6 +108,15 @@ api.getSetupState().then(state => {
   document.querySelector("#auto-launch").checked = state.config?.autoLaunch !== false;
   document.querySelector("#close-to-tray").checked = state.config?.closeToTray !== false;
   document.querySelector("#follow-active-save").checked = state.config?.autoFollowActiveSave !== false;
+  const alertSettings = state.config?.alertSettings || {};
+  document.querySelector("#alerts-enabled").checked = alertSettings.enabled === true;
+  document.querySelectorAll("[data-alert-category]").forEach(element => {
+    element.checked = alertSettings.categories?.[element.dataset.alertCategory] !== false;
+  });
+  document.querySelector("#quiet-hours-enabled").checked = alertSettings.quietHours?.enabled === true;
+  document.querySelector("#quiet-hours-start").value = alertSettings.quietHours?.start || "22:00";
+  document.querySelector("#quiet-hours-end").value = alertSettings.quietHours?.end || "08:00";
+  document.querySelector("#alerts-cooldown").value = String(alertSettings.cooldownMinutes || 30);
   document.querySelector(".smapi-links").hidden = state.smapiDetected;
   applyLanguage(languageMode.value);
 });
@@ -146,6 +155,16 @@ document.querySelector("#setup-form").addEventListener("submit", async event => 
       autoLaunch: document.querySelector("#auto-launch").checked,
       closeToTray: document.querySelector("#close-to-tray").checked,
       autoFollowActiveSave: document.querySelector("#follow-active-save").checked,
+      alertSettings: {
+        enabled: document.querySelector("#alerts-enabled").checked,
+        categories: Object.fromEntries([...document.querySelectorAll("[data-alert-category]")].map(element => [element.dataset.alertCategory, element.checked])),
+        quietHours: {
+          enabled: document.querySelector("#quiet-hours-enabled").checked,
+          start: document.querySelector("#quiet-hours-start").value,
+          end: document.querySelector("#quiet-hours-end").value,
+        },
+        cooldownMinutes: Number(document.querySelector("#alerts-cooldown").value),
+      },
     });
   } catch (error) {
     progress.textContent = error.message || String(error);

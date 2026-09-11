@@ -41,6 +41,25 @@
       <label class="checkbox"><input id="auto-launch" type="checkbox" checked><span><b data-i18n="setup.trackAutomatically">Track automatically</b><small data-i18n="setup.trackAutomaticallyHelp">Start quietly with Windows and update the farm whenever Stardew Valley runs. The dashboard stays closed until you open it.</small></span></label>
       <label class="checkbox"><input id="close-to-tray" type="checkbox" checked><span><b data-i18n="setup.keepTray">Keep running in the system tray</b><small data-i18n="setup.keepTrayHelp">Closing the dashboard hides it while tracking continues. Turn this off to quit the companion completely when you close its window.</small></span></label>
       <label class="checkbox"><input id="follow-active-save" type="checkbox" checked><span><b data-i18n="setup.followFarm">Follow the farm opened in Stardew</b><small data-i18n="setup.followFarmHelp">When another save starts producing fresh LIVE data, switch the dashboard to that farm automatically. Histories and proposals remain separate.</small></span></label>
+      <fieldset id="local-alert-settings">
+        <legend data-i18n="setup.localAlerts">Windows alerts</legend>
+        <label class="checkbox"><input id="alerts-enabled" type="checkbox"><span><b data-i18n="setup.localAlertsEnabled">Show Windows alerts while Companion is in the tray</b><small data-i18n="setup.localAlertsEnabledHelp">Alerts use LIVE data from this computer only. Closing Companion completely stops them.</small></span></label>
+        <div class="alert-categories">
+          <label><input data-alert-category="machines" type="checkbox" checked><span data-i18n="alert.setting.machines">Machines ready</span></label>
+          <label><input data-alert-category="crops" type="checkbox" checked><span data-i18n="alert.setting.crops">Crops ready</span></label>
+          <label><input data-alert-category="birthdays" type="checkbox" checked><span data-i18n="alert.setting.birthdays">Birthdays</span></label>
+          <label><input data-alert-category="deadlines" type="checkbox" checked><span data-i18n="alert.setting.deadlines">Quest deadlines</span></label>
+          <label><input data-alert-category="fishing" type="checkbox" checked><span data-i18n="setup.alertFishing">Fish windows closing</span></label>
+          <label><input data-alert-category="events" type="checkbox" checked><span data-i18n="setup.alertEvents">Festival reminders</span></label>
+          <label><input data-alert-category="energy" type="checkbox" checked><span data-i18n="alert.setting.energy">Low energy</span></label>
+          <label><input data-alert-category="tool" type="checkbox" checked><span data-i18n="alert.setting.tool">Tool pickup</span></label>
+          <label><input data-alert-category="bundles" type="checkbox" checked><span data-i18n="alert.setting.bundles">Bundle deliveries</span></label>
+        </div>
+        <label class="checkbox"><input id="quiet-hours-enabled" type="checkbox"><span><b data-i18n="setup.quietHours">Quiet hours</b><small data-i18n="setup.quietHoursHelp">New alerts are held back during this period.</small></span></label>
+        <div class="alert-times"><label for="quiet-hours-start" data-i18n="setup.quietStart">From</label><input id="quiet-hours-start" type="time" value="22:00"><label for="quiet-hours-end" data-i18n="setup.quietEnd">To</label><input id="quiet-hours-end" type="time" value="08:00"></div>
+        <label for="alerts-cooldown" data-i18n="setup.alertCooldown">Minimum time between similar alerts</label>
+        <select id="alerts-cooldown"><option value="5" data-i18n="setup.minutes5">5 minutes</option><option value="15" data-i18n="setup.minutes15">15 minutes</option><option value="30" data-i18n="setup.minutes30">30 minutes</option><option value="60" data-i18n="setup.minutes60">1 hour</option><option value="120" data-i18n="setup.minutes120">2 hours</option></select>
+      </fieldset>
       <aside class="live-note"><b data-i18n="setup.liveHow">How LIVE works</b><span data-i18n="setup.liveDescription">If SMAPI is already installed, this setup adds the included Maglucen Companion Bridge to the game's Mods folder. It does not download or install SMAPI itself.</span><span class="smapi-links"><span data-i18n="setup.needSmapi">Need SMAPI?</span> <a href="https://www.nexusmods.com/stardewvalley/mods/2400" target="_blank" rel="noreferrer" data-i18n="setup.nexus">Install from Nexus Mods</a><a href="https://www.curseforge.com/stardewvalley/mods/smapi" target="_blank" rel="noreferrer" data-i18n="setup.curseforge">Install from CurseForge</a></span></aside>
       <div id="progress" role="status" aria-live="polite"></div>
       <footer><div><p data-i18n="setup.assetsLocal">Assets are extracted from your own installation and remain on this computer.</p><small id="app-version" class="app-version"></small></div><button id="finish" type="submit" data-i18n="setup.finish">Finish setup</button></footer>
