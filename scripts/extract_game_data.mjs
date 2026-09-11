@@ -189,7 +189,7 @@ async function buildGameLocalizationCatalog(catalogLanguage, catalogLocale, cata
   return {
     language: catalogLanguage,
     locale: catalogLocale,
-    catalogVersion: 12,
+    catalogVersion: 13,
     objectNames,
     localizedObjectNamesByEnglish,
     localizedNamesByQualifiedId,
@@ -213,7 +213,7 @@ const gameLocalizationCatalogs = Object.fromEntries(
 const activeLocalization = gameLocalizationCatalogs.en;
 
 const gameData = {
-  _localization: { language: "neutral", catalogVersion: 12 },
+  _localization: { language: "neutral", catalogVersion: 13 },
   modCompatibility,
   giftTastes: await unpack("Data/NPCGiftTastes.xnb"),
   cookingRecipes,

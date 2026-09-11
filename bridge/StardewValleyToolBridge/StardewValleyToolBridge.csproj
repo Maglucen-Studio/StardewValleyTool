@@ -11,5 +11,6 @@
     <Reference Include="Stardew Valley" HintPath="$(StardewPath)\Stardew Valley.dll" Private="false" />
     <Reference Include="StardewValley.GameData" HintPath="$(StardewPath)\StardewValley.GameData.dll" Private="false" />
     <Reference Include="MonoGame.Framework" HintPath="$(StardewPath)\MonoGame.Framework.dll" Private="false" />
+    <Reference Include="xTile" HintPath="$(StardewPath)\xTile.dll" Private="false" />
   </ItemGroup>
 </Project>

@@ -19,6 +19,10 @@ test("major rendered dashboard views expose accessible names and valid semantics
   const cases = [
     ["today-view", "DailyBriefView", {}],
     ["farm-editor-view", "FarmEditorView", { data: current, activeView: "map", base: null }],
+    ["interior-animal-roster", "InteriorAnimalRoster", {
+      data: current, interior: { id: "Coop-1-2", name: "Coop" }, isLive: true,
+      animals: [{ id: "synthetic-animal", name: "Example resident", type: "Chicken", homeId: "Coop-1-2", locationId: "Farm", location: "Farm", friendship: 750, happiness: 200, fullness: 240, petted: false, currentProduce: "-1" }],
+    }],
     ["planning-view", "PlanningView", { mode: "farm" }],
     ["fishing-view", "FishingView", {}],
     ["planning-view", "PlanningView", { mode: "plan" }],
@@ -32,6 +36,12 @@ test("major rendered dashboard views expose accessible names and valid semantics
       const viewModule = await server.ssrLoadModule(`/app/dashboard/${file}.tsx`);
       const html = renderToStaticMarkup(React.createElement(viewModule[name], { current, history: { profileId: "synthetic", entries: [1, 2].map((day) => ({ ...current, day, dateKey: `synthetic-${day}`, dayIndex: day, income: 20, spending: 10, money: 20 * day, totalMoneyEarned: 40 * day, buildings: 0, trees: 0, crops: 0 })) }, previous: null, live: { active: false }, sprites: {}, sessionBaseline: null, onOpenCommunityCenter() {}, ...extra }));
       const dom = new JSDOM(`<!doctype html><html lang="en"><head><title>Accessibility test</title></head><body><main>${html}</main></body></html>`, { runScripts: "outside-only" });
+      if (name === "InteriorAnimalRoster") {
+        assert.match(html, /Example resident/);
+        assert.match(html, /750\/1000/);
+        assert.match(html, /200\/255/);
+        assert.match(html, /240\/255/);
+      }
       try {
         dom.window.eval(axe.source);
         // JSDOM has no layout/paint engine. Contrast, clipping and native focus

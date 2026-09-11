@@ -6,9 +6,9 @@ import { useFarmEditor } from "./use-farm-editor";
 
 import { useFarmCanvas } from "./use-farm-canvas";
 
-import { buildingSignature, buildingType } from "./farm-model";
+import { buildingSignature, buildingType, mergeLiveInteriors } from "./farm-model";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useI18n } from "../i18n";
 import { BuildingPreview, InteriorView, spritePaths, tileKey, tools } from "./farm-rendering";
 import { buildingDisplayName, localizedInteriorName, localizedTerrainFeature } from "./formatting";
@@ -16,9 +16,12 @@ import { type LiveState, type Snapshot } from "./snapshot-types";
 import { Toggle } from "./ui";
 import { type ActiveView } from "./ui-types";
 import { resolveGameDisplayName } from "./game-names";
+import { interiorAnimals } from "./interior-animals";
+import { InteriorAnimalRoster } from "./interior-animal-roster";
 
 export function FarmEditorView({ data, live, activeView, base, sprites }: { data: Snapshot; live: LiveState; activeView: ActiveView; base: HTMLImageElement | null; sprites: Record<string, HTMLImageElement> }) {
   const { t, locale } = useI18n();
+  const mapSnapshot = useMemo(() => ({ ...data, interiors: mergeLiveInteriors(data.interiors, live.active ? live.interiorMaps : undefined) }), [data, live.active, live.interiorMaps]);
   const workspaceRef = useRef<HTMLElement>(null);
   const [layersCollapsed, setLayersCollapsed] = useState(
     () =>
@@ -46,7 +49,7 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
     window.localStorage.setItem("stardew-tool-right-panel-width", String(rightPanelWidth));
   }, [rightPanelWidth]);
 
-  const { activateTile, mapData, selected, mapLocation, showState, setShowState, showProduction, setShowProduction, proposalStates, showSuggestions, setShowSuggestions, showGrid, setShowGrid, showBlocked, setShowBlocked, proposalEditMode, setProposalEditMode, setTool, setMovingProposalId, tool, proposalUndo, setProposalUndo, localSuggestions, persist, setMapLocation, setSelected, setPlacementError, centerOnFarmhouse, setZoom, zoom, mapViewportRef, canvasRef, setHover, pointFromEvent, handleClick, openProposalMenu, proposalMenu, setProposalMenu, placementError, persistProposalResolutions, proposalResolutions, persistProposalLinks, proposalLinks , hover, movingProposalId } = useFarmEditor(data, live, activeView);
+  const { activateTile, mapData, selected, mapLocation, showState, setShowState, showProduction, setShowProduction, proposalStates, showSuggestions, setShowSuggestions, showGrid, setShowGrid, showBlocked, setShowBlocked, proposalEditMode, setProposalEditMode, setTool, setMovingProposalId, tool, proposalUndo, setProposalUndo, localSuggestions, persist, setMapLocation, setSelected, setPlacementError, centerOnFarmhouse, setZoom, zoom, mapViewportRef, canvasRef, setHover, pointFromEvent, handleClick, openProposalMenu, proposalMenu, setProposalMenu, placementError, persistProposalResolutions, proposalResolutions, persistProposalLinks, proposalLinks , hover, movingProposalId } = useFarmEditor(mapSnapshot, live, activeView);
   const proposalMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!proposalMenu) return;
@@ -124,9 +127,14 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
     return result.length ? result : [t("map.emptyTile")];
   })();
 
-  const selectedInterior = data.interiors?.find(
+  const selectedInterior = mapSnapshot.interiors?.find(
     (item) => item.id === mapLocation,
   );
+  const liveAnimals = live.active && live.animals !== undefined;
+  const residents = selectedInterior ? interiorAnimals(selectedInterior, mapSnapshot.interiors,
+    liveAnimals ? live.animals! : data.planningBrief.animals || []) : [];
+  const animalInterior = selectedInterior && (residents.length > 0
+    || /coop|barn|animalhouse/i.test(`${selectedInterior.name} ${selectedInterior.label}`));
   const visibleObjects = selectedInterior
     ? selectedInterior.objects
     : mapData!.objects;
@@ -139,6 +147,9 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
   const selectedInteriorDetails =
     selectedInterior && selected
       ? [
+          ...(selectedInterior.terrain || [])
+            .filter(item => item.x === selected.x && item.y === selected.y)
+            .map(item => localizedTerrainFeature(item, t, cropNames)),
           ...selectedInterior.objects
             .filter((item) => item.x === selected.x && item.y === selected.y)
             .map((item) =>
@@ -301,7 +312,7 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
                 }}
               >
                 <option value="farm">{t("web.home.farmExterior")}</option>
-                {(data.interiors || []).map((interior) => (
+                {(mapSnapshot.interiors || []).map((interior) => (
                   <option key={interior.id} value={interior.id}>
                     {localizedInteriorName(interior, t)}
                   </option>
@@ -496,6 +507,14 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
                 <strong>{selectedInterior.furniture.length}</strong>
               </div>
               <div className="stat">
+                <span>{t("planning.crops")}</span>
+                <strong>{(selectedInterior.terrain || []).filter(item => item.kind === "HoeDirt" && item.hasCrop).length}</strong>
+              </div>
+              <div className="stat">
+                <span>{t("web.home.trees")}</span>
+                <strong>{(selectedInterior.terrain || []).filter(item => item.kind === "FruitTree" || item.kind === "Tree").length}</strong>
+              </div>
+              <div className="stat">
                 <span>{t("web.home.ready")}</span>
                 <strong>{readyMachines.length}</strong>
               </div>
@@ -530,6 +549,9 @@ export function FarmEditorView({ data, live, activeView, base, sprites }: { data
               )}
             </>
           )}
+          {selectedInterior && animalInterior && <InteriorAnimalRoster
+            animals={residents} interior={selectedInterior} data={data} isLive={liveAnimals}
+          />}
           <div className="production-summary">
             <span className="eyebrow">{t("web.home.readyToCollect")}</span>
             {readyMachines.length ? (
