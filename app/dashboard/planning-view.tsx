@@ -424,6 +424,8 @@ export function PlanningView({
         {
           id: string;
           name: string;
+          location?: string;
+          kind?: "crop" | "fruit";
           displayName: string;
           count: number;
           watered: number;
@@ -433,10 +435,13 @@ export function PlanningView({
         }
       >
     >((grouped, crop) => {
-      const entry = grouped[crop.name] || {
+      const key = `${crop.id}:${crop.location || "Farm"}:${crop.kind || "crop"}`;
+      const entry = grouped[key] || {
+        location: crop.location,
+        kind: crop.kind,
         id: crop.id,
         name: crop.name,
-        displayName: gameName(crop.name, `(O)${crop.id}`),
+        displayName: gameName(crop.name, crop.id.startsWith("(") ? crop.id : `(O)${crop.id}`),
         count: 0,
         watered: 0,
         daysRemaining: crop.daysRemaining,
@@ -449,7 +454,7 @@ export function PlanningView({
       entry.ready ||= crop.ready;
       if (!entry.harvestDates.includes(crop.harvestDate))
         entry.harvestDates.push(crop.harvestDate);
-      grouped[crop.name] = entry;
+      grouped[key] = entry;
       return grouped;
     }, {}),
   ).sort((a, b) =>
@@ -1191,7 +1196,7 @@ export function PlanningView({
             </div>
             <div className="planted-grid">
               {plantedCrops.map((crop) => (
-                <article className={crop.ready ? "ready" : ""} key={crop.name}>
+                <article className={crop.ready ? "ready" : ""} key={`${crop.id}:${crop.location}:${crop.kind}`}>
                   <SheetArtwork id={crop.id} kind="object" label={crop.displayName} />
                   <div>
                     <strong>
@@ -1205,7 +1210,8 @@ export function PlanningView({
                           })}
                     </span>
                     <small>
-                      {t("crops.watered", { watered: crop.watered, count: crop.count })}
+                      {crop.location && <>{routeLocationName(crop.location, t)} · </>}
+                      {crop.kind === "fruit" ? t("crops.fruitReady", { count: crop.count }) : t("crops.watered", { watered: crop.watered, count: crop.count })}
                     </small>
                   </div>
                 </article>
@@ -1450,6 +1456,9 @@ export function PlanningView({
                     <div><dt>{t("web.planning.friendship")}</dt><dd>{animal.friendship}/1000</dd></div>
                     <div><dt>{t("web.planning.happiness")}</dt><dd>{animal.happiness}/255</dd></div>
                     <div><dt>{t("today.when.today")}</dt><dd>{animal.petted ? t("animal.petted") : t("animal.needsPetting")}</dd></div>
+                    <div><dt>{t("animal.produce")}</dt><dd>{animal.currentProduce && animal.currentProduce !== "-1"
+                      ? <SheetArtwork id={animal.currentProduce} kind="object" label={gameName(animal.currentProduce, animal.currentProduce.startsWith("(") ? animal.currentProduce : `(O)${animal.currentProduce}`)} />
+                      : t("animal.noProduce")}</dd></div>
                   </dl>
                 </article>
               ))}

@@ -530,6 +530,10 @@ def number(node: ET.Element, tag: str, default: int = 0) -> int:
 
 def stats_values(player: ET.Element) -> dict[str, int]:
     values = {}
+    # Older saves store scalar stats directly; modern Values override them.
+    for node in player.findall("stats/*"):
+        if not len(node) and node.text and node.text.isdigit():
+            values[node.tag] = int(node.text)
     for item in player.findall("stats/Values/item"):
         key = item.findtext("key/string")
         value_node = item.find("value")
@@ -657,7 +661,23 @@ def location_is_accessible(location: ET.Element, player: ET.Element) -> bool:
     return True
 
 
-def interior_views(locations: ET.Element, player: ET.Element, farm: ET.Element) -> list[dict]:
+def saved_locations(locations: ET.Element):
+    """Visit outdoor locations and nested building interiors exactly once."""
+    def visit(location):
+        yield location
+        for building in location.findall("buildings/Building"):
+            indoors = building.find("indoors")
+            if indoors is None:
+                continue
+            interior = indoors if indoors.find("name") is not None else next(
+                (child for child in indoors if child.find("name") is not None), None)
+            if interior is not None:
+                yield from visit(interior)
+    for location in locations:
+        yield from visit(location)
+
+
+def interior_views(locations: ET.Element, player: ET.Element, farm: ET.Element, game_data: dict | None = None) -> list[dict]:
     views = []
     supported = {
         "FarmHouse": "Farmhouse",
@@ -683,6 +703,7 @@ def interior_views(locations: ET.Element, player: ET.Element, farm: ET.Element) 
         location_type = location.attrib.get(XSI_TYPE, "")
         name = location.findtext("name", location_type or "Interior")
         objects = saved_objects(location)
+        terrain = saved_terrain(location, game_data)
         furniture = []
         furniture_nodes = location.find("furniture")
         for item in furniture_nodes if furniture_nodes is not None else []:
@@ -700,8 +721,8 @@ def interior_views(locations: ET.Element, player: ET.Element, farm: ET.Element) 
                 "sourceWidth": number(source, "Width"), "sourceHeight": number(source, "Height"),
                 "footprintHeight": footprint_height,
             })
-        max_x = max([item["x"] for item in objects + furniture] + [9])
-        max_y = max([item["y"] for item in objects + furniture] + [9])
+        max_x = max([item["x"] for item in objects + furniture + terrain] + [9])
+        max_y = max([item["y"] for item in objects + furniture + terrain] + [9])
         if name == "FarmHouse":
             upgrade = number(player, "houseUpgradeLevel")
             width, height = ((12, 12), (30, 12), (70, 46))[min(2, upgrade)]
@@ -729,6 +750,7 @@ def interior_views(locations: ET.Element, player: ET.Element, farm: ET.Element) 
             "id": view_id or name, "name": name, "label": label,
             "width": width, "height": height, "mapName": map_name,
             "background": None, "objects": objects, "furniture": furniture,
+            "terrain": terrain,
         })
 
     building_nodes = farm.find("buildings")
@@ -766,9 +788,25 @@ def interior_views(locations: ET.Element, player: ET.Element, farm: ET.Element) 
 def farm_animals(locations: ET.Element) -> list[dict]:
     animals = []
     seen = set()
-    for location in locations:
+    homes = {}
+    interior_ids = {}
+    for location in saved_locations(locations):
+        for building in location.findall("buildings/Building"):
+            indoors = building.find("indoors")
+            if indoors is None:
+                continue
+            interior = indoors if indoors.find("name") is not None else next(
+                (child for child in indoors if child.find("name") is not None), None)
+            if interior is None:
+                continue
+            building_id = f'{building.findtext("buildingType", "Interior")}-{number(building, "tileX")}-{number(building, "tileY")}'
+            interior_ids[id(interior)] = building_id
+            for resident in interior.findall("animalsThatLiveHere/long"):
+                if resident.text:
+                    homes[resident.text] = building_id
+    for location in saved_locations(locations):
         location_name = location.findtext("name", "Farm")
-        for animal in location.findall(".//FarmAnimal"):
+        for animal in location.findall("animals/item/value/FarmAnimal"):
             animal_id = animal.findtext("myID", animal.findtext("name", "Animal"))
             if animal_id in seen:
                 continue
@@ -778,12 +816,14 @@ def farm_animals(locations: ET.Element) -> list[dict]:
                 "name": animal.findtext("name", "Animal"),
                 "type": animal.findtext("type", "Animal"),
                 "location": location_name,
+                "locationId": interior_ids.get(id(location), location_name),
+                "homeId": homes.get(animal_id, interior_ids.get(id(location))),
                 "friendship": number(animal, "friendshipTowardFarmer"),
                 "happiness": number(animal, "happiness"),
                 "fullness": number(animal, "fullness"),
                 "petted": bool_value(animal, "wasPet"),
                 "produceQuality": number(animal, "produceQuality"),
-                "currentProduce": animal.findtext("currentProduce", "-1"),
+                "currentProduce": animal.findtext("currentProduce") or "-1",
             })
     return sorted(animals, key=lambda item: (item["type"], item["name"]))
 
@@ -812,7 +852,7 @@ def int_dictionary(node: ET.Element | None) -> dict[str, int]:
     if node is None:
         return values
     for item in node.findall("item"):
-        key = item.findtext("key/string")
+        key = item.findtext("key/string") or item.findtext("key/int")
         value = item.find("value")
         if not key or value is None or not len(value):
             continue
@@ -821,6 +861,23 @@ def int_dictionary(node: ET.Element | None) -> dict[str, int]:
         except (TypeError, ValueError):
             pass
     return values
+
+
+def cooked_recipe_counts(player: ET.Element, game_data: dict) -> dict[str, int]:
+    learned = int_dictionary(player.find("cookingRecipes"))
+    cooked = {qualified_item_id(key): count for key, count in int_dictionary(player.find("recipesCooked")).items()}
+    counts = {}
+    for name, recipe in game_data.get("cookingRecipes", {}).items():
+        parts = str(recipe).split("/")
+        output = parts[2].split()[0] if len(parts) > 2 and parts[2].strip() else ""
+        counts[name] = cooked.get(qualified_item_id(output), 0) if name in learned else 0
+    return counts
+
+
+def caught_fish_ids(player: ET.Element) -> set[str]:
+    return {qualified_item_id(key) for item in player.findall("fishCaught/item")
+            if (key := item.findtext("key/string") or item.findtext("key/int"))
+            and (not key.startswith("(") or key.startswith("(O)"))}
 
 
 def next_date(season: str, day: int, year: int) -> tuple[str, int, int]:
@@ -839,40 +896,53 @@ def date_after(season: str, day: int, year: int, offset: int) -> tuple[str, int,
 
 
 def crop_forecast(locations: ET.Element, season: str, day: int, year: int) -> list[dict]:
-    farm = next((location for location in locations if location.findtext("name") == "Farm"), None)
-    if farm is None:
-        return []
-    grouped: dict[tuple[str, int], dict] = {}
-    terrain = farm.find("terrainFeatures")
-    for item in terrain if terrain is not None else []:
-        crop = item.find("value/TerrainFeature/crop")
-        if crop is None or bool_value(crop, "dead"):
-            continue
-        crop_id = crop.findtext("indexOfHarvest", crop.findtext("netSeedIndex", "Crop"))
-        phase_days = [int(value.text or 0) for value in crop.findall("phaseDays/int")]
-        current_phase = number(crop, "currentPhase")
-        current_day = number(crop, "dayOfCurrentPhase")
-        regrowing = bool_value(crop, "fullGrown")
-        if not phase_days:
-            remaining = 0
-        elif current_phase >= len(phase_days) - 1:
-            # Repeat crops retain their mature sprite after harvest.
-            # In that state, dayOfCurrentPhase is the actual regrowth counter.
-            remaining = max(0, current_day) if regrowing else 0
-        else:
-            remaining = max(0, phase_days[current_phase] - current_day) + sum(phase_days[current_phase + 1:-1])
-        key = (crop_id, remaining, regrowing)
-        entry = grouped.setdefault(key, {"id": crop_id, "name": CROP_NAMES.get(crop_id, crop_id), "count": 0, "daysRemaining": remaining, "watered": 0, "regrowing": regrowing})
-        entry["count"] += 1
-        if number(item.find("value/TerrainFeature"), "state") > 0:
-            entry["watered"] += 1
+    grouped: dict[tuple, dict] = {}
+    for location in saved_locations(locations):
+        location_name = location.findtext("name", "")
+        protected = location_name == "Greenhouse" or location_name.startswith("Island") or location.findtext("isOutdoors") == "false"
+        for item in location.findall("terrainFeatures/item"):
+            feature = item.find("value/TerrainFeature")
+            if feature is None:
+                continue
+            if feature.attrib.get(XSI_TYPE) == "FruitTree":
+                for fruit in feature.findall("fruit/Item"):
+                    fruit_id = fruit.findtext("itemId") or fruit.findtext("parentSheetIndex")
+                    if not fruit_id:
+                        continue
+                    key = (qualified_item_id(fruit_id), 0, False, location_name, "fruit")
+                    entry = grouped.setdefault(key, {"id": fruit_id, "name": fruit.findtext("name") or fruit_id,
+                        "location": location_name, "kind": "fruit", "seasonProtected": True,
+                        "count": 0, "daysRemaining": 0, "watered": 0, "regrowing": False})
+                    entry["count"] += max(1, number(fruit, "stack", 1))
+                continue
+            crop = item.find("value/TerrainFeature/crop")
+            if crop is None or crop.attrib.get("{http://www.w3.org/2001/XMLSchema-instance}nil") == "true" or bool_value(crop, "dead"):
+                continue
+            crop_id = crop.findtext("indexOfHarvest", crop.findtext("netSeedIndex", "Crop"))
+            phase_days = [int(value.text or 0) for value in crop.findall("phaseDays/int")]
+            current_phase = number(crop, "currentPhase")
+            current_day = number(crop, "dayOfCurrentPhase")
+            regrowing = bool_value(crop, "fullGrown")
+            if not phase_days:
+                remaining = 0
+            elif current_phase >= len(phase_days) - 1:
+                # Repeat crops retain their mature sprite after harvest.
+                # In that state, dayOfCurrentPhase is the actual regrowth counter.
+                remaining = max(0, current_day) if regrowing else 0
+            else:
+                remaining = max(0, phase_days[current_phase] - current_day) + sum(phase_days[current_phase + 1:-1])
+            key = (qualified_item_id(crop_id), remaining, regrowing, location_name, "crop")
+            entry = grouped.setdefault(key, {"id": crop_id, "location": location_name, "kind": "crop", "seasonProtected": protected, "name": CROP_NAMES.get(crop_id, crop_id), "count": 0, "daysRemaining": remaining, "watered": 0, "regrowing": regrowing})
+            entry["count"] += 1
+            if number(item.find("value/TerrainFeature"), "state") > 0:
+                entry["watered"] += 1
     season_labels = {"spring": "Spring", "summer": "Summer", "fall": "Fall", "winter": "Winter"}
     result = []
     for entry in grouped.values():
         target_season, target_day, target_year = date_after(season, day, year, entry["daysRemaining"])
         entry["ready"] = entry["daysRemaining"] == 0
         entry["harvestDate"] = "Today" if entry["ready"] else (f'Year {target_year}, {season_labels[target_season]} {target_day}' if target_year != year else f'{season_labels[target_season]} {target_day}')
-        entry["willWither"] = target_season != season and entry["id"] not in MULTI_SEASON_CROPS
+        entry["willWither"] = not entry.pop("seasonProtected") and target_season != season and unqualified_item_id(entry["id"]) not in MULTI_SEASON_CROPS
         result.append(entry)
     return sorted(result, key=lambda entry: (entry["daysRemaining"], entry["name"]))
 
@@ -1606,10 +1676,7 @@ def fishing_brief(root: ET.Element, player: ET.Element, season: str, day: int, p
         raw_fish = {}
         catalog_fish = {}
 
-    caught = {
-        (item.findtext("key/string") or "").removeprefix("(O)")
-        for item in player.findall("fishCaught/item")
-    }
+    caught = {key.removeprefix("(O)") for key in caught_fish_ids(player)}
     mail = {node.text or "" for node in player.findall("mailReceived/string")}
     rusty_key = (player.findtext("hasRustyKey", "false") or "false").lower() == "true"
     axe_level = max((number(item, "upgradeLevel") for item in player.findall("items/Item") if item.attrib.get(XSI_TYPE) == "Axe"), default=0)
@@ -1981,10 +2048,12 @@ def achievement_tracking(root: ET.Element, player: ET.Element, total_earned: int
             continue
         points = number(item.find("value/Friendship") or item, "Points")
         friendships.append(points)
-    cooked = int_dictionary(player.find("cookingRecipes"))
+    cooked = cooked_recipe_counts(player, game_data)
     crafted = int_dictionary(player.find("craftingRecipes"))
     shipped = int_dictionary(player.find("basicShipped"))
-    fish_distinct = len(player.findall("fishCaught/item"))
+    fish_catalog = game_data.get("productionCatalog", {}).get("fishCollection")
+    caught = caught_fish_ids(player)
+    fish_distinct = len(caught & {item["id"] for item in fish_catalog}) if fish_catalog is not None else len(caught)
     museum_count = len(root.findall(".//museumPieces/item"))
     cooking_catalog = set(game_data.get("cookingRecipes", {}))
     crafting_catalog = set(game_data.get("craftingRecipes", {})) - {"Wedding Ring"}
@@ -2065,7 +2134,7 @@ def achievement_tracking(root: ET.Element, player: ET.Element, total_earned: int
     add("sous-chef", "Sous Chef", "Cook 25 different recipes.", "Cooking", 16, cooked_count, 25, "recipes")
     add("joja", "Joja Co. Member Of The Year", "Purchase every Joja development project.", "Story", inferred=community_complete and joja_member, timing="Exclusive route", next_step="Buy a Joja membership for 5,000g and pay for every community development project. This removes Community Center bundles; Local Legend requires another save.")
     add("danger-deep", "Danger In The Deep", "Reach the bottom of the dangerous mines.", "Combat", 41, next_step="Unlock Qi's Walnut Room on Ginger Island and accept Danger in the Deep. Descend from floor 1 to 120 within the time limit; afterward, the Shrine of Challenge on floor 120 can reactivate the dangerous mines.")
-    add("master-angler", "Master Angler", "Catch every required fish.", "Fishing", 26, fish_distinct, None, "species", next_step="Personally catch every species in the collection, including the five legendary fish, Crab Pot species, and Ginger Island fish. Purchased fish do not count. Qi's Extended Family fish are not required.")
+    add("master-angler", "Master Angler", "Catch every required fish.", "Fishing", 26, fish_distinct, len(fish_catalog) if fish_catalog is not None else None, "species", next_step="Personally catch every species in the collection, including the five legendary fish, Crab Pot species, and Ginger Island fish. Purchased fish do not count. Qi's Extended Family fish are not required.")
     add("stardrops", "Mystery Of The Stardrops", "Find all seven Stardrops.", "Collections", inferred=number(player, "maxStamina", 270) >= 508, current=max(0, (number(player, "maxStamina", 270) - 270) // 34), target=7, unit="Stardrops", next_step="The seven sources are the Fair for 2,000 Star Tokens, floor 100 of The Mines, a spouse or roommate at 12.5 hearts, Old Master Cannoli, Willy's letter after Master Angler, the museum, and Krobus's shop.")
     add("protector", "Protector Of The Valley", "Complete every guild eradication goal.", "Combat", inferred=False, next_step="Check the Monster Eradication Goals board in the Adventurer's Guild and complete every category. Kills count in The Mines, Skull Cavern, and their variants; collect Gil's rewards too.")
     add("neighbors", "Good Neighbors", "Help the raccoon family grow.", "Story", 39, next_step="After repairing the large tree in Cindersap Forest, complete the raccoon couple's requests. Wait seven days between requests and continue until the family has eight children, then revisit the forest to trigger the achievement.")
@@ -2093,7 +2162,8 @@ def long_term_collection_brief(
 ) -> dict:
     """Expose exact shipping and recipe checklists from local game/save data."""
     game_data = game_data or {}
-    cooked = int_dictionary(player.find("cookingRecipes"))
+    learned_cooking = int_dictionary(player.find("cookingRecipes"))
+    cooked = cooked_recipe_counts(player, game_data)
     crafted = int_dictionary(player.find("craftingRecipes"))
 
     def output_details(recipe: str, crafting: bool = False) -> tuple[str, str]:
@@ -2109,7 +2179,7 @@ def long_term_collection_brief(
         count = cooked.get(name, 0)
         cooking.append({
             "id": item_id, "name": name, "complete": count > 0,
-            "count": count, "learned": name in cooked,
+            "count": count, "learned": name in learned_cooking,
             "spriteKind": sprite_kind, "spriteIndex": unqualified_item_id(item_id),
         })
 
@@ -2125,8 +2195,11 @@ def long_term_collection_brief(
             "spriteKind": sprite_kind, "spriteIndex": unqualified_item_id(item_id),
         })
 
+    caught = caught_fish_ids(player)
     return {
         "shipping": shipping or [],
+        "fish": [{**item, "complete": item["id"] in caught}
+                 for item in game_data.get("productionCatalog", {}).get("fishCollection", [])],
         "cooking": sorted(cooking, key=lambda item: item["name"]),
         "crafting": sorted(crafting, key=lambda item: item["name"]),
     }
@@ -2235,7 +2308,7 @@ def museum_brief(root: ET.Element, player: ET.Element, progress: dict) -> dict:
     }
 
 
-def saved_terrain(farm: ET.Element) -> list[dict]:
+def saved_terrain(farm: ET.Element, game_data: dict | None = None) -> list[dict]:
     terrain = []
     terrain_nodes = farm.find("terrainFeatures")
     for item in terrain_nodes if terrain_nodes is not None else []:
@@ -2271,6 +2344,13 @@ def saved_terrain(farm: ET.Element) -> list[dict]:
         elif kind == "FruitTree":
             entry["stage"] = number(feature, "growthStage")
             entry["treeId"] = feature.findtext("treeId", "")
+            entry["stump"] = bool_value(feature, "stump")
+            entry["flip"] = bool_value(feature, "flipped")
+            tree_data = next((tree for tree in (game_data or {}).get("productionCatalog", {}).get("fruitTrees", [])
+                              if tree.get("id") == qualified_item_id(entry["treeId"])), {})
+            entry["treeSpriteRow"] = tree_data.get("treeSpriteRow")
+            entry["treeTexture"] = tree_data.get("treeTexture")
+            entry["fruitCount"] = sum(max(1, number(fruit, "stack", 1)) for fruit in feature.findall("fruit/Item"))
         terrain.append(entry)
     return terrain
 
@@ -2285,9 +2365,13 @@ def read_snapshot(save_path: Path) -> dict:
         raise ValueError("The save does not contain locations")
     farm = next(location for location in locations if location.findtext("name") == "Farm")
 
+    try:
+        game_data = json.loads(GAME_DATA.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        game_data = {"giftTastes": {}}
     objects = saved_objects(farm)
 
-    terrain = saved_terrain(farm)
+    terrain = saved_terrain(farm, game_data)
 
     buildings = []
     building_nodes = farm.find("buildings")
@@ -2296,6 +2380,7 @@ def read_snapshot(save_path: Path) -> dict:
             "x": number(building, "tileX"), "y": number(building, "tileY"),
             "width": number(building, "tilesWide", 1), "height": number(building, "tilesHigh", 1),
             "name": building.findtext("buildingType", "Building"),
+            "greenhouseRepaired": any(node.text == "ccPantry" for node in player.findall("mailReceived/string")),
             "daysOfConstructionLeft": number(building, "daysOfConstructionLeft"),
             "daysUntilUpgrade": number(building, "daysUntilUpgrade"),
         })
@@ -2333,17 +2418,13 @@ def read_snapshot(save_path: Path) -> dict:
         "monstersKilled": stat_values.get("monstersKilled", 0),
         "treesChopped": stat_values.get("TreesChopped", 0),
     }
-    interiors = interior_views(locations, player, farm)
+    interiors = interior_views(locations, player, farm, game_data)
     all_production_objects = [
         {**obj, "location": location.findtext("name", "Location")}
         for location in locations
         if location_is_accessible(location, player)
         for obj in saved_objects(location)
     ]
-    try:
-        game_data = json.loads(GAME_DATA.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        game_data = {"giftTastes": {}}
     planning = planning_brief(root, player, locations, season, day, number(player, "money"), all_production_objects, game_data)
     planning["animals"] = farm_animals(locations)
     planning["fishPonds"] = fish_ponds(farm)

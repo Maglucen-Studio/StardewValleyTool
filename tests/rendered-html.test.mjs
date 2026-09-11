@@ -1697,8 +1697,8 @@ test("Farm, Plan, and Progress share storage, goals, history, and completion dat
   assert.match(extractor, /Strings\/Furniture\.xnb/);
   assert.match(extractor, /Data\/Boots\.xnb/);
   assert.match(extractor, /Data\/hats\.xnb/);
-  assert.match(extractor, /catalogVersion: 12/);
-  assert.match(desktop, /catalogVersion !== 12/);
+  assert.match(extractor, /catalogVersion: 13/);
+  assert.match(desktop, /catalogVersion !== 13/);
   assert.match(extractor, /game-localization\.\$\{catalogLanguage\}\.json/);
   assert.match(extractor, /const activeLocalization = gameLocalizationCatalogs\.en/);
   assert.match(extractor, /Data\/Achievements\.xnb/);
@@ -2004,7 +2004,7 @@ test("long-term collection cards open exact missing-item checklists", async () =
   assert.match(generator, /def long_term_collection_brief\(/);
   assert.match(generator, /def cached_shipping_collection\(/);
   assert.match(generator, /"shipping": shipping or \[\]/);
-  assert.match(generator, /"learned": name in cooked/);
+  assert.match(generator, /"learned": name in learned_cooking/);
   assert.match(generator, /"learned": name in crafted/);
   assert.match(bridge, /Object\.isPotentialBasicShipped/);
   assert.match(bridge, /player\.basicShipped\.ContainsKey\(item\.ItemId\)/);

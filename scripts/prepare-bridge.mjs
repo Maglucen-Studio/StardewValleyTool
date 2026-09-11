@@ -17,6 +17,7 @@ const requiredAssemblies = [
   "Stardew Valley.dll",
   "StardewValley.GameData.dll",
   "MonoGame.Framework.dll",
+  "xTile.dll",
 ];
 const missingAssemblies = requiredAssemblies.filter(
   (name) => !existsSync(resolve(stardewPath, name)),

@@ -19,6 +19,7 @@ public sealed class ModEntry : Mod
     private string? lastQuestPayload;
     private string? lastLivePayload;
     private object? cachedFarmMap;
+    private object? cachedInteriorMaps;
     private object? cachedWorldTasks;
     private object? cachedCollections;
     private object? cachedStorage;
@@ -201,7 +202,7 @@ public sealed class ModEntry : Mod
                 "player.tool-upgrade",
                 () => player.toolBeingUpgraded.Value is not null && player.daysLeftForToolUpgrade.Value <= 0,
                 false);
-            if (refreshSlowState || cachedFarmMap is null || cachedWorldTasks is null || cachedCollections is null || cachedStorage is null || cachedMachines is null || cachedAnimals is null)
+            if (refreshSlowState || cachedFarmMap is null || cachedInteriorMaps is null || cachedWorldTasks is null || cachedCollections is null || cachedStorage is null || cachedMachines is null || cachedAnimals is null)
             {
                 string[] routeLocationNames = { "Farm", "FarmCave", "Beach", "Town", "Mountain", "Forest", "BusStop", "Backwoods" };
                 cachedWorldTasks = CaptureLiveSection<object>("world-tasks", () => Game1.locations
@@ -301,6 +302,19 @@ public sealed class ModEntry : Mod
                         inputVariant = (pair.Value.lastInputItem.Value as StardewValley.Object)?.preservedParentSheetIndex.Value,
                         minutesUntilReady = Math.Max(0, pair.Value.MinutesUntilReady),
                     })).ToArray(), cachedMachines ?? Array.Empty<object>());
+                cachedInteriorMaps = CaptureLiveSection<object>("interior-maps", () => trackedLocations
+                    .Where(location => !ReferenceEquals(location, farm) && !location.IsOutdoors)
+                    .Where(location => location.ParentBuilding is not null || location.Name is "Greenhouse" or "FarmHouse" or "FarmCave" || location.Name.StartsWith("Cellar", StringComparison.Ordinal))
+                    .Where(location => location.Name != "Greenhouse" || Game1.MasterPlayer.mailReceived.Contains("ccPantry"))
+                    .Select(location => new
+                    {
+                        id = TrackedLocationKey(location, farm!),
+                        name = location.NameOrUniqueName,
+                        label = location.ParentBuilding?.buildingType.Value ?? location.Name,
+                        width = location.Map.Layers[0].LayerWidth,
+                        height = location.Map.Layers[0].LayerHeight,
+                        map = DescribeFarmMap(location),
+                    }).ToArray(), cachedInteriorMaps ?? Array.Empty<object>());
                 cachedAnimals = CaptureLiveSection<object>("animals", () => trackedLocations.SelectMany(location => location.animals.Values
                     .Where(animal => animal is not null)
                     .Select(animal => new
@@ -309,12 +323,14 @@ public sealed class ModEntry : Mod
                     name = animal.Name,
                     type = animal.type.Value,
                     location = location.NameOrUniqueName,
+                    locationId = TrackedLocationKey(location, farm!),
+                    homeId = animal.homeInterior is null ? null : TrackedLocationKey(animal.homeInterior, farm!),
                     friendship = animal.friendshipTowardFarmer.Value,
                     happiness = animal.happiness.Value,
                     fullness = animal.fullness.Value,
                     petted = animal.wasPet.Value,
                     produceQuality = animal.produceQuality.Value,
-                    currentProduce = animal.currentProduce.Value.ToString(),
+                    currentProduce = animal.currentProduce.Value ?? "-1",
                 })).ToArray(), cachedAnimals ?? Array.Empty<object>());
             }
             string dateKey = $"{Game1.year}-{Game1.currentSeason.ToString().ToLowerInvariant()}-{Game1.dayOfMonth:00}";
@@ -353,6 +369,7 @@ public sealed class ModEntry : Mod
                 routeState = new { worldTasks = cachedWorldTasks, readyCrops, readyMachines, toolPickupReady },
                 collections = cachedCollections,
                 farmMap = cachedFarmMap,
+                interiorMaps = cachedInteriorMaps,
                 bridgeWarnings = liveSectionErrors.Keys.OrderBy(section => section).ToArray(),
             });
             if (payload == lastLivePayload) return;
@@ -424,7 +441,7 @@ public sealed class ModEntry : Mod
             : 1;
     }
 
-    private static object DescribeFarmMap(Farm farm)
+    private static object DescribeFarmMap(GameLocation farm)
     {
         var terrain = farm.terrainFeatures.Pairs
             .Where(pair => pair.Value is not null)
@@ -438,7 +455,14 @@ public sealed class ModEntry : Mod
             cropHarvestId = (pair.Value as HoeDirt)?.crop?.indexOfHarvest.Value,
             phase = (pair.Value as HoeDirt)?.crop?.currentPhase.Value,
             cropRow = (pair.Value as HoeDirt)?.crop?.rowInSpriteSheet.Value,
-            flip = (pair.Value as HoeDirt)?.crop?.flip.Value,
+            flip = (pair.Value as HoeDirt)?.crop?.flip.Value ?? (pair.Value as FruitTree)?.flipped.Value,
+            stage = (pair.Value as FruitTree)?.growthStage.Value ?? (pair.Value as Tree)?.growthStage.Value,
+            stump = (pair.Value as FruitTree)?.stump.Value ?? (pair.Value as Tree)?.stump.Value,
+            treeId = (pair.Value as FruitTree)?.treeId.Value,
+            treeSpriteRow = (pair.Value as FruitTree)?.GetSpriteRowNumber(),
+            treeTexture = pair.Value is FruitTree fruitTree ? fruitTree.GetData()?.Texture ?? "TileSheets/fruitTrees" : null,
+            fruitCount = (pair.Value as FruitTree)?.fruit.Count,
+            treeType = (pair.Value as Tree)?.treeType.Value,
             dead = (pair.Value as HoeDirt)?.crop?.dead.Value,
             watered = pair.Value is HoeDirt wateredDirt && wateredDirt.state.Value > 0,
             ready = pair.Value is HoeDirt cropDirt && cropDirt.crop?.fullyGrown.Value == true && cropDirt.crop.dayOfCurrentPhase.Value <= 0,
@@ -478,6 +502,7 @@ public sealed class ModEntry : Mod
             width = building.tilesWide.Value,
             height = building.tilesHigh.Value,
             name = building.buildingType.Value,
+            greenhouseRepaired = Game1.MasterPlayer.mailReceived.Contains("ccPantry"),
             daysOfConstructionLeft = building.daysOfConstructionLeft.Value,
             daysUntilUpgrade = building.daysUntilUpgrade.Value,
         }).ToArray();
