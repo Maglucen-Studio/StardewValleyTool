@@ -2,6 +2,14 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.12.1 — 2026-09-11
+
+### Fixed
+
+- Restored the Farm animals view so every animal appears whether or not it has a pending product, and added each animal's care and product state to its coop or barn view.
+- Updated greenhouse rendering to show its repaired exterior and its planted crops and fruit trees in both saved and LIVE map views.
+- Corrected fishing and cooking collection progress so catches and meals cooked are counted from their actual save records.
+
 ## 1.12.0 — 2026-09-05
 
 ### New
