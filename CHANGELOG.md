@@ -2,6 +2,17 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.13.0 — 2026-09-11
+
+### New
+
+- Added opt-in native Windows alerts while Companion remains in the system tray, with separate controls for machines, crops, tool pickup, energy, quests, birthdays, bundles, fishing windows, and festivals.
+- Added quiet hours, per-category muting, cooldowns, grouped machine notices, and direct navigation from an alert to the relevant Companion view.
+
+### Improved
+
+- Alerts only use fresh LIVE data; saved-plan context is limited to the matching game day and identified in the notification.
+
 ## 1.12.1 — 2026-09-11
 
 ### Fixed
