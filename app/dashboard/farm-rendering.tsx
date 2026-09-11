@@ -5,7 +5,7 @@ import { useRef } from "react";
 import { useState } from "react";
 import { useEffect } from "react";
 import { furnitureDestination } from "../furniture-layout.mjs";
-import { type Building, type Interior, type Tile } from "./snapshot-types";
+import { type Building, type Interior, type Tile, type Terrain } from "./snapshot-types";
 import { buildingType } from "./farm-model";
 
 export const TILE = 16;
@@ -149,6 +149,7 @@ export function drawBuildingSprite(
   sprites: Record<string, HTMLImageElement>,
   building: Pick<Building, "name" | "x" | "y" | "width" | "height"> & {
     kind?: string;
+    greenhouseRepaired?: boolean;
   },
 ) {
   const definition = buildingSpriteDefinitions[buildingType(building)];
@@ -156,7 +157,9 @@ export function drawBuildingSprite(
   if (!definition || !image) return false;
   const [, , width, height] = definition.source;
   const rise = Math.max(0, height - building.height * TILE);
-  sprite(ctx, image, definition.source, [
+  const source: [number, number, number, number] = definition.image === "Greenhouse" && building.greenhouseRepaired
+    ? [0, 160, 112, 160] : definition.source;
+  sprite(ctx, image, source, [
     building.x * TILE + (definition.offsetX || 0),
     building.y * TILE - rise,
     width,
@@ -202,6 +205,52 @@ export function BuildingPreview({
       />
     </span>
   );
+}
+
+export function drawInteriorTerrain(ctx: CanvasRenderingContext2D, sprites: Record<string, HTMLImageElement>, feature: Terrain, size = 32) {
+  const px = feature.x * size, py = feature.y * size;
+  if (feature.kind === "HoeDirt") {
+    if (feature.hasCrop && feature.cropRow !== undefined && sprites.crops) {
+      sprite(ctx, sprites.crops, cropSpriteSource(feature.cropRow, feature.dead ? 6 : Math.min(feature.phase || 0, 5)),
+        [px, py - size, size, size * 2], Boolean(feature.flip));
+    } else if (feature.hasCrop) {
+      ctx.fillStyle = "#53853c";
+      ctx.fillRect(px + size / 3, py + size / 3, size / 3, size / 3);
+    }
+  } else if (feature.kind === "Tree") {
+    const image = sprites[feature.treeType || ""];
+    const stage = feature.stage || 0;
+    if (image) {
+      const source: [number, number, number, number] = stage >= 5
+        ? feature.stump ? [16, 96, 32, 32] : [0, 0, 48, 96]
+        : stage === 4 ? [0, 96, 16, 32] : stage === 3 ? [32, 128, 16, 16]
+          : [stage === 0 ? 48 : stage === 1 ? 0 : 16, 128, 16, 16];
+      const width = source[2] / 16 * size, height = source[3] / 16 * size;
+      sprite(ctx, image, source, [px + (size - width) / 2, py + size - height, width, height]);
+    } else {
+      ctx.fillStyle = "#52834d";
+      ctx.fillRect(px + size / 4, py, size / 2, size);
+    }
+  } else if (feature.kind === "FruitTree") {
+    const knownTexture = feature.treeTexture?.replaceAll("\\", "/").toLowerCase() === "tilesheets/fruittrees";
+    if (knownTexture && feature.treeSpriteRow != null && sprites.fruitTrees) {
+      const stage = Math.min(feature.stage || 0, 4);
+      const row = feature.treeSpriteRow * 80;
+      // Protected interiors use the game's summer foliage frame.
+      sprite(ctx, sprites.fruitTrees, feature.stump ? [384, row + 48, 48, 32] : [stage < 4 ? stage * 48 : 240, row, 48, 80],
+        [px - size, py - (feature.stump ? size : size * 4), size * 3, feature.stump ? size * 2 : size * 5], Boolean(feature.flip));
+    } else {
+      // Unknown local/modded artwork gets a generated marker, never another species.
+      ctx.fillStyle = "#795338";
+      ctx.fillRect(px + size * 0.4, py, size * 0.2, size);
+      if (!feature.stump) {
+        ctx.fillStyle = "#52834d";
+        ctx.beginPath();
+        ctx.arc(px + size / 2, py, size * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
 }
 
 export function InteriorView({
@@ -284,7 +333,17 @@ export function InteriorView({
         }
     }
 
+    if (showState) for (const feature of interior.terrain || []) {
+      if (feature.kind !== "HoeDirt") continue;
+      if (sprites.hoeDirt) sprite(ctx, sprites.hoeDirt, [feature.watered ? 144 : 16, 0, 32, 32],
+        [feature.x * size, feature.y * size, size, size]);
+      else {
+        ctx.fillStyle = feature.watered ? "#755033" : "#ab7647";
+        ctx.fillRect(feature.x * size, feature.y * size, size, size);
+      }
+    }
     const entities = [
+      ...(showState ? (interior.terrain || []).map(item => ({ ...item, entity: "terrain" as const })) : []),
       ...interior.furniture.map((item) => ({
         ...item,
         entity: "furniture" as const,
@@ -299,7 +358,9 @@ export function InteriorView({
     for (const entity of entities) {
       const px = entity.x * size,
         py = entity.y * size;
-      if (entity.entity === "object") {
+      if (entity.entity === "terrain") {
+        drawInteriorTerrain(ctx, sprites, entity, size);
+      } else if (entity.entity === "object") {
         const index = Number(entity.id);
         if (Number.isFinite(index)) {
           if (entity.big)

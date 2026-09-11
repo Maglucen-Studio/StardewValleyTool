@@ -1,7 +1,17 @@
-import type { Building, Suggestion, Snapshot, Tile, Terrain, LiveTerrainState } from "./snapshot-types";
+import type { Building, Suggestion, Snapshot, Tile, Terrain, LiveTerrainState, Interior, LiveInteriorMap } from "./snapshot-types";
 import type { ProposalState, Translate } from "./ui-types";
 
 export function mergeLiveTerrain(saved: Terrain | undefined, live: LiveTerrainState): Terrain {
+  if (live.kind === "FruitTree" && live.treeId !== undefined) return {
+    x: live.x, y: live.y, kind: live.kind, treeId: live.treeId ?? undefined,
+    treeSpriteRow: live.treeSpriteRow, treeTexture: live.treeTexture,
+    stage: live.stage ?? undefined, stump: live.stump ?? false, flip: live.flip ?? false,
+    fruitCount: live.fruitCount ?? 0,
+  };
+  if (live.kind === "Tree" && live.treeType != null) return {
+    x: live.x, y: live.y, kind: live.kind, stage: live.stage ?? undefined, stump: live.stump ?? false,
+    treeType: ({ "1": "Oak", "2": "Maple", "3": "Pine", "8": "Mahogany" } as Record<string, string>)[live.treeType] || live.treeType,
+  };
   if (live.kind !== "HoeDirt") return { ...(saved?.kind === live.kind ? saved : {}), x: live.x, y: live.y, kind: live.kind };
   const soil: Terrain = { x: live.x, y: live.y, kind: live.kind, watered: live.watered, hasCrop: live.hasCrop };
   if (!live.hasCrop) return soil;
@@ -17,6 +27,25 @@ export function mergeLiveTerrain(saved: Terrain | undefined, live: LiveTerrainSt
     flip: live.flip ?? saved?.flip,
     dead: live.dead ?? saved?.dead,
   };
+}
+
+export function mergeLiveInteriors(saved: Interior[], live: LiveInteriorMap[] | undefined): Interior[] {
+  if (!live) return saved;
+  const result = [...saved];
+  for (const entry of live) {
+    const index = result.findIndex(interior => interior.id === entry.id);
+    const previous = index >= 0 ? result[index] : undefined;
+    const terrain = new Map((previous?.terrain || []).map(tile => [`${tile.x},${tile.y}`, tile]));
+    const interior: Interior = {
+      ...previous, id: entry.id, name: entry.name, label: previous?.label || entry.label,
+      width: entry.width, height: entry.height, furniture: previous?.furniture || [],
+      objects: entry.map.objects,
+      terrain: entry.map.terrain.map(tile => mergeLiveTerrain(terrain.get(`${tile.x},${tile.y}`), tile)),
+    };
+    if (index >= 0) result[index] = interior;
+    else result.push(interior);
+  }
+  return result;
 }
 
 export function buildingType(item: Pick<Building, "name"> & { kind?: string }) {

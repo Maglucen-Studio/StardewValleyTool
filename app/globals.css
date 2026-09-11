@@ -956,6 +956,42 @@ button {
   max-width: 640px;
   line-height: 1.6;
 }
+.interior-animal-roster {
+  margin-top: 18px;
+}
+.interior-animal-roster > p,
+.interior-animal-roster article > p {
+  font-size: 0.75rem;
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.interior-animal-roster article {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #b9996a;
+  border-radius: 8px;
+  background: #fff4d9;
+}
+.interior-animal-roster h3,
+.interior-animal-roster h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.interior-animal-roster dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 0.75rem;
+}
+.interior-animal-roster dl > div:last-child {
+  grid-column: 1 / -1;
+}
+.interior-animal-roster dd {
+  margin: 2px 0 0;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
 .animal-dashboard {
   padding: 22px;
 }
