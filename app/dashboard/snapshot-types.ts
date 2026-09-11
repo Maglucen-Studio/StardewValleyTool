@@ -21,6 +21,9 @@ export type Terrain = Tile & {
   flip?: boolean;
   dead?: boolean;
   treeId?: string;
+  treeSpriteRow?: number | null;
+  treeTexture?: string | null;
+  fruitCount?: number;
 };
 
 export type FarmObject = Tile & {
@@ -43,6 +46,7 @@ export type FarmObject = Tile & {
 };
 
 export type Building = Tile & {
+  greenhouseRepaired?: boolean;
   width: number;
   height: number;
   name: string;
@@ -51,6 +55,7 @@ export type Building = Tile & {
 };
 
 export type Interior = {
+  terrain?: Terrain[];
   id: string;
   name: string;
   label: string;
@@ -210,6 +215,7 @@ export type CollectionRecipeItem = ItemArtwork & {
 };
 
 export type LongTermCollectionBrief = {
+  fish?: { id: string; name: string; complete: boolean }[];
   shipping?: CollectionRecipeItem[];
   cooking: CollectionRecipeItem[];
   crafting: CollectionRecipeItem[];
@@ -223,6 +229,8 @@ export type BirthdayBrief = {
 };
 
 export type CropForecast = {
+  location?: string;
+  kind?: "crop" | "fruit";
   id: string;
   name: string;
   displayName?: string;
@@ -549,6 +557,13 @@ export type LiveCollections = {
 };
 
 export type LiveTerrainState = Tile & {
+  stage?: number | null;
+  stump?: boolean | null;
+  treeId?: string | null;
+  treeSpriteRow?: number | null;
+  treeTexture?: string | null;
+  treeType?: string | null;
+  fruitCount?: number | null;
   kind: string;
   hasCrop: boolean;
   watered: boolean;
@@ -566,6 +581,8 @@ export type LiveFarmMap = {
   objects: FarmObject[];
   buildings: Building[];
 };
+
+export type LiveInteriorMap = Pick<Interior, "id" | "name" | "label" | "width" | "height"> & { map: LiveFarmMap };
 
 export type LiveQuest = {
   id?: number;
@@ -618,11 +635,14 @@ export type LiveState = {
   routeState?: LiveRouteState;
   collections?: LiveCollections;
   farmMap?: LiveFarmMap;
+  interiorMaps?: LiveInteriorMap[];
   specialOrders?: SpecialOrderBrief[];
   bridgeWarnings?: string[];
 };
 
 export type FarmAnimal = {
+  homeId?: string | null;
+  locationId?: string;
   id: string;
   name: string;
   type: string;

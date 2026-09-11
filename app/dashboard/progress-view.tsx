@@ -848,13 +848,15 @@ export function AchievementsView({
   const achievementById = new Map(
     achievements.items.map((item) => [item.id, item]),
   );
-  const caughtFish = new Set(
+  const fishCollection = current.collectionBrief?.fish?.length
+    ? current.collectionBrief.fish
+    : current.fishingBrief.fish.map(fish => ({ id: fish.id, name: fish.name, complete: fish.caught }));
+  const fishKey = (id: string) => id.replace(/^\(O\)/, "");
+  const caughtFish = new Set((
     live.active && live.collections
       ? live.collections.caughtFish
-      : current.fishingBrief.fish
-          .filter((fish) => fish.caught)
-          .map((fish) => fish.id),
-  );
+      : fishCollection.filter(fish => fish.complete).map(fish => fish.id)
+  ).map(fishKey).filter(id => fishCollection.some(fish => fishKey(fish.id) === id)));
   const fishAvailableNow = current.fishingBrief.fish.filter(
     (fish) =>
       !caughtFish.has(fish.id) &&
@@ -905,7 +907,7 @@ export function AchievementsView({
       id: "fish",
       label: t("collection.fish.label"),
       current: caughtFish.size,
-      total: current.fishingBrief.fish.length,
+      total: fishCollection.length,
       available: fishAvailableNow,
       detail: t("collection.fish.detail"),
     },
@@ -970,14 +972,17 @@ export function AchievementsView({
       detail: t("collection.museum.notDonated"),
       item: { id, name: museumNames.get(id) || `Museum item ${id}`, spriteKind: "object", spriteIndex: id },
     }));
-  const missingFish: CollectionChecklistEntry[] = current.fishingBrief.fish
-    .filter((fish) => !caughtFish.has(fish.id))
-    .map((fish) => ({
-      key: `fish-${fish.id}`,
-      name: fish.displayName || gameDisplayName(fish.name, fish.id),
-      detail: `${fish.seasons.join(" / ")} · ${fish.locations.join(" / ")}`,
-      item: { id: fish.id, name: fish.name, spriteKind: "object", spriteIndex: fish.id },
-    }));
+  const missingFish: CollectionChecklistEntry[] = fishCollection
+    .filter((fish) => !caughtFish.has(fishKey(fish.id)))
+    .map((fish) => {
+      const route = current.fishingBrief.fish.find(entry => fishKey(entry.id) === fishKey(fish.id));
+      return {
+        key: `fish-${fish.id}`,
+        name: gameDisplayName(fish.name, fish.id),
+        detail: route ? `${route.seasons.join(" / ")} · ${route.locations.join(" / ")}` : t("collection.fish.note"),
+        item: { id: fish.id, name: fish.name, spriteKind: "object", spriteIndex: fishKey(fish.id) },
+      };
+    });
   const missingBundles: CollectionChecklistEntry[] = bundleProgress.flatMap((bundle) => {
     const liveDonated = liveBundles.get(bundle.id);
     if ((liveDonated ? liveDonated.filter(Boolean).length >= bundle.required : bundle.complete)) return [];

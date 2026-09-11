@@ -360,6 +360,8 @@ static class GameCatalogReader
             {
                 id = saplingId,
                 kind = "fruit-tree",
+                treeSpriteRow = pair.Value.TextureSpriteRow,
+                treeTexture = pair.Value.Texture ?? "TileSheets/fruitTrees",
                 name = sapling?.Name ?? saplingId,
                 output = DescribeItem(fruitId),
                 seasons = pair.Value.Seasons.Select(season => season.ToString().ToLowerInvariant()).ToArray(),
@@ -656,8 +658,10 @@ static class GameCatalogReader
             condition = pair.Value.BuildCondition, modded = moddedBuildingIds.Contains(pair.Key),
             verified = string.IsNullOrWhiteSpace(pair.Value.BuildCondition) && pair.Value.BuildCost >= 0 && (pair.Value.BuildMaterials ?? new()).All(item => ObjectFor(item.ItemId) is not null && item.Amount > 0),
         }).ToArray();
+        var fishCollection = objects.Where(pair => pair.Value.Type == "Fish" && !pair.Value.ExcludeFromFishingCollection)
+            .Select(pair => new { id = QualifyObject(pair.Key), name = pair.Value.Name }).ToArray();
         return JsonSerializer.Serialize(
-            new { catalogVersion = 8, source = "local-game", characterIds, buildings = buildingCatalog, crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, fishing = fishingCatalog, feedUnitCost = PurchasePrice("(O)178"), overlayDiagnostics = new { skipped = new { items = skippedObjectEdits + skippedShopEdits, crops = skippedCropEdits + skippedTreeEdits, fish = skippedFishEdits + skippedPondEdits, recipes = skippedRecipeEdits, buildings = skippedBuildingEdits, locations = skippedLocationEdits, machines = skippedMachineEdits, animals = skippedAnimalEdits } } },
+            new { catalogVersion = 8, source = "local-game", characterIds, buildings = buildingCatalog, crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, fishing = fishingCatalog, fishCollection, feedUnitCost = PurchasePrice("(O)178"), overlayDiagnostics = new { skipped = new { items = skippedObjectEdits + skippedShopEdits, crops = skippedCropEdits + skippedTreeEdits, fish = skippedFishEdits + skippedPondEdits, recipes = skippedRecipeEdits, buildings = skippedBuildingEdits, locations = skippedLocationEdits, machines = skippedMachineEdits, animals = skippedAnimalEdits } } },
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
         );
     }

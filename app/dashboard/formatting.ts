@@ -96,6 +96,7 @@ export const communityRoomKeys: Record<string, string> = {
 
 export function routeLocationName(location: string, t: Translate) {
   const key = location.replace(/\s+/g, "").toLowerCase();
+  if (key === "greenhouse") return t("planner.location.greenhouse");
   const known = new Set([
     "farm", "farmcave", "beach", "town", "mountain", "railroad",
     "backwoods", "cindersapforest", "secretwoods", "desert", "busstop",

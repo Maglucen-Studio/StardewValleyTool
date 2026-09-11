@@ -39,6 +39,19 @@ test("selected soil distinguishes empty tiles, named crops and unresolved plante
   assert.deepEqual(localizedTerrainFeature({ ...soil, hasCrop: true }, translate), { key: "map.terrain.plantedUnknown" });
 });
 
+test("building rosters keep outdoor residents and distinguish identical coops", async () => {
+  const { interiorAnimals } = await pureModule("interior-animals");
+  const first = { id: "Coop-1-2", name: "Coop", label: "Coop" };
+  const second = { id: "Coop-8-2", name: "Coop", label: "Coop" };
+  const outside = { id: "a", name: "Example A", homeId: first.id, locationId: "Farm", location: "Farm", currentProduce: "-1" };
+  const inside = { id: "b", name: "Example B", homeId: second.id, locationId: second.id, location: "Coop" };
+  const ambiguousLegacy = { id: "c", name: "Example C", location: "Coop" };
+  assert.deepEqual(interiorAnimals(first, [first, second], [outside, inside, ambiguousLegacy, outside]), [outside]);
+  assert.deepEqual(interiorAnimals(second, [first, second], [outside, inside, ambiguousLegacy]), [inside]);
+  assert.deepEqual(interiorAnimals(first, [first], [ambiguousLegacy]), [ambiguousLegacy]);
+  assert.deepEqual(interiorAnimals(first, [first], []), []);
+});
+
 test("LIVE soil identifies new and replanted crops and clears harvested crop details", async () => {
   const { mergeLiveTerrain } = await pureModule("farm-model");
   const { localizedTerrainFeature } = await pureModule("formatting");
@@ -55,6 +68,30 @@ test("LIVE soil identifies new and replanted crops and clears harvested crop det
   assert.equal(empty.cropHarvestId, undefined);
   const legacy = mergeLiveTerrain(saved, { kind: "HoeDirt", x: 1, y: 2, hasCrop: true, watered: true });
   assert.equal(localizedTerrainFeature(legacy, (key) => key), "map.terrain.plantedUnknown");
+});
+
+test("LIVE interiors replace planted terrain, preserve scenery and fall back to the save offline", async () => {
+  const { mergeLiveInteriors } = await pureModule("farm-model");
+  const saved = [{ id: "Greenhouse", name: "Greenhouse", label: "Greenhouse", width: 15, height: 15,
+    background: "/synthetic-map.png", furniture: [], objects: [],
+    terrain: [{ x: 1, y: 2, kind: "HoeDirt", hasCrop: true, cropHarvestId: "OldCrop" },
+      { x: 3, y: 4, kind: "FruitTree", treeId: "OldTree", stage: 4 }] }];
+  const reading = { id: "Greenhouse", name: "Greenhouse", label: "Greenhouse", width: 15, height: 15,
+    map: { buildings: [], objects: [], terrain: [
+      { x: 1, y: 2, kind: "HoeDirt", hasCrop: true, watered: true, cropHarvestId: "NewCrop", cropSeedId: "NewSeed", phase: 0, cropRow: 3 },
+      { x: 3, y: 4, kind: "FruitTree", treeId: "NewTree", treeSpriteRow: 7, treeTexture: "TileSheets/fruitTrees", stage: 1, fruitCount: 0 },
+    ] } };
+  const live = mergeLiveInteriors(saved, [reading])[0];
+  assert.equal(live.background, saved[0].background);
+  assert.equal(live.terrain[0].cropHarvestId, "NewCrop");
+  assert.equal(live.terrain[0].watered, true);
+  assert.equal(live.terrain[1].treeId, "NewTree");
+  assert.equal(live.terrain[1].stage, 1);
+  assert.equal(live.terrain[1].treeSpriteRow, 7);
+  assert.equal(saved[0].terrain[0].cropHarvestId, "OldCrop", "LIVE must not mutate the saved snapshot");
+  assert.deepEqual(mergeLiveInteriors(saved, [{ ...reading, map: { ...reading.map, terrain: [] } }])[0].terrain, [], "removed plants must disappear");
+  assert.equal(mergeLiveInteriors(saved, undefined), saved);
+  assert.equal(mergeLiveInteriors([], [reading])[0].id, "Greenhouse", "newly unlocked interiors can appear before sleeping");
 });
 
 test("save terrain exports seed and harvest identities while nil crops remain empty soil", () => {
