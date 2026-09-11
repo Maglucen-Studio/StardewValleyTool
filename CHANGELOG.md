@@ -2,6 +2,12 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.13.1 — 2026-09-11
+
+### Fixed
+
+- Desktop alerts now include the Maglucen Companion icon on Windows.
+
 ## 1.13.0 — 2026-09-11
 
 ### New
