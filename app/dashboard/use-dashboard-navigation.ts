@@ -94,6 +94,12 @@ export function useDashboardNavigation() {
   }, [navigateHardwareHistory]);
 
   useEffect(() => {
+    const desktop = (window as Window & { stardewDesktop?: DesktopUpdates })
+      .stardewDesktop;
+    return desktop?.onAlertNavigate?.(navigateTo);
+  }, [navigateTo]);
+
+  useEffect(() => {
     const mouseHistoryShortcut = (event: MouseEvent) => {
       if (event.button !== 3 && event.button !== 4) return;
       event.preventDefault();

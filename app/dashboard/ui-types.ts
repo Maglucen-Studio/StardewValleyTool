@@ -179,6 +179,7 @@ export type DesktopUpdates = {
   setDisplayScale?: (scale: number) => Promise<{ ok: boolean; scale: number }>;
   onOpenHelp?: (callback: () => void) => () => void;
   onNavigateHistory?: (callback: (direction: "back" | "forward") => void) => () => void;
+  onAlertNavigate?: (callback: (target: AppNavigationTarget) => void) => () => void;
 };
 
 export type AppNavigationTarget = { view: ActiveView; section?: string };
