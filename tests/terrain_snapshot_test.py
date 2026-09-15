@@ -15,9 +15,11 @@ farm = ET.fromstring('''<GameLocation xmlns:xsi="http://www.w3.org/2001/XMLSchem
 </TerrainFeature></value></item>
 <item><key><Vector2><X>2</X><Y>2</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt"><crop xsi:nil="true"/></TerrainFeature></value></item>
 <item><key><Vector2><X>3</X><Y>2</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt"/></value></item>
+<item><key><Vector2><X>4</X><Y>2</Y></Vector2></key><value><TerrainFeature xsi:type="Flooring"><whichFloor>6</whichFloor></TerrainFeature></value></item>
 </terrainFeatures></GameLocation>''')
-planted, cleared, empty = snapshot.saved_terrain(farm)
+planted, cleared, empty, flooring = snapshot.saved_terrain(farm)
 assert planted["cropSeedId"] == "(O)Example.Seed"
 assert planted["cropHarvestId"] == "(O)Example.Crop"
 assert planted["hasCrop"] and planted["phase"] == 0 and planted["watered"]
 assert "crop" not in cleared and "crop" not in empty
+assert flooring["kind"] == "Flooring" and flooring["floorIndex"] == 6

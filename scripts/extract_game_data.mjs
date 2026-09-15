@@ -245,6 +245,7 @@ const textures = {
   "TileSheets/fruitTrees.xnb": "public/assets/sprites/fruitTrees.png",
   "TerrainFeatures/grass.xnb": "public/assets/sprites/grass.png",
   "TerrainFeatures/hoeDirt.xnb": "public/assets/sprites/hoeDirt.png",
+  "TileSheets/floors.xnb": "public/assets/sprites/floors.png",
   "TerrainFeatures/tree1_spring.xnb": "public/assets/sprites/tree1_spring.png",
   "TerrainFeatures/tree2_spring.xnb": "public/assets/sprites/tree2_spring.png",
   "TerrainFeatures/tree3_spring.xnb": "public/assets/sprites/tree3_spring.png",

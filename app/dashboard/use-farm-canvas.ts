@@ -3,7 +3,7 @@
 import { useCallback, useEffect, type RefObject } from "react";
 import type { Snapshot, Tile, Suggestion } from "./snapshot-types";
 import type { ProposalState, ActiveView } from "./ui-types";
-import { TILE, sprite, cropSpriteSource, drawBuildingSprite, tools } from "./farm-rendering";
+import { TILE, sprite, tintedSprite, cropSpriteSource, drawBuildingSprite, tools } from "./farm-rendering";
 
 export type FarmCanvasOptions = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -89,6 +89,9 @@ export function useFarmCanvas({ canvasRef, base, hover, mapData, localSuggestion
                 );
               },
             });
+        } else if (feature.kind === "Flooring") {
+          const index = Math.max(0, feature.floorIndex || 0);
+          sprite(ctx, sprites.floors, [Math.abs(feature.x + feature.y) % 4 * 16, index * 16, 16, 16], [px, py]);
         } else if (feature.kind === "Grass") {
           const variant = Math.abs(feature.x * 17 + feature.y * 31) % 3;
           tall.push({
@@ -146,7 +149,7 @@ export function useFarmCanvas({ canvasRef, base, hover, mapData, localSuggestion
       }
 
       for (const object of mapData.objects) {
-        const index = Number(object.id);
+        const index = Number(object.spriteIndex ?? object.id);
         if (!Number.isFinite(index)) continue;
         const px = object.x * TILE,
           py = object.y * TILE;
@@ -154,11 +157,12 @@ export function useFarmCanvas({ canvasRef, base, hover, mapData, localSuggestion
           bottom: py + TILE,
           paint: () => {
             if (object.big)
-              sprite(
+              tintedSprite(
                 ctx,
                 sprites.craftables,
                 [(index % 8) * 16, Math.floor(index / 8) * 32, 16, 32],
                 [px, py - 16],
+                object.color,
               );
             else
               sprite(
