@@ -41,6 +41,13 @@ obj = snapshot.saved_objects(location)[0]
 assert obj["outputId"] == "(O)Example"
 assert obj["inputId"] == "(BC)Example"
 
+modern = ET.fromstring("""<GameLocation><objects><item><key><Vector2><X>1</X><Y>2</Y></Vector2></key>
+<value><Object><itemId>HeavyFurnace</itemId><name>Heavy Furnace</name><bigCraftable>true</bigCraftable></Object></value>
+</item></objects></GameLocation>""")
+modern_obj = snapshot.saved_objects(modern, {"productionCatalog": {"bigCraftableSprites": [{"id": "HeavyFurnace", "spriteIndex": 370, "texture": "TileSheets/Craftables"}]}})[0]
+assert modern_obj["id"] == "HeavyFurnace"
+assert modern_obj["spriteIndex"] == 370
+
 # Vanilla building materials must carry identity too, before the renderer sees them.
 original_inventory = snapshot.inventory_items
 snapshot.inventory_items = lambda *args: [
