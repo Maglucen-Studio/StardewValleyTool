@@ -247,7 +247,7 @@ export function StorageLocationPreviewCanvas({
       const item = entity.item;
       const px = item.x * TILE;
       const py = item.y * TILE;
-      const index = Number(item.id);
+      const index = Number(item.spriteIndex ?? item.id);
       if (!Number.isFinite(index)) continue;
       const color = item.color || chestColors.get(`${normalizedLocation}:${item.x}:${item.y}`);
       if (item.big) tintCraftable(index, px, py, color);

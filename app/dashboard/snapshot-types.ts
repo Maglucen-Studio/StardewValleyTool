@@ -24,6 +24,7 @@ export type Terrain = Tile & {
   treeSpriteRow?: number | null;
   treeTexture?: string | null;
   fruitCount?: number;
+  floorIndex?: number | null;
 };
 
 export type FarmObject = Tile & {
@@ -32,6 +33,7 @@ export type FarmObject = Tile & {
   kind: string;
   id: string;
   big: boolean;
+  spriteIndex?: number | null;
   ready?: boolean;
   processing?: boolean;
   output?: string | null;
@@ -564,6 +566,7 @@ export type LiveTerrainState = Tile & {
   treeTexture?: string | null;
   treeType?: string | null;
   fruitCount?: number | null;
+  floorIndex?: number | null;
   kind: string;
   hasCrop: boolean;
   watered: boolean;

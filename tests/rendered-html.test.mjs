@@ -1599,7 +1599,7 @@ test("Production counts functional machines, interiors, live storage, and action
   assert.match(generator, /"Furnace".*"Keg"/s);
   assert.match(generator, /def is_production_machine\(obj: dict\)/);
   assert.match(generator, /for location in locations/);
-  assert.match(generator, /for obj in saved_objects\(location\)/);
+  assert.match(generator, /for obj in saved_objects\(location, game_data\)/);
   assert.match(generator, /"Crab Pot"/);
   assert.match(
     generator,
