@@ -609,7 +609,20 @@ def saved_item_qualifier(node: ET.Element, sprite_kind: str) -> str | None:
     return ITEM_TYPE_QUALIFIERS.get(item_type, ITEM_QUALIFIERS.get(sprite_kind))
 
 
-def saved_objects(location: ET.Element) -> list[dict]:
+def big_craftable_sprite_index(item_id: str, game_data: dict | None) -> int | None:
+    """Read the sprite index from the locally extracted game catalog."""
+    raw_id = str(item_id or "").removeprefix("(BC)")
+    if raw_id.lstrip("-").isdigit():
+        return int(raw_id)
+    for entry in (game_data or {}).get("productionCatalog", {}).get("bigCraftableSprites", []):
+        if entry.get("id") == raw_id and entry.get("texture") in (None, "", "TileSheets/Craftables"):
+            index = entry.get("spriteIndex")
+            if isinstance(index, int) or str(index).lstrip("-").isdigit():
+                return int(index)
+    return None
+
+
+def saved_objects(location: ET.Element, game_data: dict | None = None) -> list[dict]:
     result = []
     object_nodes = location.find("objects")
     for item in object_nodes if object_nodes is not None else []:
@@ -629,12 +642,15 @@ def saved_objects(location: ET.Element) -> list[dict]:
         green = number(color_node, "G") if color_node is not None else 0
         blue = number(color_node, "B") if color_node is not None else 0
         color = None if red == green == blue == 0 else f"#{red:02x}{green:02x}{blue:02x}"
+        item_id = obj.findtext("itemId", obj.findtext("parentSheetIndex", ""))
+        is_big = obj.findtext("bigCraftable", "false") == "true"
         result.append({
             "x": number(pos, "X"), "y": number(pos, "Y"),
             "name": obj.findtext("name", "Objeto"),
             "kind": obj.findtext("type", "Object"),
-            "id": obj.findtext("itemId", obj.findtext("parentSheetIndex", "")),
-            "big": obj.findtext("bigCraftable", "false") == "true",
+            "id": item_id,
+            "big": is_big,
+            "spriteIndex": big_craftable_sprite_index(item_id, game_data) if is_big else None,
             "ready": ready,
             "processing": bool(output and not ready and minutes > 0),
             "output": output,
@@ -702,7 +718,7 @@ def interior_views(locations: ET.Element, player: ET.Element, farm: ET.Element, 
     def append_view(location: ET.Element, view_id: str | None = None, forced_label: str | None = None) -> None:
         location_type = location.attrib.get(XSI_TYPE, "")
         name = location.findtext("name", location_type or "Interior")
-        objects = saved_objects(location)
+        objects = saved_objects(location, game_data)
         terrain = saved_terrain(location, game_data)
         furniture = []
         furniture_nodes = location.find("furniture")
@@ -2351,6 +2367,8 @@ def saved_terrain(farm: ET.Element, game_data: dict | None = None) -> list[dict]
             entry["treeSpriteRow"] = tree_data.get("treeSpriteRow")
             entry["treeTexture"] = tree_data.get("treeTexture")
             entry["fruitCount"] = sum(max(1, number(fruit, "stack", 1)) for fruit in feature.findall("fruit/Item"))
+        elif kind == "Flooring":
+            entry["floorIndex"] = number(feature, "whichFloor")
         terrain.append(entry)
     return terrain
 
@@ -2369,7 +2387,7 @@ def read_snapshot(save_path: Path) -> dict:
         game_data = json.loads(GAME_DATA.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         game_data = {"giftTastes": {}}
-    objects = saved_objects(farm)
+    objects = saved_objects(farm, game_data)
 
     terrain = saved_terrain(farm, game_data)
 
@@ -2423,7 +2441,7 @@ def read_snapshot(save_path: Path) -> dict:
         {**obj, "location": location.findtext("name", "Location")}
         for location in locations
         if location_is_accessible(location, player)
-        for obj in saved_objects(location)
+        for obj in saved_objects(location, game_data)
     ]
     planning = planning_brief(root, player, locations, season, day, number(player, "money"), all_production_objects, game_data)
     planning["animals"] = farm_animals(locations)

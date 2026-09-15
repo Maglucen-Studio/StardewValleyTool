@@ -22,6 +22,7 @@ export const spritePaths: Record<string, string> = {
   crops: "/assets/sprites/crops.png",
   grass: "/assets/sprites/grass.png",
   hoeDirt: "/assets/sprites/hoeDirt.png",
+  floors: "/assets/sprites/floors.png",
   Oak: "/assets/sprites/tree1_spring.png",
   Maple: "/assets/sprites/tree2_spring.png",
   Pine: "/assets/sprites/tree3_spring.png",
@@ -130,6 +131,30 @@ export function sprite(
   ctx.restore();
 }
 
+export function tintedSprite(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement | undefined,
+  source: [number, number, number, number],
+  destination: [number, number, number?, number?],
+  color: string | null | undefined,
+) {
+  if (!image || !color) return sprite(ctx, image, source, destination);
+  const [sx, sy, sw, sh] = source;
+  const [dx, dy, dw = sw, dh = sh] = destination;
+  // Tint a transparent sprite buffer, never the already-painted map beneath it.
+  const buffer = document.createElement("canvas");
+  buffer.width = sw;
+  buffer.height = sh;
+  const bufferContext = buffer.getContext("2d");
+  if (!bufferContext) return sprite(ctx, image, source, destination);
+  bufferContext.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
+  bufferContext.globalCompositeOperation = "source-atop";
+  bufferContext.globalAlpha = 0.68;
+  bufferContext.fillStyle = color;
+  bufferContext.fillRect(0, 0, sw, sh);
+  ctx.drawImage(buffer, dx, dy, dw, dh);
+}
+
 export function cropSpriteSource(
   row: number,
   phase: number,
@@ -217,6 +242,11 @@ export function drawInteriorTerrain(ctx: CanvasRenderingContext2D, sprites: Reco
       ctx.fillStyle = "#53853c";
       ctx.fillRect(px + size / 3, py + size / 3, size / 3, size / 3);
     }
+  } else if (feature.kind === "Flooring" && sprites.floors) {
+    const index = Math.max(0, feature.floorIndex || 0);
+    // The local floor sheet has one 16px row per floor type and four tile
+    // variations. Pick a stable variant so the map does not shimmer on redraw.
+    sprite(ctx, sprites.floors, [Math.abs(feature.x + feature.y) % 4 * 16, index * 16, 16, 16], [px, py, size, size]);
   } else if (feature.kind === "Tree") {
     const image = sprites[feature.treeType || ""];
     const stage = feature.stage || 0;
@@ -361,16 +391,17 @@ export function InteriorView({
       if (entity.entity === "terrain") {
         drawInteriorTerrain(ctx, sprites, entity, size);
       } else if (entity.entity === "object") {
-        const index = Number(entity.id);
+        const index = Number(entity.spriteIndex ?? entity.id);
         if (Number.isFinite(index)) {
-          if (entity.big)
-            sprite(
+          if (entity.big) {
+            tintedSprite(
               ctx,
               sprites.craftables,
               [(index % 8) * 16, Math.floor(index / 8) * 32, 16, 32],
               [px, py - size, size, size * 2],
+              entity.color,
             );
-          else
+          } else
             sprite(
               ctx,
               sprites.objects,

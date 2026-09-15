@@ -660,8 +660,16 @@ static class GameCatalogReader
         }).ToArray();
         var fishCollection = objects.Where(pair => pair.Value.Type == "Fish" && !pair.Value.ExcludeFromFishingCollection)
             .Select(pair => new { id = QualifyObject(pair.Key), name = pair.Value.Name }).ToArray();
+        // String IDs from Stardew 1.6 are resolved through the installed game,
+        // never through a hand-maintained item table.
+        var bigCraftableSprites = bigCraftables.Select(pair => new
+        {
+            id = pair.Key,
+            spriteIndex = pair.Value.SpriteIndex,
+            texture = pair.Value.Texture,
+        }).ToArray();
         return JsonSerializer.Serialize(
-            new { catalogVersion = 8, source = "local-game", characterIds, buildings = buildingCatalog, crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, farmAnimals = animalCatalog, fishPonds = pondCatalog, fishing = fishingCatalog, fishCollection, feedUnitCost = PurchasePrice("(O)178"), overlayDiagnostics = new { skipped = new { items = skippedObjectEdits + skippedShopEdits, crops = skippedCropEdits + skippedTreeEdits, fish = skippedFishEdits + skippedPondEdits, recipes = skippedRecipeEdits, buildings = skippedBuildingEdits, locations = skippedLocationEdits, machines = skippedMachineEdits, animals = skippedAnimalEdits } } },
+            new { catalogVersion = 9, source = "local-game", characterIds, buildings = buildingCatalog, crops = cropCatalog, fruitTrees = treeCatalog, fertilizers = fertilizerCatalog, tappedTrees = tappedTreeCatalog, mushroomLogs = mushroomLogRules, mushroomLogOutputs, forestryEquipment, artisanMachines, bigCraftableSprites, farmAnimals = animalCatalog, fishPonds = pondCatalog, fishing = fishingCatalog, fishCollection, feedUnitCost = PurchasePrice("(O)178"), overlayDiagnostics = new { skipped = new { items = skippedObjectEdits + skippedShopEdits, crops = skippedCropEdits + skippedTreeEdits, fish = skippedFishEdits + skippedPondEdits, recipes = skippedRecipeEdits, buildings = skippedBuildingEdits, locations = skippedLocationEdits, machines = skippedMachineEdits, animals = skippedAnimalEdits } } },
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
         );
     }
