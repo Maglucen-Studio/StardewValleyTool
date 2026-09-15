@@ -2,6 +2,13 @@
 
 This file records the user-facing changes in each public release of Maglucen Stardew Valley Companion.
 
+## 1.13.2 — 2026-09-15
+
+### Fixed
+
+- Map views now draw Stardew 1.6 big craftables such as Heavy Furnaces, Text Signs, Big Chests, and mastery statues using sprite indexes read from the installed game.
+- Restored placed flooring such as Wood Path in saved and LIVE map views, and preserve the selected color on chests.
+
 ## 1.13.1 — 2026-09-11
 
 ### Fixed
